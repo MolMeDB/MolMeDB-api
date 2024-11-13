@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('name', 150);
             $table->string('description')->nullable();
             $table->integer('user_id')->nullable();
+            $table->foreign('user_id')->references('id')->on('users')->onDelete('restrict');
             $table->timestamps();
         });
 

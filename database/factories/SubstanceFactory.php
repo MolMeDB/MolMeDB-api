@@ -18,11 +18,11 @@ class SubstanceFactory extends Factory
     public function definition(): array
     {
         return [
-            'identifier' =>  fake()->text(10),//fake()->numberBetween(1, 100),
-            // 'name' => fake()->text(10),
-            // 'molecular_weight' => fake()->randomFloat(2,1,100),
-            // 'logp' => fake()->randomFloat(2,1,10),
-            // 'user_id' => User::all()->random()->id,
+            'identifier' => "MM" . fake()->numberBetween(1, 100),
+            'name' => fake()->text(10),
+            'molecular_weight' => fake()->randomFloat(2,1,100),
+            'logp' => fake()->randomFloat(2,1,10),
+            'user_id' => User::all()->random()->id,
         ];
     }
 }

@@ -31,7 +31,7 @@ class Publication extends Model
     }
 
     /**
-     * Returns all assigned membranes
+     * Returns all assigned membranes, which are described in the current publication
      */
     public function membranes(): BelongsToMany
     {
@@ -39,10 +39,18 @@ class Publication extends Model
     }
 
     /**
-     * Returns all assigned methods
+     * Returns all assigned methods, which are described in the current publication
      */
     public function methods(): BelongsToMany
     {
         return $this->belongsToMany(Method::class);
+    }
+
+    /**
+     * Returns all assigned passive interactions
+     */
+    public function passiveInteractions() : HasMany
+    {
+        return $this->hasMany(InteractionPassive::class);
     }
 }

@@ -21,10 +21,11 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $this->call([
-            // PublicationSeeder::class,
-            // MembraneSeeder::class,
-            // MethodSeeder::class,
-            // SubstanceSeeder::class
+            PublicationSeeder::class,
+            MembraneSeeder::class,
+            MethodSeeder::class,
+            SubstanceSeeder::class,
+            SubstanceIdentifierSeeder::class
         ]);
     }
 }

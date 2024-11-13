@@ -43,4 +43,12 @@ class Membrane extends Model
     {
         return $this->belongsToMany(Publication::class);
     }
+
+    /**
+     * Returns all assigned passive interactions
+     */
+    public function passiveInteractions() : HasMany
+    {
+        return $this->hasMany(InteractionPassive::class);
+    }
 }

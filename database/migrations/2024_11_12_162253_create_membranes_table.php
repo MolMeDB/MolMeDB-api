@@ -18,10 +18,8 @@ return new class extends Migration
             $table->string('name', 150);
             $table->string('description')->nullable();
             $table->integer('user_id')->nullable();
-            $table->timestamps();
-
-            // Relationship
             $table->foreign('user_id')->references('id')->on('users')->onDelete('restrict');
+            $table->timestamps();
         });
 
         Schema::create('publications', function(Blueprint $table) {
@@ -40,16 +38,10 @@ return new class extends Migration
             $table->date('publicated_date')->nullable();
             $table->integer('user_id')->nullable();
             $table->foreign('user_id')->references('id')->on('users')->onDelete('restrict');
+            $table->integer('total_passive_interactions')->nullable();
+            $table->integer('total_active_interactions')->nullable();
+            $table->integer('total_substances')->nullable();
             $table->datetimes();
-        });
-
-        Schema::create('publication_stats', function(Blueprint $table) {
-            $table->id();
-            $table->integer('publication_id')->unique();
-            $table->foreign('publication_id')->references('publications')->on('id')->onDelete('cascade');
-            $table->integer('total_passive_interactions');
-            $table->integer('total_active_interactions');
-            $table->integer('total_substances');
         });
 
         Schema::create('membrane_publication', function (Blueprint $table) {
@@ -75,7 +67,6 @@ return new class extends Migration
     {
         Schema::dropIfExists('keywords');
         Schema::dropIfExists('membrane_publication');
-        Schema::dropIfExists('publication_stats');
         Schema::dropIfExists('publications');
         Schema::dropIfExists('membranes');
     }
