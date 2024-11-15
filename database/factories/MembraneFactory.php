@@ -24,7 +24,8 @@ class MembraneFactory extends Factory
         return [
             'user_id' => $user->id,
             'type' => $types[array_rand($types)],
-            'name' => fake()->text(10),
+            'name' => fake()->text(15),
+            'abbreviation' => fake()->text(5),
             'description' => fake()->text(256)
         ];
     }

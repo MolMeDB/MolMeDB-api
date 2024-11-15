@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -11,6 +12,8 @@ class Publication extends Model
 {
     /** @use HasFactory<\Database\Factories\PublicationFactory> */
     use HasFactory;
+
+    protected $guarded = [];
 
     /**
      * TYPES
@@ -28,6 +31,16 @@ class Publication extends Model
     public static function types() : array
     {
         return self::$enum_types;
+    }
+
+    /**
+     * Returns enum type
+     */
+    public static function enumType($type) : string 
+    {
+        if(isset(self::$enum_types[$type]))
+            return self::$enum_types[$type];
+        return null;
     }
 
     /**
@@ -52,5 +65,13 @@ class Publication extends Model
     public function passiveInteractions() : HasMany
     {
         return $this->hasMany(InteractionPassive::class);
+    }
+
+    /**
+     * Returns assigned user - record author
+     */
+    public function user() : BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 }

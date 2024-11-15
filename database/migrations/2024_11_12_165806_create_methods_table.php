@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('methods', function (Blueprint $table) {
             $table->id();
             $table->tinyInteger('type')->nullable();
+            $table->integer('category_id')->nullable();
             $table->string('name', 150);
             $table->string('description')->nullable();
             $table->integer('user_id')->nullable();
