@@ -19,13 +19,6 @@ class PublicationsRelationManager extends RelationManager
     public function form(Form $form): Form
     {
         return PublicationResource::form($form);
-
-        return $form
-            ->schema([
-                Forms\Components\TextInput::make('citation')
-                    ->required()
-                    ->maxLength(255),
-            ]);
     }
 
     public function table(Table $table): Table
@@ -47,11 +40,9 @@ class PublicationsRelationManager extends RelationManager
             ->actions([
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ]);
     }

@@ -6,6 +6,7 @@ use App\Filament\Resources\MembraneResource\Pages;
 use App\Filament\Resources\MembraneResource\RelationManagers;
 use App\Filament\Resources\MembraneResource\RelationManagers\PublicationsRelationManager;
 use App\Filament\Resources\MembraneResource\Widgets\MembraneCategoryWidget;
+use App\Models\Category;
 use App\Models\Membrane;
 use CodeWithDennis\FilamentSelectTree\SelectTree;
 use Filament\Forms;
@@ -35,7 +36,7 @@ class MembraneResource extends Resource
                             ->options(Membrane::types())
                             ->columnSpanFull(),
                         SelectTree::make('category_id')
-                            ->relationship('category', 'title', 'parent_id')
+                            ->relationship('category', 'title', 'parent_id', modifyQueryUsing: fn (Builder $query) => $query->where('type', Category::TYPE_MEMBRANE))
                             ->required()
                             ->withCount()
                             ->parentNullValue(-1)
@@ -83,6 +84,13 @@ class MembraneResource extends Resource
                 Tables\Columns\TextColumn::make('description')
                     ->wrap()
                     ->lineClamp(2)
+                    ->searchable(),
+                Tables\Columns\TextColumn::make('keywords.value')
+                    ->label('Keywords')
+                    ->listWithLineBreaks()
+                    ->limitList(2)
+                    ->badge()
+                    ->alignCenter()
                     ->searchable(),
                 Tables\Columns\TextColumn::make('user.name')
                     ->label('Author')

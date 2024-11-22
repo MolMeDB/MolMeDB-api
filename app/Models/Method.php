@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -11,6 +12,8 @@ class Method extends Model
 {
     /** @use HasFactory<\Database\Factories\MethodFactory> */
     use HasFactory;
+
+    protected $guarded = [];
 
     /**
      * Types
@@ -36,9 +39,19 @@ class Method extends Model
     /**
      * Returns all valid types
      */
-    public static function types() : array
+    public static function types()
     {
         return self::$enum_types;
+    }
+
+    /**
+     * Returns enum type
+     */
+    public static function enumType($type)
+    {
+        if(isset(self::$enum_types[$type]))
+            return self::$enum_types[$type];
+        return null;
     }
 
     /**
@@ -55,5 +68,30 @@ class Method extends Model
     public function passiveInteractions() : HasMany
     {
         return $this->hasMany(InteractionPassive::class);
+    }
+
+    /**
+     * Returns assigned user - record author
+     */
+    public function user() : BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Returns all assigned keywords
+     */
+    public function keywords() : HasMany
+    {
+        return $this->hasMany(Keyword::class, 'model_id', 'id')
+            ->where('model', Method::class);
+    }
+
+    /**
+     * Returns assigned category
+     */
+    public function category() : BelongsTo
+    {
+        return $this->belongsTo(Category::class);
     }
 }

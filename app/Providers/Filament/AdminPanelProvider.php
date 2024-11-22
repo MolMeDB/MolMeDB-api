@@ -27,6 +27,11 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            ->registration()
+            ->passwordReset()
+            ->emailVerification()
+            ->emailVerificationRoutePrefix('')
+            ->profile()
             ->colors([
                 'primary' => Color::Blue,
             ])
@@ -54,6 +59,7 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
+                'verified',
             ]);
     }
 }
