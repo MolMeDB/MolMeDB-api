@@ -2,6 +2,7 @@
 
 namespace App\Filament\Clusters\Access\Resources;
 
+use App\Enums\IconEnums;
 use App\Enums\RoleEnums;
 use App\Filament\Clusters\Access;
 use App\Filament\Clusters\Access\Resources\RoleResource\Pages;
@@ -19,7 +20,7 @@ class RoleResource extends Resource
 {
     protected static ?string $model = Role::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = IconEnums::ROLES->value;
 
     protected static ?string $cluster = Access::class;
 
@@ -30,8 +31,8 @@ class RoleResource extends Resource
         return $form
             ->schema([
                 Forms\Components\TextInput::make('name')
-                    ->disabled(fn ($record) => in_array($record->name, $default_enums))
-                    ->hint(fn($record) => in_array($record->name, $default_enums) ? 'Default roles cannot be changed.' : '')
+                    ->disabled(fn ($record) => $record && in_array($record->name, $default_enums))
+                    ->hint(fn($record) => $record && in_array($record->name, $default_enums) ? 'Default roles cannot be changed.' : '')
                     ->required(),
             ]);
     }

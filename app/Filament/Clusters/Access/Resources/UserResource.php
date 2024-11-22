@@ -2,6 +2,7 @@
 
 namespace App\Filament\Clusters\Access\Resources;
 
+use App\Enums\IconEnums;
 use App\Enums\RoleEnums;
 use App\Filament\Clusters\Access;
 use App\Filament\Clusters\Access\Resources\UserResource\Pages;
@@ -20,17 +21,19 @@ class UserResource extends Resource
 {
     protected static ?string $model = User::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = IconEnums::USERS->value; 
 
     protected static ?string $cluster = Access::class;
 
     public static function form(Form $form): Form
     {
+        $is_disabled = (fn (User $record) => $record->id !== auth()->user()->id);
+
         return $form
             ->schema([
                 Forms\Components\TextInput::make('name')
                     ->required()
-                    ->disabled()
+                    ->disabled($is_disabled)
                     ->columnSpanFull(),
                 Forms\Components\TextInput::make('email')
                     ->email()
@@ -42,7 +45,7 @@ class UserResource extends Resource
                 //     ->password()
                 //     ->required(),
                 Forms\Components\TextInput::make('affiliation')
-                    ->disabled()
+                    ->disabled($is_disabled)
                     ->columnSpanFull(),
             ]);
     }

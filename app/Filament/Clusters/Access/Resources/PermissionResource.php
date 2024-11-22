@@ -2,6 +2,7 @@
 
 namespace App\Filament\Clusters\Access\Resources;
 
+use App\Enums\IconEnums;
 use App\Filament\Clusters\Access;
 use App\Filament\Clusters\Access\Resources\PermissionResource\Pages;
 use App\Filament\Clusters\Access\Resources\PermissionResource\RelationManagers;
@@ -19,7 +20,7 @@ class PermissionResource extends Resource
 {
     protected static ?string $model = Permission::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = IconEnums::PERMISSIONS->value;
 
     protected static ?string $cluster = Access::class;
 
@@ -66,8 +67,8 @@ class PermissionResource extends Resource
     {
         return [
             'index' => Pages\ListPermissions::route('/'),
-            'create' => Pages\CreatePermission::route('/create'),
-            'edit' => Pages\EditPermission::route('/{record}/edit'),
+            // 'create' => Pages\CreatePermission::route('/create'),
+            // 'edit' => Pages\EditPermission::route('/{record}/edit'),
         ];
     }
 }
