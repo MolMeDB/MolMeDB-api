@@ -56,6 +56,8 @@ class PublicationResource extends Resource
                             ->numeric(),
                         Forms\Components\DatePicker::make('publicated_date')
                             ->label('Date of publication'),
+                        Forms\Components\Hidden::make('user_id')
+                            ->default(auth()->user()->id)
                     ])
                     ->columns(2)
             ]);

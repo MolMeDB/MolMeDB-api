@@ -2,6 +2,7 @@
 
 namespace App\Filament\Clusters\Categories\Resources\MembraneCategoryResource\RelationManagers;
 
+use App\Enums\PermissionEnums;
 use App\Filament\Resources\MembraneResource;
 use Filament\Forms\Form;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -27,7 +28,8 @@ class MembranesRelationManager extends RelationManager
             ])
             ->headerActions([
                 Tables\Actions\AssociateAction::make()
-                    ->preloadRecordSelect(),
+                    ->preloadRecordSelect()
+                    ->visible(fn ($record): bool => auth()->user()->hasPermissionTo(PermissionEnums::MEMBRANE_METHOD_EDIT)),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),

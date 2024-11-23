@@ -33,6 +33,8 @@ class UserResource extends Resource
             ->schema([
                 Forms\Components\TextInput::make('name')
                     ->required()
+                    ->hint(fn (User $record) => $is_disabled($record) ? 'Only owners can manage their profiles.' : '')
+                    ->hintColor('danger')
                     ->disabled($is_disabled)
                     ->columnSpanFull(),
                 Forms\Components\TextInput::make('email')
@@ -41,9 +43,6 @@ class UserResource extends Resource
                     ->required(),
                 Forms\Components\DateTimePicker::make('email_verified_at')
                     ->disabled(),
-                // Forms\Components\TextInput::make('password')
-                //     ->password()
-                //     ->required(),
                 Forms\Components\TextInput::make('affiliation')
                     ->disabled($is_disabled)
                     ->columnSpanFull(),
@@ -58,9 +57,6 @@ class UserResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('email')
                     ->searchable(),
-                // Tables\Columns\TextColumn::make('email_verified_at')
-                //     ->dateTime()
-                //     ->sortable(),
                 Tables\Columns\TextColumn::make('affiliation')
                     ->wrap()
                     ->lineClamp(2)

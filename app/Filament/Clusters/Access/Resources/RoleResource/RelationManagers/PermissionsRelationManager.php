@@ -49,7 +49,8 @@ class PermissionsRelationManager extends RelationManager
                     ->preloadRecordSelect()
             ])
             ->actions([
-                Tables\Actions\DetachAction::make(),
+                Tables\Actions\DetachAction::make()
+                    ->visible(fn ($record): bool => $this->ownerRecord->id !== 1), // Cannot detach admin permissions
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

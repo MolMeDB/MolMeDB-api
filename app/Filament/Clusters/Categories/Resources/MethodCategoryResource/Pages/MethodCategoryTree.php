@@ -27,7 +27,9 @@ class MethodCategoryTree extends BasePage
         return [
             \Filament\Forms\Components\TextInput::make('title'),
             \Filament\Forms\Components\Hidden::make('type')
-                ->default(Category::TYPE_MEMBRANE),
+                ->default(Category::TYPE_METHOD),
+            \Filament\Forms\Components\Hidden::make('user_id')
+                ->default(auth()->user()->id),
         ];
     }
 
@@ -58,7 +60,7 @@ class MethodCategoryTree extends BasePage
         $title = $record->title;
         $parent = $record->parent?->title;
         $total_methods = $record->methods()->count();
-        return ($parent ? "{$parent} >> " : '') . "{$title} (# Methods: {$total_methods})";
+        return ($parent ? "{$parent} >> " : '') . "{$title}" . ($parent || $total_methods ? " (# Membranes: {$total_methods})"  : '');
     }
 
     /**
@@ -99,6 +101,7 @@ class MethodCategoryTree extends BasePage
                 ->icon(IconEnums::METHOD->value)
                 ->color('warning')
                 ->tooltip('Manage assigned methods')
+                ->visible(fn (Category $record) => static::getResource()::canEdit($record))
                 ->modal(false)
                 ->url(function (Category $record) {
                     return static::getResource()::getUrl('edit_record', ['record' => $record]);
@@ -107,15 +110,6 @@ class MethodCategoryTree extends BasePage
                 ->tooltip('Delete category')
                 ->before(fn (DeleteAction $action, Category $record) => MethodCategoryResource::checkIfDeletable($action, $record)),
         ];
-    }
-
-    /**
-     * Set type before adding new record
-     */
-    protected function mutateFormDataBeforeCreate(array $data): array
-    {
-        $data['type'] = Category::TYPE_METHOD;
-        return $data;
     }
 
     protected function hasDeleteAction(): bool

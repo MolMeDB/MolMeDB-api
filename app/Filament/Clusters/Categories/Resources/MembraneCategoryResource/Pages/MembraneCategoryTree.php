@@ -28,6 +28,8 @@ class MembraneCategoryTree extends BasePage
             \Filament\Forms\Components\TextInput::make('title'),
             \Filament\Forms\Components\Hidden::make('type')
                 ->default(Category::TYPE_MEMBRANE),
+            \Filament\Forms\Components\Hidden::make('user_id')
+                ->default(auth()->user()->id),
         ];
     }
 
@@ -58,7 +60,7 @@ class MembraneCategoryTree extends BasePage
         $title = $record->title;
         $parent = $record->parent?->title;
         $total_membranes = $record->membranes()->count();
-        return ($parent ? "{$parent} >> " : '') . "{$title} (# Membranes: {$total_membranes})";
+        return ($parent ? "{$parent} >> " : '') . "{$title}" . ($parent || $total_membranes ? " (# Membranes: {$total_membranes})"  : '');
     }
 
     /**
@@ -100,6 +102,7 @@ class MembraneCategoryTree extends BasePage
                 ->color('warning')
                 ->tooltip('Manage assigned methods')
                 ->modal(false)
+                ->visible(fn (Category $record) => static::getResource()::canEdit($record))
                 ->url(function (Category $record) {
                     return static::getResource()::getUrl('edit_record', ['record' => $record]);
                 }),
@@ -107,15 +110,6 @@ class MembraneCategoryTree extends BasePage
                 ->tooltip('Delete category')
                 ->before(fn (DeleteAction $action, Category $record) => MembraneCategoryResource::checkIfDeletable($action, $record)),
         ];
-    }
-
-    /**
-     * Set type before adding new record
-     */
-    protected function mutateFormDataBeforeCreate(array $data): array
-    {
-        $data['type'] = Category::TYPE_MEMBRANE;
-        return $data;
     }
 
     protected function hasDeleteAction(): bool

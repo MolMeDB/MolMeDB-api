@@ -14,6 +14,8 @@ return new class extends Migration
         Schema::create('categories', function (Blueprint $table) {
             $table->id();
             $table->integer('parent_id')->nullable()->default(-1);
+            $table->integer('user_id')->nullable();
+            $table->foreign('user_id')->references('id')->on('users')->nullOnDelete();
             $table->integer('order')->default(0)->index();
             $table->string('title', 256);
             $table->integer('type');

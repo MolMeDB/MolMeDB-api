@@ -40,10 +40,13 @@ Route::get('/email/verify', function() {
     return view('auth.verify');
 })->middleware('auth')->name('verification.notice');
 
+// Route::get('/admin/verify/{id}/{hash}', function(EmailVerificationRequest $r) {
+//     $r->fulfill();
+//     return redirect()->route('login');
+// })->middleware(['auth', 'signed'])->name('filament.admin.auth.email-verification.verify');
 
 Route::get('/admin/verify/{id}/{hash}', function(EmailVerificationRequest $r) {
     $r->fulfill();
-
     return redirect()->route('login');
 })->middleware(['auth', 'signed'])->name('verification.verify');
 

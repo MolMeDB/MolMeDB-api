@@ -47,6 +47,8 @@ class MethodResource extends Resource
                         ->clearable(false)
                         ->placeholder('Please, select method category')
                         ->columnSpanFull(),
+                    Forms\Components\Hidden::make('user_id')
+                        ->default(auth()->user()->id),
                 ]),
             Fieldset::make('Description')
                 ->schema([
@@ -88,6 +90,7 @@ class MethodResource extends Resource
                 Tables\Columns\TextColumn::make('user.name')
                     ->label('Author')
                     ->badge()
+                    ->alignCenter()
                     ->color('danger')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')

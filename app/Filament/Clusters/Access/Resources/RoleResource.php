@@ -54,12 +54,11 @@ class RoleResource extends Resource
                 Tables\Columns\TextColumn::make('permissions_count')
                     ->counts('permissions')
                     ->badge()
+                    ->tooltip(fn ($record) => $record->permissions->pluck('description')->implode(" - "))
                     ->label('# Permissions')
                     ->alignCenter()
                     ->color('primary')
                     ->numeric(),
-                // Tables\Columns\TextColumn::make('guard_name')
-                //     ->searchable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
