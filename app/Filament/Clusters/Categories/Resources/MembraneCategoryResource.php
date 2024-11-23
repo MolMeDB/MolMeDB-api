@@ -2,26 +2,30 @@
 
 namespace App\Filament\Clusters\Categories\Resources;
 
+use App\Enums\IconEnums;
 use App\Filament\Clusters\Categories;
 use App\Filament\Clusters\Categories\Resources\MembraneCategoryResource\Pages;
+use App\Filament\Clusters\Categories\Resources\MembraneCategoryResource\Pages\MembraneCategoryTree;
 use App\Filament\Clusters\Categories\Resources\MembraneCategoryResource\RelationManagers;
 use App\Models\Category;
 use App\Models\MembraneCategory;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class MembraneCategoryResource extends Resource
 {
     protected static ?string $model = Category::class;
-    protected static ?string $navigationLabel = "Membrane categories";
+    protected static ?string $navigationLabel = "Membrane";
     protected static ?string $navigationBadgeTooltip = 'Manage membrane categories';
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = IconEnums::MEMBRANE->value;
 
     protected static ?string $cluster = Categories::class;
 
@@ -55,6 +59,34 @@ class MembraneCategoryResource extends Resource
             ]);
     }
 
+    /**
+     * Checks, if membrane category can be deleted
+     */
+    public static function checkIfDeletable(
+        Tables\Actions\DeleteAction | \Filament\Actions\DeleteAction | \SolutionForest\FilamentTree\Actions\DeleteAction $action 
+        , Category $record) : void
+    {
+        if (!$record->isDeletable()) {
+            Notification::make()
+                ->danger()
+                ->title('The reecord cannot be deleted!')
+                ->body('The category probably has assigned some membranes.')
+                ->send();
+
+                $action->cancel();
+        }
+        else if($record->hasChildren())
+        {
+            Notification::make()
+                ->danger()
+                ->title('The record cannot be deleted!')
+                ->body('The category probably has assigned children.')
+                ->send();
+
+                $action->cancel();
+        }
+    }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -65,8 +97,10 @@ class MembraneCategoryResource extends Resource
                 Tables\Columns\TextColumn::make('parent.title')
                     ->badge()
                     ->color('warning')
-                    ->sortable(),
+                    ->sortable()
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('title')
+                    ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('membranes_count')
                     ->label('# Membranes')
@@ -78,17 +112,31 @@ class MembraneCategoryResource extends Resource
                         'success' => fn ($state) => $state > 0,  
                     ])
                     ->sortable(),
+                Tables\Columns\TextColumn::make('children_count')
+                    ->label('# Children')
+                    ->counts('children')
+                    ->badge()
+                    ->alignCenter()
+                    ->color('primary')
+                    ->sortable(),
             ])
             ->filters([
                 //
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
+                // Tables\Actions\ViewAction::make()
+                //     ->modalWidth('7xl')
+                //     ->modalContent(function (Category $record) {
+                //        return view('filament.clusters.category.pages.membrane', [
+                //            'record' => $record,
+                //            'relationManagers' => self::getRelations()
+                //        ]);
+                //     }),
+                // Tables\Actions\DeleteAction::make()
+                //     ->before(fn (Tables\Actions\DeleteAction $action, Category $record) => self::checkIfDeletable($action, $record))
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ]);
     }
@@ -105,7 +153,7 @@ class MembraneCategoryResource extends Resource
         return [
             'index' => Pages\ListMembraneCategories::route('/'),
             'create' => Pages\CreateMembraneCategory::route('/create'),
-            'edit' => Pages\EditMembraneCategory::route('/{record}/edit'),
+            'edit_record' => Pages\EditMembraneCategory::route('/{record}/edit'),
             'categoryTree' => Pages\MembraneCategoryTree::route('/manage'),
         ];
     }

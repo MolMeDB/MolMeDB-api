@@ -1,28 +1,27 @@
 <?php
 
-namespace App\Filament\Clusters\Categories\Resources\MembraneCategoryResource\RelationManagers;
+namespace App\Filament\Clusters\Categories\Resources\MethodCategoryResource\RelationManagers;
 
-use App\Filament\Resources\MembraneResource;
+use App\Filament\Resources\MethodResource;
 use Filament\Forms\Form;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
 
-class MembranesRelationManager extends RelationManager
+class MethodsRelationManager extends RelationManager
 {
-    protected static string $relationship = 'membranes';
+    protected static string $relationship = 'methods';
 
     public function form(Form $form): Form
     {
-        return MembraneResource::form($form);
+        return MethodResource::form($form);
     }
 
     public function table(Table $table): Table
     {
         return $table
-            ->recordTitleAttribute('abbreviation')
+            ->recordTitleAttribute('name')
             ->columns([
-                Tables\Columns\TextColumn::make('abbreviation'),
                 Tables\Columns\TextColumn::make('name'),
             ])
             ->headerActions([

@@ -2,11 +2,16 @@
 
 namespace App\Filament\Clusters\Categories\Resources\MembraneCategoryResource\Pages;
 
+use App\Enums\IconEnums;
 use App\Filament\Clusters\Categories\Resources\MembraneCategoryResource;
 use App\Models\Category;
 use Filament\Pages\Actions\CreateAction;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use SolutionForest\FilamentTree\Actions;
+use SolutionForest\FilamentTree\Actions\DeleteAction;
+use SolutionForest\FilamentTree\Actions\EditAction;
+use SolutionForest\FilamentTree\Actions\ViewAction;
 use SolutionForest\FilamentTree\Concern;
 use SolutionForest\FilamentTree\Resources\Pages\TreePage as BasePage;
 use SolutionForest\FilamentTree\Support\Utils;
@@ -17,19 +22,100 @@ class MembraneCategoryTree extends BasePage
 
     protected static int $maxDepth = 2;
 
+    protected function getFormSchema(): array
+    {
+        return [
+            \Filament\Forms\Components\TextInput::make('title'),
+            \Filament\Forms\Components\Hidden::make('type')
+                ->default(Category::TYPE_MEMBRANE),
+        ];
+    }
+
+    /**
+     * Set custom page title
+     */
+    public function getTitle(): string
+    {
+        return 'Manage membrane categories';
+    }
+
+    /**
+     * Set custom breadcrumb label
+     */
+    public function getBreadcrumb(): ?string
+    {
+        return 'Membrane';
+    }
+
+    /**
+     * Set record title in the tree
+     */
+    public function getTreeRecordTitle(?\Illuminate\Database\Eloquent\Model $record = null): string
+    {
+        if (! $record) {
+            return '';
+        }
+        $title = $record->title;
+        $parent = $record->parent?->title;
+        $total_membranes = $record->membranes()->count();
+        return ($parent ? "{$parent} >> " : '') . "{$title} (# Membranes: {$total_membranes})";
+    }
+
+    /**
+     * Change default query to filter just membrane type
+     */
     public function getTreeQuery() : Builder
     {
         return Category::query()->where('type', Category::TYPE_MEMBRANE);
     }
 
+    /**
+     * Hide this page in the main navigation
+     */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
+    /**
+     * Add custom actions
+     */
     protected function getActions(): array
     {
         return [
-            // $this->getCreateAction(),
             \Filament\Actions\CreateAction::make(),
-            // SAMPLE CODE, CAN DELETE
-            //\Filament\Pages\Actions\Action::make('sampleAction'),
         ];
+    }
+
+    /**
+     * Adjust actions for each record
+     */
+    protected function getTreeActions(): array
+    {
+        return [
+            Actions\EditAction::make()
+                ->tooltip('Change category name'),
+            Actions\ViewAction::make()
+                ->icon(IconEnums::MEMBRANE->value)
+                ->color('warning')
+                ->tooltip('Manage assigned methods')
+                ->modal(false)
+                ->url(function (Category $record) {
+                    return static::getResource()::getUrl('edit_record', ['record' => $record]);
+                }),
+            Actions\DeleteAction::make()
+                ->tooltip('Delete category')
+                ->before(fn (DeleteAction $action, Category $record) => MembraneCategoryResource::checkIfDeletable($action, $record)),
+        ];
+    }
+
+    /**
+     * Set type before adding new record
+     */
+    protected function mutateFormDataBeforeCreate(array $data): array
+    {
+        $data['type'] = Category::TYPE_MEMBRANE;
+        return $data;
     }
 
     protected function hasDeleteAction(): bool
@@ -55,12 +141,6 @@ class MembraneCategoryTree extends BasePage
     protected function getFooterWidgets(): array
     {
         return [];
-    }
-
-    protected function mutateFormDataBeforeCreate(array $data): array
-    {
-        $data['type'] = Category::TYPE_MEMBRANE;
-        return $data;
     }
 
     // CUSTOMIZE ICON OF EACH RECORD, CAN DELETE

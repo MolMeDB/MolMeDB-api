@@ -14,7 +14,7 @@ class ListMethodCategories extends ListRecords
     {
         return [
             Actions\Action::make('manageMembraneCategories')
-                ->label('Manage categories')
+                ->label('Manage method categories')
                 ->url(MethodCategoryResource::getUrl('categoryTree'))
         ];
     }

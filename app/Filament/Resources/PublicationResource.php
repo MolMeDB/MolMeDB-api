@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Enums\IconEnums;
 use App\Filament\Resources\PublicationResource\Pages;
 use App\Filament\Resources\PublicationResource\RelationManagers;
 use App\Models\Publication;
@@ -18,7 +19,11 @@ class PublicationResource extends Resource
 {
     protected static ?string $model = Publication::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = IconEnums::PUBLICATIONS->value;
+    protected static ?string $navigationGroup = 'Data management';
+    protected static ?int $navigationSort = 3;
+
+
 
     public static function form(Form $form): Form
     {

@@ -15,7 +15,7 @@ class ListMembraneCategories extends ListRecords
         return [
             // Actions\CreateAction::make(),
             Actions\Action::make('manageMembraneCategories')
-                ->label('Manage categories')
+                ->label('Manage membrane categories')
                 ->url(MembraneCategoryResource::getUrl('categoryTree'))
                 // ->icon('heroicon-s-collection'),
         ];

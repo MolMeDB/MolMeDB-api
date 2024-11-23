@@ -31,7 +31,15 @@ class Category extends Model
      */
     public function parent() : BelongsTo
     {
-        return $this->belongsTo(Category::class);
+        return $this->belongsTo(Category::class, 'parent_id');
+    }
+
+    /**
+     * Returns children categories
+     */
+    public function children() : HasMany
+    {
+        return $this->hasMany(Category::class, 'parent_id');
     }
 
     /**
@@ -48,5 +56,21 @@ class Category extends Model
     public function methods() : HasMany
     {
         return $this->hasMany(Method::class);
+    }
+
+    /**
+     * Checks, if category can be deleted
+     */
+    public function isDeletable() : bool
+    {
+        return $this->membranes()->count() === 0 && $this->methods()->count() === 0;
+    }
+
+    /**
+     * Checks, if category has children
+     */
+    public function hasChildren() : bool
+    {
+        return $this->children()->count() > 0;
     }
 }

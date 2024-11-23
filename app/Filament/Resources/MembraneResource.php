@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Enums\IconEnums;
 use App\Filament\Resources\MembraneResource\Pages;
 use App\Filament\Resources\MembraneResource\RelationManagers;
 use App\Filament\Resources\MembraneResource\RelationManagers\PublicationsRelationManager;
@@ -22,7 +23,11 @@ class MembraneResource extends Resource
 {
     protected static ?string $model = Membrane::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = IconEnums::MEMBRANE->value;
+    protected static ?string $navigationGroup = 'Data management';
+    protected static ?int $navigationSort = 2;
+
+
 
     public static function form(Form $form): Form
     {

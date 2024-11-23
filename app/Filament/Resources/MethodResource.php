@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Enums\IconEnums;
 use App\Filament\Resources\MethodResource\Pages;
 use App\Filament\Resources\MethodResource\RelationManagers;
 use App\Models\Category;
@@ -21,7 +22,10 @@ class MethodResource extends Resource
 {
     protected static ?string $model = Method::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = IconEnums::METHOD->value;
+    protected static ?string $navigationGroup = 'Data management';
+    protected static ?int $navigationSort = 1;
+
 
     public static function form(Form $form): Form
     {
