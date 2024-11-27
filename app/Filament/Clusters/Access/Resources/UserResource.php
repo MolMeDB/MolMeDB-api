@@ -36,6 +36,7 @@ class UserResource extends Resource
                     ->hint(fn (User $record) => $is_disabled($record) ? 'Only owners can manage their profiles.' : '')
                     ->hintColor('danger')
                     ->disabled($is_disabled)
+                    ->dehydrateStateUsing(fn ($state) => ucwords($state))
                     ->columnSpanFull(),
                 Forms\Components\TextInput::make('email')
                     ->email()

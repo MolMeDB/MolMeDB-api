@@ -13,6 +13,12 @@ class SubstanceIdentifier extends Model
     /** @use HasFactory<\Database\Factories\SubstanceIdentifierFactory> */
     use HasFactory;
 
+    protected $guarded = [];
+
+    protected $casts = [
+        'is_active' => 'boolean',
+    ];
+
     /** IDENTIFIERS CONSTANTS */
     const TYPE_NAME = 1;
     const TYPE_SMILES = 2;
@@ -60,14 +66,14 @@ class SubstanceIdentifier extends Model
      */
     private static $enum_types = array
     (
-        self::TYPE_NAME => 'name',
-        self::TYPE_SMILES => 'smiles',
-        self::TYPE_INCHIKEY => 'inchikey',
-        self::TYPE_PUBCHEM => 'pubchem',
-        self::TYPE_DRUGBANK => 'drugbank',
-        self::TYPE_CHEBI  => 'chebi',
-        self::TYPE_PDB    => 'pdb',
-        self::TYPE_CHEMBL => 'chembl',
+        self::TYPE_NAME => 'Name',
+        self::TYPE_SMILES => 'SMILES',
+        self::TYPE_INCHIKEY => 'InChIKey',
+        self::TYPE_PUBCHEM => 'Pubchem',
+        self::TYPE_DRUGBANK => 'DrugBank',
+        self::TYPE_CHEBI  => 'ChEBI',
+        self::TYPE_PDB    => 'PDB',
+        self::TYPE_CHEMBL => 'ChEMBL',
     );
 
     /**
@@ -75,14 +81,14 @@ class SubstanceIdentifier extends Model
      */
     private static $enum_servers = array
     (
-        self::SERVER_PUBCHEM => 'Pubchem server',
-        self::SERVER_DRUGBANK => 'Drugbank server',
-        self::SERVER_CHEBI  => 'ChEBI server',
-        self::SERVER_PDB    => 'PDB server',
-        self::SERVER_CHEMBL => 'ChEMBL server',
-        self::SERVER_UNICHEM => 'Unichem server',
-        self::SERVER_RDKIT => 'RDkit software',
-        self::SERVER_MOLMEDB => 'MolMeDB server',
+        self::SERVER_PUBCHEM => 'Pubchem',
+        self::SERVER_DRUGBANK => 'Drugbank',
+        self::SERVER_CHEBI  => 'ChEBI',
+        self::SERVER_PDB    => 'PDB',
+        self::SERVER_CHEMBL => 'ChEMBL',
+        self::SERVER_UNICHEM => 'Unichem',
+        self::SERVER_RDKIT => 'RDkit',
+        self::SERVER_MOLMEDB => 'MolMeDB',
     );
 
     /** 
@@ -165,6 +171,16 @@ class SubstanceIdentifier extends Model
         self::INACTIVE => "inactive",
         self::ACTIVE => 'active'
     );
+
+    public static function enumType($type) : string 
+    {
+        return isset(self::$enum_types[$type]) ? self::$enum_types[$type] : '';
+    }
+
+    public static function enumServers($server) : string 
+    {
+        return isset(self::$enum_servers[$server]) ? self::$enum_servers[$server] : '';
+    }
 
     /**
      * Checks, if source is credible

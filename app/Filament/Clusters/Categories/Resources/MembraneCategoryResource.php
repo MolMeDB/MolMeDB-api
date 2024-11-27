@@ -69,7 +69,7 @@ class MembraneCategoryResource extends Resource
         if (!$record->isDeletable()) {
             Notification::make()
                 ->danger()
-                ->title('The reecord cannot be deleted!')
+                ->title('The record cannot be deleted!')
                 ->body('The category probably has assigned some membranes.')
                 ->send();
 

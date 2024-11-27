@@ -14,7 +14,7 @@ return new class extends Migration
     {
         Schema::create('substances', function (Blueprint $table) {
             $table->id();
-            $table->string('identifier', 20);
+            $table->string('identifier', 20)->nullable();
             $table->string('name', 1024)->nullable();
             $table->string('fingerprint', 512)->nullable();
             $table->float('molecular_weight')->nullable();

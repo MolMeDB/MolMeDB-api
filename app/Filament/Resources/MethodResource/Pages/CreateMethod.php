@@ -9,4 +9,10 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateMethod extends CreateRecord
 {
     protected static string $resource = MethodResource::class;
+
+    protected function mutateFormDataBeforeCreate(array $data): array
+    {
+        $data['user_id'] = auth()->id();
+        return $data;
+    }
 }
