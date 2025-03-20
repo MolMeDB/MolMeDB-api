@@ -4,9 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Enums\IconEnums;
 use App\Filament\Resources\MembraneResource\Pages;
-use App\Filament\Resources\MembraneResource\RelationManagers;
-use App\Filament\Resources\MembraneResource\RelationManagers\PublicationsRelationManager;
-use App\Filament\Resources\MembraneResource\Widgets\MembraneCategoryWidget;
+use App\Filament\Resources\SharedRelationManagers;
 use App\Models\Category;
 use App\Models\Membrane;
 use CodeWithDennis\FilamentSelectTree\SelectTree;
@@ -22,12 +20,9 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 class MembraneResource extends Resource
 {
     protected static ?string $model = Membrane::class;
-
     protected static ?string $navigationIcon = IconEnums::MEMBRANE->value;
     protected static ?string $navigationGroup = 'Data management';
     protected static ?int $navigationSort = 2;
-
-
 
     public static function form(Form $form): Form
     {
@@ -38,11 +33,14 @@ class MembraneResource extends Resource
                         Forms\Components\Select::make('type')
                             ->label('Special type')
                             ->disabled()
+                            ->hint('Internal link for db purposes. Cannot be manually changed.')
+                            ->hintColor('warning')
                             ->options(Membrane::types())
                             ->columnSpanFull(),
-                        SelectTree::make('category_id')
-                            ->relationship('category', 'title', 'parent_id', modifyQueryUsing: fn (Builder $query) => $query->where('type', Category::TYPE_MEMBRANE))
+                        SelectTree::make('categories')
+                            ->relationship('categories', 'title', 'parent_id', modifyQueryUsing: fn ($query) => $query->where('type', Category::TYPE_MEMBRANE))
                             ->required()
+                            ->pivotData(['model_type' => Membrane::class])
                             ->withCount()
                             ->parentNullValue(-1)
                             ->defaultOpenLevel(2)
@@ -59,8 +57,13 @@ class MembraneResource extends Resource
                         Forms\Components\TextInput::make('abbreviation')
                             ->hint('Maximum 15 characters.')
                             ->maxLength(15)
+                            ->minLength(2)
+                            ->rule('regex:/^[a-zA-Z0-9-_]+$/') 
                             ->required(),
                         Forms\Components\RichEditor::make('description')
+                          ->fileAttachmentsDirectory(self::$model::folder().'attachments')
+                          ->fileAttachmentsDisk('public')
+                          ->fileAttachmentsVisibility('public')
                           ->columnSpanFull(),
                     ])
             ]);
@@ -80,7 +83,7 @@ class MembraneResource extends Resource
                 Tables\Columns\TextColumn::make('abbreviation')
                     ->label('Abbrev.')
                     ->badge()
-                    ->color('primary')
+                    ->color(fn (Membrane $record) => $record->trashed() ? 'danger' : 'primary')
                     ->sortable()
                     ->searchable(),
                 Tables\Columns\TextColumn::make('name')
@@ -97,11 +100,6 @@ class MembraneResource extends Resource
                     ->badge()
                     ->alignCenter()
                     ->searchable(),
-                Tables\Columns\TextColumn::make('user.name')
-                    ->label('Author')
-                    ->badge()
-                    ->color('danger')
-                    ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -114,26 +112,40 @@ class MembraneResource extends Resource
             ->filters([
                 Tables\Filters\SelectFilter::make('type')
                     ->options(Membrane::types()),
-                Tables\Filters\SelectFilter::make('user_id')
-                    ->label('Author')
-                    ->relationship('user', 'name'),
+                Tables\Filters\TrashedFilter::make(),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\RestoreAction::make()
+                    ->modalHeading('Restore method?')
+                    ->modalDescription('Warning! All associated files, datasets and interactions will be also restored and be directly visible.')
+                    ->modalSubmitActionLabel('Understand. Restore')
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    // Tables\Actions\DeleteBulkAction::make(),
                 ]),
+            ]);
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->withoutGlobalScopes([
+                SoftDeletingScope::class,
             ]);
     }
 
     public static function getRelations(): array
     {
         return [
-            PublicationsRelationManager::class,
-            RelationManagers\KeywordsRelationManager::class
+            SharedRelationManagers\PublicationsRelationManager::class,
+            SharedRelationManagers\KeywordsRelationManager::class,
+            SharedRelationManagers\FileRelationManager::class,
+            SharedRelationManagers\DatasetsRelationManager::class,
+            SharedRelationManagers\InteractionsPassiveRelationManager::class,
+            SharedRelationManagers\InteractionsActiveRelationManager::class
         ];
     }
 

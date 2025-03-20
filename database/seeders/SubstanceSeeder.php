@@ -12,6 +12,6 @@ class SubstanceSeeder extends Seeder
      */
     public function run(): void
     {
-        \App\Models\Substance::factory(50)->create();
+        \App\Models\Substance::factory(20)->create();
     }
 }

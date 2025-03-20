@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Membrane;
 use App\Models\Publication;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -20,7 +21,9 @@ class MembraneSeeder extends Seeder
 
         foreach($all as $membrane) {
             for($i = 1; $i < 3; $i++) {
-                $membrane->publications()->attach(Publication::all()->random()->id);
+                $membrane->publications()->attach(Publication::all()->random()->id, [
+                    'model_type' => Membrane::class
+                ]);
             }
         }
     }

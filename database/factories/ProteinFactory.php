@@ -17,7 +17,8 @@ class ProteinFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'name' => fake()->text(10),
+            'uniprot_id' => fake()->text(10),
         ];
     }
 }

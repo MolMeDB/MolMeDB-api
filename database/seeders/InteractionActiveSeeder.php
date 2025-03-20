@@ -12,6 +12,6 @@ class InteractionActiveSeeder extends Seeder
      */
     public function run(): void
     {
-        //
+        \App\Models\InteractionActive::factory(500)->create();  
     }
 }

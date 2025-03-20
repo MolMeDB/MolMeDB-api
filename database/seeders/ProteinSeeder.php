@@ -12,6 +12,6 @@ class ProteinSeeder extends Seeder
      */
     public function run(): void
     {
-        //
+        \App\Models\Protein::factory(100)->create();
     }
 }

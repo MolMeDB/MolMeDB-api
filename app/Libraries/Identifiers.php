@@ -1,7 +1,7 @@
 <?php
 namespace App\Libraries;
 
-use App\Models\Substance;
+use App\Models\Structure;
 
 class Identifiers
 {
@@ -22,13 +22,13 @@ class Identifiers
 		$identifier = self::get_identifier($id);
 		
 		// Check, if already exists
-		$exists = Substance::query()->where('identifier', $identifier)->get_one();
+		$exists = Structure::query()->where('identifier', $identifier)->get_one();
 
 		// $exists_2 = $subst_link_model->where('identifier', $identifier)->get_one();
 
 		if(!$id || $exists->id) // || $exists_2->id)
 		{
-			$id = Substance::max('id') + 1;
+			$id = Structure::max('id') + 1;
 			return self::get_identifier($id);
 		}
 		else

@@ -7,13 +7,45 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Publication extends Model
 {
     /** @use HasFactory<\Database\Factories\PublicationFactory> */
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $guarded = [];
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::deleting(function (Publication $publication) {
+            // Delete related data
+            foreach($publication->datasets as $ds)
+                $ds->delete();
+            $publication->interactionsActive()->delete();
+            $publication->interactionsPassive()->delete();
+        });
+
+        static::restoring(function (Publication $publication) {
+            // Restore related data
+            foreach($publication->datasets()->withTrashed()->get() as $ds)
+                $ds->restore();
+            $publication->interactionsActive()->restore();
+            $publication->interactionsPassive()->restore();
+        });
+
+        static::forceDeleting(function (Publication $publication) {
+            foreach($publication->datasets()->withTrashed()->get() as $ds)
+                $ds->forceDelete();
+            $publication->membranes()->withTrashed()->get()->detach();
+            $publication->methods()->withTrashed()->get()->detach();
+            $publication->interactionsActive()->forceDelete();
+            $publication->interactionsPassive()->forceDelete();
+        });
+    }
 
     /**
      * TYPES
@@ -36,11 +68,16 @@ class Publication extends Model
     /**
      * Returns enum type
      */
-    public static function enumType($type) : string 
+    public static function enumType($type) : ?string 
     {
         if(isset(self::$enum_types[$type]))
             return self::$enum_types[$type];
         return null;
+    }
+
+    public function getSelectTitle() : string 
+    {
+        return "[$this->id]: $this->citation";
     }
 
     /**
@@ -48,7 +85,9 @@ class Publication extends Model
      */
     public function membranes(): BelongsToMany
     {
-        return $this->belongsToMany(Membrane::class);
+        return $this->belongsToMany(Membrane::class, 'model_has_publications', 'publication_id', 'model_id')
+            ->withPivot('model_type', 'model_id')
+            ->wherePivot('model_type', Membrane::class);
     }
 
     /**
@@ -56,22 +95,29 @@ class Publication extends Model
      */
     public function methods(): BelongsToMany
     {
-        return $this->belongsToMany(Method::class);
+        return $this->belongsToMany(Method::class, 'model_has_publications', 'publication_id', 'model_id')
+            ->withPivot('model_type', 'model_id')
+            ->wherePivot('model_type', Method::class);
     }
 
-    /**
-     * Returns all assigned passive interactions
-     */
-    public function passiveInteractions() : HasMany
+    public function datasets(): BelongsToMany
+    {
+        return $this->belongsToMany(Dataset::class, 'model_has_publications', 'publication_id', 'model_id')
+            ->withPivot('model_type', 'model_id')
+            ->wherePivot('model_type', Dataset::class);
+    }
+
+    public function interactionsPassive() : HasMany
     {
         return $this->hasMany(InteractionPassive::class);
     }
-
-    /**
-     * Returns assigned user - record author
-     */
-    public function user() : BelongsTo
+    public function interactionsActive() : HasMany
     {
-        return $this->belongsTo(User::class);
+        return $this->hasMany(InteractionActive::class);
+    }
+
+    public function authors() : BelongsToMany
+    {
+        return $this->belongsToMany(Author::class, 'publication_has_authors');
     }
 }

@@ -4,7 +4,8 @@ namespace App\Filament\Resources;
 
 use App\Enums\IconEnums;
 use App\Filament\Resources\PublicationResource\Pages;
-use App\Filament\Resources\PublicationResource\RelationManagers;
+use App\Filament\Resources\PublicationResource\RelationManagers\AuthorRelationManager;
+use App\Filament\Resources\SharedRelationManagers;
 use App\Models\Publication;
 use Filament\Forms;
 use Filament\Forms\Components\Fieldset;
@@ -32,6 +33,9 @@ class PublicationResource extends Resource
                 Fieldset::make('Citation')
                     ->schema([
                         Forms\Components\TextArea::make('citation')
+                            ->maxLength(1024)
+                            ->hint('Maximum 1024 characters.')
+                            ->hintColor('warning')
                             ->required()
                     ])
                     ->columns(1),
@@ -39,25 +43,31 @@ class PublicationResource extends Resource
                     ->schema([
                         Forms\Components\TextInput::make('pmid')
                             ->label('PMID')
+                            ->maxLength(50)
                             ->hint('PubMed identifier'),
                         Forms\Components\TextInput::make('doi')
                             ->hint('e.g. 10.5281/zenodo.5121018')
+                            ->maxLength(128)
                             ->label('DOI'),
                         Forms\Components\TextInput::make('title')
+                            ->maxLength(512)
                             ->columnSpanFull(),
-                        Forms\Components\TextInput::make('authors')
-                            ->columnSpanFull()
-                            ->hint('List of authors delimited by commas [,]'),
-                        Forms\Components\TextInput::make('journal'),
-                        Forms\Components\TextInput::make('volume'),
-                        Forms\Components\TextInput::make('issue'),
-                        Forms\Components\TextInput::make('page'),
+                        Forms\Components\TextInput::make('journal')
+                            ->maxLength(256),
+                        Forms\Components\TextInput::make('volume')
+                            ->maxLength(50),
+                        Forms\Components\TextInput::make('issue')
+                            ->maxLength(50),
+                        Forms\Components\TextInput::make('page')
+                            ->maxLength(50),
                         Forms\Components\TextInput::make('year')
-                            ->numeric(),
+                            ->numeric()
+                            ->minValue(1800)
+                            ->maxValue(date('Y')),
                         Forms\Components\DatePicker::make('publicated_date')
+                            ->minDate('1800-01-01')
+                            ->maxDate(date('Y-m-d'))
                             ->label('Date of publication'),
-                        Forms\Components\Hidden::make('user_id')
-                            ->default(auth()->user()->id)
                     ])
                     ->columns(2)
             ]);
@@ -76,6 +86,10 @@ class PublicationResource extends Resource
                 Tables\Columns\TextColumn::make('citation')
                     ->wrap()
                     ->searchable(),
+                Tables\Columns\TextColumn::make('authors.name')
+                    ->limitList(3)
+                    ->expandableLimitedList()
+                    ->listWithLineBreaks(),
                 Tables\Columns\TextColumn::make('doi')
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->searchable(),
@@ -84,9 +98,6 @@ class PublicationResource extends Resource
                     ->color('primary')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('title')
-                    ->toggleable(isToggledHiddenByDefault: true)
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('authors')
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->searchable(),
                 Tables\Columns\TextColumn::make('journal')
@@ -99,27 +110,6 @@ class PublicationResource extends Resource
                     ->date()
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->sortable(),
-                Tables\Columns\TextColumn::make('user.name')
-                    ->label('Added by')
-                    ->badge()
-                    ->color('danger')
-                    ->toggleable(isToggledHiddenByDefault: true)
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('total_passive_interactions')
-                    ->label('Passive Int.')
-                    ->numeric()
-                    ->toggleable(isToggledHiddenByDefault: true)
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('total_active_interactions')
-                    ->label('Active Int.')
-                    ->numeric()
-                    ->toggleable(isToggledHiddenByDefault: true)
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('total_substances')
-                    ->label('Substances')
-                    ->numeric()
-                    ->toggleable(isToggledHiddenByDefault: true)
-                    ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -130,7 +120,7 @@ class PublicationResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                Tables\Filters\TrashedFilter::make()
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
@@ -143,10 +133,24 @@ class PublicationResource extends Resource
             ]);
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ]);
+    }
+
     public static function getRelations(): array
     {
         return [
-            //
+            AuthorRelationManager::class,
+            SharedRelationManagers\DatasetsRelationManager::class,
+            SharedRelationManagers\InteractionsActiveRelationManager::class,
+            SharedRelationManagers\InteractionsPassiveRelationManager::class,
+            SharedRelationManagers\MethodsRelationManager::class,
+            SharedRelationManagers\MembranesRelationManager::class,
+
         ];
     }
 

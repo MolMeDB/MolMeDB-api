@@ -25,13 +25,11 @@ class PublicationFactory extends Factory
             'doi' => fake()->text(50),
             'pmid' => fake()->text(5),
             'title' => fake()->text(50),
-            'authors' => fake()->text(15),
             'journal' => fake()->text(10),
             'volume' => fake()->text(5),
             'issue' => fake()->text(5),
             'page' => random_int(1,1000),
             'publicated_date' => fake()->date(),
-            'user_id' => User::all()->random()->id
         ];
     }
 }

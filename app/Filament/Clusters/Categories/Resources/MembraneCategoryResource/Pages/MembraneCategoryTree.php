@@ -28,8 +28,6 @@ class MembraneCategoryTree extends BasePage
             \Filament\Forms\Components\TextInput::make('title'),
             \Filament\Forms\Components\Hidden::make('type')
                 ->default(Category::TYPE_MEMBRANE),
-            \Filament\Forms\Components\Hidden::make('user_id')
-                ->default(auth()->user()->id),
         ];
     }
 

@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use RyanChandler\BladeCaptureDirective\BladeCaptureDirectiveServiceProvider;
 
@@ -12,203 +13,108 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('substances', function (Blueprint $table) {
-            $table->id();
-            $table->string('identifier', 20)->nullable();
-            $table->string('name', 1024)->nullable();
-            $table->string('fingerprint', 512)->nullable();
-            $table->float('molecular_weight')->nullable();
-            $table->float('logp')->nullable();
-            $table->integer('user_id')->nullable();
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('restrict');
-            // Identifiers moved to standalone table substance_identifiers
+        Schema::create('structures', function (Blueprint $table) {
+            $table->bigIncrements('id');
+            $table->bigInteger('parent_id')->nullable();
+            $table->foreign('parent_id')->references('id')->on('structures')->onDelete('restrict');
+            $table->string('identifier', 20)->nullable()->unique('structure_identifier_idx');
+            $table->unique('identifier');
+            $table->string('canonical_smiles', 4000)->nullable();
+            $table->integer('charge')->nullable();
+            $table->double('ph_start')->nullable();
+            $table->double('ph_end')->nullable();
+            $table->string('inchi', 4000)->nullable();
+            $table->string('inchikey', 27)->nullable();
+            $table->double('molecular_weight')->nullable();
+            $table->double('logp')->nullable();
+            $table->text('molfile_3d')->nullable();
             $table->timestamps();
+            $table->softDeletesDatetime();
         });
 
-        Schema::create('substance_identifiers', function (Blueprint $table) {
-            $table->id();
-            $table->integer('substance_id');
-            $table->foreign('substance_id')->references('id')->on('substances')->onDelete('cascade');
-            $table->integer('parent_id')->nullable();
-            $table->foreign('parent_id')->references('id')->on('substance_identifiers')->onDelete('restrict');
-            $table->tinyInteger('server')->nullable();
+        // Schema::create('substances', function (Blueprint $table) {
+        //     $table->id();
+        //     $table->string('identifier', 20)->nullable();
+        //     $table->unique('identifier');
+        //     $table->integer('structure_id')->nullable(); 
+        //     $table->foreign('structure_id')->references('id')->on('structures')->onDelete('restrict');
+        //     $table->timestamps();
+        // });
+
+        Schema::create('identifiers', function (Blueprint $table) {
+            $table->bigIncrements('id');
+            $table->bigInteger('structure_id');
+            $table->foreign('structure_id')->references('id')->on('structures')->onDelete('cascade');
+            $table->string('value', 64)->index();
             $table->tinyInteger('type');
-            $table->string('value');
-            $table->integer('user_id')->nullable();
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('set null');
             $table->tinyInteger('state');
-            $table->string('state_message')->nullable();
-            $table->boolean('is_active')->default(false);
-            $table->string('is_active_message')->nullable();
-            $table->tinyInteger('flag')->nullable();
+            $table->bigInteger('source_id')->nullable();
+            $table->string('source_type', 256)->nullable();
+            $table->json('logs')->nullable();
             $table->timestamps();
-        });
-
-        Schema::create('substance_identifier_validations', function (Blueprint $table) {
-            $table->id();
-            $table->integer('substance_identifier_id');
-            $table->foreign('substance_identifier_id')->references('id')->on('substance_identifiers')->onDelete('restrict');
-            $table->integer('user_id'); 
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('restrict');
-            $table->tinyInteger('state');
-            $table->string('message', 1024)->nullable();
-            $table->timestamps();
+            $table->softDeletes();
         });
 
         Schema::create('files', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
-            $table->string('path');
-            $table->integer('user_id')->nullable();
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('restrict');
+            $table->tinyInteger('type');
+            $table->string('mime', 30)->nullable();
+            $table->binary('content')->nullable();
+            $table->string('name', 30)->nullable();
+            $table->string('path')->nullable();
+            $table->string('hash', 32);
             $table->timestamps();
+            $table->softDeletes();
         });
 
-        // Schema::create('upload_queue', function (Blueprint $table) {
-        //     $table->id();
-        //     $table->tinyInteger('type');
-        //     $table->tinyInteger('state');
-        //     $table->integer('user_id')->nullable();
-        //     $table->foreign('user_id')->references('id')->on('users')->onDelete('restrict');
-        //     $table->text('settings')->nullable();
-        //     $table->integer('file_id');
-        //     $table->foreign('file_id')->references('id')->on('files')->onDelete('restrict');
-        //     $table->string('run_info')->nullable();
-        //     $table->timestamps(); 
-        // });
+        Schema::create('model_has_files', function (Blueprint $table) {
+            $table->integer('file_id');
+            $table->integer('model_id');
+            $table->string('model_type', 256);
+            $table->index(['model_id', 'model_type'], 'model_has_files_model_id_index');
+            $table->foreign('file_id')
+                ->references('id')
+                ->on('files')
+                ->cascadeOnDelete();
+        });
+
+        Schema::create('dataset_groups', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->string('comment')->nullable();
+            $table->timestamps(); 
+        });
 
         Schema::create('datasets', function(Blueprint $table) {
             $table->id();
-            // Upload info
-            $table->tinyInteger('upload_state');
-            $table->text('upload_settings')->nullable();
-            $table->integer('file_id');
-            $table->foreign('file_id')->references('id')->on('files')->onDelete('restrict');
-            $table->string('upload_run_info')->nullable();
-            // Dataset info
-            // $table->integer('upload_queue_id')->nullable();
-            // $table->foreign('upload_queue_id')->references('id')->on('upload_queue')->onDelete('restrict');
             $table->tinyInteger('type');
-            $table->tinyInteger('special_type')->nullable();
-            $table->boolean('is_visible')->default(false);
             $table->string('name', 256);
+            $table->text('comment')->nullable();
             $table->integer('membrane_id')->nullable();
             $table->foreign('membrane_id')->references('id')->on('membranes')->onDelete('restrict');
             $table->integer('method_id')->nullable();
             $table->foreign('method_id')->references('id')->on('methods')->onDelete('restrict');
-            $table->integer('publication_id')->nullable();
-            $table->foreign('publication_id')->references('id')->on('publications')->onDelete('restrict');
-            $table->integer('user_id')->nullable();
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('restrict');
+            $table->integer('dataset_group_id')->nullable();
+            $table->foreign('dataset_group_id')->references('id')->on('dataset_groups')->onDelete('restrict');
             $table->timestamps();
+            $table->softDeletes();
         });
 
-
-        Schema::create('substance_identifier_dataset', function (Blueprint $table) {
+        Schema::create('upload_queue', function (Blueprint $table) {
             $table->id();
-            $table->integer('substance_identifier_id');
-            $table->foreign('substance_identifier_id')->references('id')->on('substance_identifiers')->onDelete('restrict');
-            $table->integer('dataset_id');
-            $table->foreign('dataset_id')->references('id')->on('datasets')->onDelete('restrict');
-            $table->timestamps();
-        });
-
-        Schema::create('substance_identifier_changes', function (Blueprint $table) {
-            $table->id();
-            $table->integer('old_id')->nullable();
-            $table->foreign('old_id')->references('id')->on('substance_identifiers')->onDelete('cascade');
-            $table->integer('new_id')->nullable();
-            $table->foreign('new_id')->references('id')->on('substance_identifiers')->onDelete('cascade');
-            $table->integer('user_id')->nullable();
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('set null');
-            $table->string('message')->nullable();
-            $table->timestamp('datetime')->default('CURRENT_TIMESTAMP');
-        });
-
-        Schema::create('structures', function(Blueprint $table) {
-            $table->id();
-            $table->integer('substance_id')->nullable();
-            $table->foreign('substance_id')->references('id')->on('substances')->onDelete('set null'); 
-            $table->string('smiles')->unique();
-            $table->double('ioninzation_ph_start')->nullable();
-            $table->double('ionization_ph_end')->nullable();
-            $table->timestamp('ionization_datetime')->nullable();
-            $table->timestamps();  
-        });
-
-        Schema::create('structure_ions', function (Blueprint $table) {
-            $table->id();
-            $table->integer('structure_id');
-            $table->foreign('structure_id')->references('id')->on('structures')->onDelete('cascade');
-            $table->string('smiles')->unique();
-            $table->tinyInteger('optimization_flag')->nullable(); 
-        });
-
-        Schema::create('enum_types', function (Blueprint $table)
-        {
-            $table->id();
-            $table->string('name', 255);
-            $table->string('content')->nullable();
             $table->tinyInteger('type');
+            $table->tinyInteger('state');
+            $table->json('config')->nullable();
+            $table->integer('file_id');
+            $table->foreign('file_id')->references('id')->on('files')->onDelete('restrict');
+            $table->integer('dataset_id');
+            $table->foreign('dataset_id')->references('id')->on('datasets')->onDelete('cascade');
+            $table->json('logs')->nullable();
+            $table->timestamps(); 
         });
 
-        Schema::create('enum_type_links', function (Blueprint $table) { 
-            $table->id();
-            $table->integer('enum_type_id');
-            $table->foreign('enum_type_id')->references('id')->on('enum_types')->onDelete('restrict');
-            $table->integer('enum_type_parent_id');
-            $table->foreign('enum_type_parent_id')->references('id')->on('enum_types')->onDelete('restrict');
-            $table->integer('enum_type_link_id')->nullable();
-            $table->foreign('enum_type_link_id')->references('id')->on('enum_type_links')->onDelete('restrict');
-            $table->string('data')->nullable();
-            $table->string('reg_exp', 255)->nullable();
-        });
 
-        Schema::create('fragments', function (Blueprint $table)
-        {
-            $table->id();
-            $table->string('smiles')->unique(); 
-        });
-
-        Schema::create('fragment_options', function (Blueprint $table){
-            $table->id();
-            $table->integer('parent_id');
-            $table->foreign('parent_id')->on('id')->references('fragments')->onDelete('cascade');
-            $table->integer('child_id');
-            $table->foreign('child_id')->on('id')->references('fragments')->onDelete('cascade');
-            $table->string('deletions', 20)->nullable();
-        });
-
-        Schema::create('fragment_enum_type', function (Blueprint $table) {
-            $table->integer('fragment_id');
-            $table->foreign('fragment_id')->on('id')->references('fragments')->onDelete('cascade');
-            $table->integer('enum_type_id');
-            $table->foreign('enum_type_id')->on('id')->references('enum_types')->onDelete('restrict');
-        });
-
-        Schema::create('fragment_structure', function (Blueprint $table) {
-            $table->integer('fragment_id');
-            $table->foreign('fragment_id')->on('id')->references('fragments')->onDelete('restrict');
-            $table->integer('structure_id');
-            $table->foreign('structure_id')->on('id')->references('structures')->onDelete('cascade');
-        });
-
-        
-        Schema::create('enum_type_link_membrane', function(Blueprint $table)
-        {
-            $table->integer('enum_type_link_id');
-            $table->foreign('enum_type_link_id')->on('id')->references('enum_type_links')->onDelete('restrict');
-            $table->integer('membrane_id');
-            $table->foreign('membrane_id')->on('id')->references('membranes')->onDelete('cascade');
-        });
-        
-        Schema::create('enum_type_link_method', function(Blueprint $table)
-        {
-            $table->integer('enum_type_link_id');
-            $table->foreign('enum_type_link_id')->on('id')->references('enum_type_links')->onDelete('restrict');
-            $table->integer('method_id');
-            $table->foreign('method_id')->on('id')->references('methods')->onDelete('cascade');
-        });
+       
     }
 
     /**
@@ -216,23 +122,13 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('enum_type_link_method');
-        Schema::dropIfExists('enum_type_link_membrane');
-        Schema::dropIfExists('fragment_structure');
-        Schema::dropIfExists('fragment_enum_type');
-        Schema::dropIfExists('fragment_options');
-        Schema::dropIfExists('fragments');
-        Schema::dropIfExists('enum_type_links');
-        Schema::dropIfExists('enum_types');
-        Schema::dropIfExists('structure_ions');
-        Schema::dropIfExists('structures');
-        Schema::dropIfExists('substance_identifier_changes');
-        Schema::dropIfExists('substance_identifier_dataset');
+        Schema::dropIfExists('upload_queue');
         Schema::dropIfExists('datasets');
-        // Schema::dropIfExists('upload_queue');
+        Schema::dropIfExists('dataset_groups');
+        Schema::dropIfExists('model_has_files');
         Schema::dropIfExists('files');
-        Schema::dropIfExists('substance_identifier_validations');
-        Schema::dropIfExists('substance_identifiers');
-        Schema::dropIfExists('substances');
+        Schema::dropIfExists('identifiers');
+        // Schema::dropIfExists('substances');
+        Schema::dropIfExists('structures');
     }
 };

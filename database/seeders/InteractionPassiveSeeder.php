@@ -12,6 +12,6 @@ class InteractionPassiveSeeder extends Seeder
      */
     public function run(): void
     {
-        //
+        \App\Models\InteractionPassive::factory(500)->create();
     }
 }

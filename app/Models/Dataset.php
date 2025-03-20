@@ -7,15 +7,55 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Dataset extends Model
 {
     /** @use HasFactory<\Database\Factories\DatasetFactory> */
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
-    /**
-     * Return assigned membrane
-     */
+    protected $guarded = [];
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::deleting(function (Dataset $dataset) {
+            // Delete related data
+            $dataset->interactionsActive()->delete();
+            $dataset->interactionsPassive()->delete();
+            $dataset->identifiers()->delete();
+        });
+
+        static::restoring(function (Dataset $dataset) {
+            // Restore related data
+            $dataset->interactionsActive()->restore();
+            $dataset->interactionsPassive()->restore();
+            $dataset->identifiers()->restore();
+        });
+
+        static::forceDeleting(function (Dataset $dataset) {
+            // Force-Delete related data
+            $dataset->publications()->detach();
+        });
+    }
+
+    const TYPE_PASSIVE = 1;
+    const TYPE_ACTIVE = 2;
+
+    private static $enum_types = [
+        self::TYPE_PASSIVE => 'Passive interactions',
+        self::TYPE_ACTIVE => 'Active interactions',
+    ];
+
+    public static function enumType(?int $type = null) : string|array|null
+    {
+        if($type)
+            return isset(self::$enum_types[$type]) ? self::$enum_types[$type] : null;
+        return self::$enum_types;
+    }
+
     public function membrane() : BelongsTo
     {
         return $this->belongsTo(Membrane::class);
@@ -32,17 +72,29 @@ class Dataset extends Model
     /**
      * Returns assigned publication
      */
-    public function publication() : BelongsTo
+    public function publications() : BelongsToMany
     {
-        return $this->belongsTo(Publication::class);
+        return $this->belongsToMany(Publication::class, 'model_has_publications', 'model_id', 'publication_id')
+            ->withPivot('model_type', 'model_id')
+            ->wherePivot('model_type', Dataset::class);
+    }
+
+    public function identifiers() : MorphMany
+    {
+        return $this->morphMany(Identifier::class, 'source');
+    }
+
+    public function group() : BelongsTo
+    {
+        return $this->belongsTo(DatasetGroup::class, 'dataset_group_id');
     }
 
     /**
      * Returns record author
      */
-    public function user() : BelongsTo
+    public function name() : ?string
     {
-        return $this->belongsTo(User::class);
+        return $this->name;
     }
 
     /**
@@ -50,7 +102,7 @@ class Dataset extends Model
      */
     public function substanceIdentifiers() : BelongsToMany
     {
-        return $this->belongsToMany(SubstanceIdentifier::class, 'substance_identifier_dataset');
+        return $this->belongsToMany(Identifier::class, 'substance_identifier_dataset');
     }
 
     /**
@@ -59,5 +111,19 @@ class Dataset extends Model
     public function interactionsPassive() : HasMany
     {
         return $this->hasMany(InteractionPassive::class);
+    }
+
+    public function interactionsActive() : HasMany
+    {
+        return $this->hasMany(InteractionActive::class);
+    }
+
+    public function isRestoreable() {
+        if(!$this?->id)
+        {
+            return false;
+        }
+
+        return $this->membrane && $this->method;
     }
 }

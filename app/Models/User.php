@@ -5,15 +5,20 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 
 use App\Enums\RoleEnums;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Models\Contracts\HasAvatar;
+use Filament\Models\Contracts\HasName;
+use Filament\Panel;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Notifications\Notification;
 use Spatie\Permission\Traits\HasRoles;
 
-class User extends Authenticatable implements MustVerifyEmail
+class User extends Authenticatable implements MustVerifyEmail, FilamentUser, HasName, HasAvatar
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable, SoftDeletes;
@@ -40,6 +45,23 @@ class User extends Authenticatable implements MustVerifyEmail
         'password',
         'remember_token',
     ];
+
+    public function canAccessPanel(Panel $panel): bool
+    {
+        return $this->hasRole(RoleEnums::ADMIN->value);
+    }
+
+    public function getFilamentName(): string
+    {
+        return $this->name;
+    }
+
+    public function getFilamentAvatarUrl(): ?string
+    {
+        if(!$this->name) return null;
+
+        return 'https://ui-avatars.com/api/?name=' . urlencode($this->name);
+    }
 
     /**
      * Get the attributes that should be cast.
@@ -74,5 +96,18 @@ class User extends Authenticatable implements MustVerifyEmail
  
         // Return email address and name...
         return [$this->email => $this->name];
+    }
+
+    /**
+     * Returns identifiers added by current user
+     */
+    public function identifiers() : MorphMany
+    {
+        return $this->morphMany(Identifier::class, 'source');
+    }
+
+    public function name() : ?string
+    {
+        return $this->name;
     }
 }

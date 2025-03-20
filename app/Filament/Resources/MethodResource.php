@@ -4,7 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Enums\IconEnums;
 use App\Filament\Resources\MethodResource\Pages;
-use App\Filament\Resources\MethodResource\RelationManagers;
+use App\Filament\Resources\SharedRelationManagers;
 use App\Models\Category;
 use App\Models\Method;
 use CodeWithDennis\FilamentSelectTree\SelectTree;
@@ -15,7 +15,6 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class MethodResource extends Resource
@@ -30,36 +29,44 @@ class MethodResource extends Resource
     public static function form(Form $form): Form
     {
         return $form
-        ->schema([
-            Fieldset::make('Assignment')
-                ->schema([
-                    Forms\Components\Select::make('type')
-                        ->label('Special type')
-                        ->disabled()
-                        ->options(Method::types())
-                        ->columnSpanFull(),
-                    SelectTree::make('category_id')
-                        ->relationship('category', 'title', 'parent_id', modifyQueryUsing: fn (Builder $query) => $query->where('type', Category::TYPE_METHOD))
-                        ->required()
-                        ->withCount()
-                        ->parentNullValue(-1)
-                        ->defaultOpenLevel(2)
-                        ->clearable(false)
-                        ->placeholder('Please, select method category')
-                        ->columnSpanFull(),
-                    Forms\Components\Hidden::make('user_id')
-                        ->default(auth()->user()->id),
-                ]),
-            Fieldset::make('Description')
-                ->schema([
-                    Forms\Components\TextInput::make('name')
-                        ->hint('Maximum 150 characters.')
-                        ->maxLength(150)
-                        ->required(),
-                    Forms\Components\RichEditor::make('description')
-                      ->columnSpanFull(),
-                ])
-        ]);
+            ->schema([
+                Fieldset::make('Assignment')
+                    ->schema([
+                        Forms\Components\Select::make('type')
+                            ->label('Special type')
+                            ->disabled()
+                            ->options(Method::types())
+                            ->columnSpanFull(),
+                        SelectTree::make('categories')
+                            ->relationship('categories', 'title', 'parent_id', modifyQueryUsing: fn (Builder $query) => $query->where('type', Category::TYPE_METHOD))
+                            ->required()
+                            ->pivotData(['model_type' => Method::class])
+                            ->withCount()
+                            ->parentNullValue(-1)
+                            ->defaultOpenLevel(2)
+                            ->clearable(false)
+                            ->placeholder('Please, select method category')
+                            ->columnSpanFull(),
+                    ]),
+                Fieldset::make('Description')
+                    ->schema([
+                        Forms\Components\TextInput::make('name')
+                            ->hint('Maximum 150 characters.')
+                            ->maxLength(150)
+                            ->required(),
+                        Forms\Components\TextInput::make('abbreviation')
+                            ->hint('Maximum 15 characters.')
+                            ->maxLength(15)
+                            ->minLength(2)
+                            ->rule('regex:/^[a-zA-Z0-9-_]+$/') 
+                            ->required(),
+                        Forms\Components\RichEditor::make('description')
+                            ->fileAttachmentsDirectory(self::$model::folder().'attachments')
+                            ->fileAttachmentsDisk('public')
+                            ->fileAttachmentsVisibility('public')
+                            ->columnSpanFull(),
+                    ])
+            ]);
     }
 
     public static function table(Table $table): Table
@@ -73,6 +80,12 @@ class MethodResource extends Resource
                     ->formatStateUsing(fn (string $state) : string => Method::enumType($state))
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->sortable(),
+                Tables\Columns\TextColumn::make('abbreviation')
+                    ->label('Abbrev.')
+                    ->badge()
+                    ->color(fn (Method $record) => $record->trashed() ? 'danger' : 'primary')
+                    ->sortable()
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('name')
                     ->sortable()
                     ->searchable(),
@@ -87,12 +100,6 @@ class MethodResource extends Resource
                     ->badge()
                     ->alignCenter()
                     ->searchable(),
-                Tables\Columns\TextColumn::make('user.name')
-                    ->label('Author')
-                    ->badge()
-                    ->alignCenter()
-                    ->color('danger')
-                    ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -105,26 +112,41 @@ class MethodResource extends Resource
             ->filters([
                 Tables\Filters\SelectFilter::make('type')
                     ->options(Method::types()),
-                Tables\Filters\SelectFilter::make('user_id')
-                    ->label('Author')
-                    ->relationship('user', 'name'),
+                Tables\Filters\TrashedFilter::make(),
+                
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\RestoreAction::make()
+                    ->modalHeading('Restore method?')
+                    ->modalDescription('Warning! All associated files, datasets and interactions will be also restored and be directly visible.')
+                    ->modalSubmitActionLabel('Understand. Restore')
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    // Tables\Actions\DeleteBulkAction::make(),
                 ]),
+            ]);
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->withoutGlobalScopes([
+                SoftDeletingScope::class,
             ]);
     }
 
     public static function getRelations(): array
     {
         return [
-            RelationManagers\PublicationsRelationManager::class,
-            RelationManagers\KeywordsRelationManager::class
+            SharedRelationManagers\PublicationsRelationManager::class,
+            SharedRelationManagers\KeywordsRelationManager::class,
+            SharedRelationManagers\FileRelationManager::class,
+            SharedRelationManagers\DatasetsRelationManager::class,
+            SharedRelationManagers\InteractionsPassiveRelationManager::class,
+            SharedRelationManagers\InteractionsActiveRelationManager::class
         ];
     }
 

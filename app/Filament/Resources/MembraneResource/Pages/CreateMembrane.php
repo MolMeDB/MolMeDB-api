@@ -10,9 +10,9 @@ class CreateMembrane extends CreateRecord
 {
     protected static string $resource = MembraneResource::class;
 
-    protected function mutateFormDataBeforeCreate(array $data): array
-    {
-        $data['user_id'] = auth()->id();
-        return $data;
-    }
+    // protected function mutateFormDataBeforeCreate(array $data): array
+    // {
+    //     $data['user_id'] = auth()->id();
+    //     return $data;
+    // }
 }

@@ -89,8 +89,8 @@ class MembranePolicy
     /**
      * Determine whether the user can permanently delete the model.
      */
-    public function forceDelete(User $user, Membrane $membrane): bool
+    public function forceDelete(User $user, Model $membrane): bool
     {
-        return false;
+        return true;
     }
 }

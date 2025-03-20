@@ -28,8 +28,6 @@ class MethodCategoryTree extends BasePage
             \Filament\Forms\Components\TextInput::make('title'),
             \Filament\Forms\Components\Hidden::make('type')
                 ->default(Category::TYPE_METHOD),
-            \Filament\Forms\Components\Hidden::make('user_id')
-                ->default(auth()->user()->id),
         ];
     }
 

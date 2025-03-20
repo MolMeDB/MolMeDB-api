@@ -45,17 +45,21 @@ class Category extends Model
     /**
      * Returns all assigned membranes to current category
      */
-    public function membranes() : HasMany
+    public function membranes() : BelongsToMany
     {
-        return $this->hasMany(Membrane::class);
+        return $this->belongsToMany(Membrane::class, 'model_has_categories', 'category_id', 'model_id')
+            ->withPivot('model_type', 'model_id')
+            ->wherePivot('model_type', Membrane::class);
     }
 
     /**
      * Returns all assigned methods to current category
      */
-    public function methods() : HasMany
+    public function methods() : BelongsToMany
     {
-        return $this->hasMany(Method::class);
+        return $this->belongsToMany(Method::class, 'model_has_categories', 'category_id', 'model_id')
+            ->withPivot('model_type', 'model_id')
+            ->wherePivot('model_type', Method::class);
     }
 
     /**

@@ -18,13 +18,12 @@ class MethodFactory extends Factory
      */
     public function definition(): array
     {
-        $user = User::all()->random();
         $types = array_keys(Method::types());
 
         return [
-            'user_id' => $user->id,
             'type' => $types[array_rand($types)],
             'name' => fake()->text(10),
+            'abbreviation' => fake()->text(5),
             'description' => fake()->text(256)
         ];
     }

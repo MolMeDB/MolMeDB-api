@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Enums\PermissionEnums;
 use App\Enums\RoleEnums;
+use App\Models\Author;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
@@ -50,11 +51,27 @@ class DatabaseSeeder extends Seeder
         }
 
         $this->call([
+            AuthorSeeder::class,
             PublicationSeeder::class,
             MembraneSeeder::class,
             MethodSeeder::class,
-            SubstanceSeeder::class,
-            SubstanceIdentifierSeeder::class
+            CategorySeeder::class,
+            StructureSeeder::class,
+            // SubstanceSeeder::class,
+            IdentifierSeeder::class,
+        ]);
+
+        // For each publication join random two authors
+        $publications = \App\Models\Publication::all();
+        foreach($publications as $publication) {
+            $publication->authors()->attach(Author::all()->random(2)->pluck('id'));
+        }
+
+        $this->call([
+            DatasetSeeder::class,
+            InteractionPassiveSeeder::class,
+            ProteinSeeder::class,
+            InteractionActiveSeeder::class
         ]);
     }
 }

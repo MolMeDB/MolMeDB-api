@@ -5,7 +5,6 @@ namespace App\Filament\Clusters\Categories\Resources\MembraneCategoryResource\Pa
 use App\Filament\Clusters\Categories\Resources\MembraneCategoryResource;
 use App\Models\Category;
 use Filament\Actions;
-use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 
 class EditMembraneCategory extends EditRecord

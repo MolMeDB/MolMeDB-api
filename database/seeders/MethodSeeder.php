@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Method;
 use App\Models\Publication;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -20,7 +21,9 @@ class MethodSeeder extends Seeder
 
         foreach($all as $method) {
             for($i = 1; $i < 3; $i++) {
-                $method->publications()->attach(Publication::all()->random()->id);
+                $method->publications()->attach(Publication::all()->random()->id, [
+                    'model_type' => Method::class
+                ]);
             }
         }
     }

@@ -16,6 +16,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\Auth;
 
 class UserResource extends Resource
 {
@@ -27,7 +28,7 @@ class UserResource extends Resource
 
     public static function form(Form $form): Form
     {
-        $is_disabled = (fn (User $record) => $record->id !== auth()->user()->id);
+        $is_disabled = (fn (User $record) => $record->id !== Auth::user()->id);
 
         return $form
             ->schema([

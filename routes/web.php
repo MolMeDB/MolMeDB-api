@@ -1,10 +1,12 @@
 <?php
 
+use App\Models\File;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Storage;
 
 Route::get('/', function () {
     return redirect()->route('login');
@@ -57,3 +59,14 @@ Route::post('/email/verification-notification', function (Request $r) {
     return back()->with('resent', 'Verification link sent ');
 })->middleware(['auth', 'throttle:6,1'])->name('verification.resend');
 
+
+Route::get('/download/public/{hash}', function (string $hash) {
+    $file = File::where('hash', $hash)->first();
+
+    if(!$file || !Storage::disk('public')->exists($file->path))
+    {
+        abort(404);
+    }
+
+    return response()->download(Storage::disk('public')->path($file->path), $file->downloadName());
+})->middleware('throttle:6,1')->withoutMiddleware('auth')->name('public.download');

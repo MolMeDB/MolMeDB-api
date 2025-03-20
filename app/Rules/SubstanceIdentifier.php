@@ -2,7 +2,6 @@
 
 namespace App\Rules;
 
-use App\Models\Substance;
 use Closure;
 use Filament\Notifications\Notification;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -30,12 +29,12 @@ class SubstanceIdentifier implements ValidationRule
         // If yes, return message with warning about future join
 
         // $fail('test');
-        Notification::make()
-            ->title('Error')
-            ->danger()
-            ->persistent()
-            ->body('Test')
-            ->send();
+        // Notification::make()
+        //     ->title('Error')
+        //     ->danger()
+        //     ->persistent()
+        //     ->body('Test')
+        //     ->send();
 
     }
 }

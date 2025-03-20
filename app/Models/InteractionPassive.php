@@ -5,37 +5,27 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class InteractionPassive extends Model
 {
+    protected $table = 'interactions_passive';
     /** @use HasFactory<\Database\Factories\InteractionPassiveFactory> */
-    use HasFactory;
+    use HasFactory, SoftDeletes;
+
+    protected $guarded = [];
 
     /**
      * Returns assigned substance
      */
-    public function substance() : BelongsTo{
-        return $this->belongsTo(Substance::class);
-    }
-
-    /**
-     * Returns assigned membrane
-     */
-    public function membrane() : BelongsTo{
-        return $this->belongsTo(Membrane::class);
-    }
-
-    /**
-     * Returns assigned method
-     */
-    public function method() : BelongsTo{
-        return $this->belongsTo(Method::class);
+    public function structure() : BelongsTo{
+        return $this->belongsTo(Structure::class);
     }
 
     /**
      * Returns assigned dataset
      */
-    public function dataset() : BelongsTo{
+    public function dataset() : BelongsTo {
         return $this->belongsTo(Dataset::class);
     }
 
@@ -45,11 +35,13 @@ class InteractionPassive extends Model
     public function publication() : BelongsTo{
         return $this->belongsTo(Publication::class);
     }
-    
-    /**
-     * Returns assigned structure ion
-     */
-    public function ion() : BelongsTo{
-        return $this->belongsTo(StructureIon::class);
+
+    public function isRestoreable() {
+        if(!$this?->id)
+        {
+            return false;
+        }
+
+        return $this->structure && $this->dataset && $this->publication;
     }
 }

@@ -18,11 +18,9 @@ class MembraneFactory extends Factory
      */
     public function definition(): array
     {
-        $user = User::all()->random();
         $types = array_keys(Membrane::types());
 
         return [
-            'user_id' => $user->id,
             'type' => $types[array_rand($types)],
             'name' => fake()->text(15),
             'abbreviation' => fake()->text(5),

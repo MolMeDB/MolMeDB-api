@@ -15,23 +15,35 @@ return new class extends Migration
             $table->id();
             $table->string('name', 150);
             $table->string('uniprot_id', 50);
-            $table->string('user_id')->nullable();
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('restrict');
             $table->timestamps(); 
+            $table->softDeletes();
         });
         
-        Schema::create('interaction_actives', function (Blueprint $table) {
+        Schema::create('interactions_active', function (Blueprint $table) {
             $table->id();
             $table->integer('dataset_id');
             $table->foreign('dataset_id')->references('id')->on('datasets')->onDelete('cascade');
-            $table->boolean('is_visible')->nullable();
-            $table->integer('substance_id');
-            $table->foreign('substance_id')->references('id')->on('substances')->onDelete('restrict');
-            $table->integer('structure_ion_id')->nullable();
-            $table->foreign('structure_ion_id')->references('id')->on('structure_ions')->onDelete('restrict');
+            $table->integer('structure_id');
+            $table->foreign('structure_id')->references('id')->on('structures')->onDelete('restrict');
             $table->integer('protein_id');
             $table->foreign('protein_id')->references('id')->on('proteins')->onDelete('restrict');
+            $table->integer('publication_id');
+            $table->foreign('publication_id')->references('id')->on('publications')->onDelete('restrict');
+            $table->tinyInteger('type');
+            $table->double('temperature')->nullable();
+            $table->double('ph')->nullable();
+            $table->string('charge', 40)->nullable();
+            $table->string('note', 255)->nullable();
+            $table->double('km')->nullable();
+            $table->double('km_accuracy')->nullable();
+            $table->double('ec50')->nullable();
+            $table->double('ec50_accuracy')->nullable();
+            $table->double('ki')->nullable();
+            $table->double('ki_accuracy')->nullable();
+            $table->double('ic50')->nullable();
+            $table->double('ic50_accuracy')->nullable();
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 
@@ -40,7 +52,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('interaction_actives');
+        Schema::dropIfExists('interactions_active');
         Schema::dropIfExists('proteins');
     }
 };
