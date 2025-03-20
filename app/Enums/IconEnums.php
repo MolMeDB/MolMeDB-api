@@ -28,6 +28,7 @@ enum IconEnums: string
     case RELOAD = 'heroicon-s-arrow-path';
     case RESTORE = 'heroicon-s-arrow-uturn-left';
     case ROLES = 'heroicon-o-tag';
+    case SETTINGS = 'heroicon-o-cog-8-tooth';
     case STATE_NEW = 'heroicon-o-lock-open';
     case STATE_VALIDATED = 'heroicon-o-lock-closed';
     case STATE_INVALID = 'heroicon-o-exclamation-triangle';

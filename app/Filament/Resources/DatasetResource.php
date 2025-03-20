@@ -24,7 +24,6 @@ class DatasetResource extends Resource
     protected static ?string $model = Dataset::class;
     protected static ?string $navigationIcon = IconEnums::DATASET->value;
     protected static ?string $navigationGroup = 'Data management';
-    protected static ?int $navigationSort = 1;
 
     public static function form(Form $form): Form
     {

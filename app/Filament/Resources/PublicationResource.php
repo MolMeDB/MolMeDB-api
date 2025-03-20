@@ -22,9 +22,6 @@ class PublicationResource extends Resource
 
     protected static ?string $navigationIcon = IconEnums::PUBLICATIONS->value;
     protected static ?string $navigationGroup = 'Data management';
-    protected static ?int $navigationSort = 3;
-
-
 
     public static function form(Form $form): Form
     {

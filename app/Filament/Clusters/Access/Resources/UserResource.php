@@ -3,11 +3,9 @@
 namespace App\Filament\Clusters\Access\Resources;
 
 use App\Enums\IconEnums;
-use App\Enums\RoleEnums;
-use App\Filament\Clusters\Access;
 use App\Filament\Clusters\Access\Resources\UserResource\Pages;
 use App\Filament\Clusters\Access\Resources\UserResource\RelationManagers;
-use App\Models\Role;
+use App\Filament\Clusters\Settings;
 use App\Models\User;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -21,10 +19,9 @@ use Illuminate\Support\Facades\Auth;
 class UserResource extends Resource
 {
     protected static ?string $model = User::class;
-
     protected static ?string $navigationIcon = IconEnums::USERS->value; 
-
-    protected static ?string $cluster = Access::class;
+    protected static ?string $cluster = Settings::class;
+    protected static ?string $navigationGroup = 'Access rules';
 
     public static function form(Form $form): Form
     {

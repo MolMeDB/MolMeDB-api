@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Enums\IconEnums;
 use App\Filament\Resources\SharedRelationManagers;
 use App\Filament\Resources\StructureResource\Pages;
 use App\Filament\Resources\StructureResource\RelationManagers;
@@ -19,9 +20,8 @@ class StructureResource extends Resource
 {
     protected static ?string $model = Structure::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = IconEnums::STRUCTURE->value;
     protected static ?string $navigationGroup = 'Data management';
-    protected static ?int $navigationSort = 2;
 
 
     public static function form(Form $form): Form

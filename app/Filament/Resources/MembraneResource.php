@@ -22,7 +22,6 @@ class MembraneResource extends Resource
     protected static ?string $model = Membrane::class;
     protected static ?string $navigationIcon = IconEnums::MEMBRANE->value;
     protected static ?string $navigationGroup = 'Data management';
-    protected static ?int $navigationSort = 2;
 
     public static function form(Form $form): Form
     {

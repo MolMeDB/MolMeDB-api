@@ -25,6 +25,8 @@ class InteractionPassiveResource extends Resource
     protected static ?string $model = InteractionPassive::class;
     protected static ?string $navigationIcon = IconEnums::INTERACTIONS->value;
     protected static ?string $label = "Passive interaction";
+    protected static ?string $navigationLabel = "Passive";
+    protected static ?string $navigationGroup = 'Interactions';
 
     public static function form(Form $form): Form
     {

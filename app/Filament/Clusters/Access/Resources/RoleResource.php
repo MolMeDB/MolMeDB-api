@@ -4,25 +4,22 @@ namespace App\Filament\Clusters\Access\Resources;
 
 use App\Enums\IconEnums;
 use App\Enums\RoleEnums;
-use App\Filament\Clusters\Access;
 use App\Filament\Clusters\Access\Resources\RoleResource\Pages;
 use App\Filament\Clusters\Access\Resources\RoleResource\RelationManagers;
+use App\Filament\Clusters\Settings;
 use App\Models\Role;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class RoleResource extends Resource
 {
     protected static ?string $model = Role::class;
-
     protected static ?string $navigationIcon = IconEnums::ROLES->value;
-
-    protected static ?string $cluster = Access::class;
+    protected static ?string $cluster = Settings::class;
+    protected static ?string $navigationGroup = 'Access rules';
 
     public static function form(Form $form): Form
     {
