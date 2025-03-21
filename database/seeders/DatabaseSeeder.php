@@ -20,37 +20,8 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $admin = User::factory()->create([
-            'name' => 'Administrator',
-            'email' => 'admin@molmedb.cz',
-            'password' => Hash::make('admin')
-        ]);
-
-        // Create default roles
-        $default_roles = [
-            RoleEnums::ADMIN->value,
-            RoleEnums::MANAGER->value,
-            RoleEnums::EDITOR->value,
-            RoleEnums::VIEWER->value,
-        ];
-
-        foreach($default_roles as $default_role) {
-            Role::create(['name' => $default_role, 'guard_name' => 'web']);
-        }
-
-        $admin_role = Role::where('name', RoleEnums::ADMIN->value)->first();
-        $admin->assignRole($admin_role);
-
-        // Get all permission from PermissionEnum
-        $permissions = PermissionEnums::cases();
-
-        foreach($permissions as $permission) {
-            $p = Permission::create(['name' => $permission->value, 'description' => $permission->description(), 'guard_name' => 'web']);
-            // Assign to admin role
-            $p->assignRole($admin_role);
-        }
-
         $this->call([
+            UserAdminSeeder::class,
             AuthorSeeder::class,
             PublicationSeeder::class,
             MembraneSeeder::class,
