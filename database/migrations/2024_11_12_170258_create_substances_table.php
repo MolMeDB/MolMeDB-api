@@ -54,6 +54,8 @@ return new class extends Migration
             $table->string('name', 30)->nullable();
             $table->string('path')->nullable();
             $table->string('hash', 32);
+            $table->integer('user_id')->nullable();
+            $table->foreign('user_id')->references('id')->on('users')->restrictOnDelete();
             $table->timestamps();
             $table->softDeletes();
         });
