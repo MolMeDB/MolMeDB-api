@@ -15,8 +15,9 @@ return new class extends Migration
             $table->id();
             $table->integer('parent_id')->nullable()->default(-1);
             $table->integer('order')->default(0)->index();
-            $table->string('title', 256);
-            $table->integer('type');
+            $table->string('title', 255);
+            $table->text('content')->nullable();
+            $table->tinyInteger('type');
             $table->timestamps();
         });
 
@@ -25,7 +26,7 @@ return new class extends Migration
             $table->integer('category_id');
             $table->foreign('category_id')->references('id')->on('categories')->onDelete('cascade');
             $table->integer('model_id');
-            $table->string('model_type', 256); 
+            $table->string('model_type', 255); 
             $table->index(['model_id', 'model_type'], 'model_has_categories_model_id_index');
         });
     }

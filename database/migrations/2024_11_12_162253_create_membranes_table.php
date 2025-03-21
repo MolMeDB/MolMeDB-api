@@ -16,7 +16,7 @@ return new class extends Migration
             $table->tinyInteger('type')->nullable();
             $table->string('name', 150);
             $table->string('abbreviation', 30);
-            $table->string('description')->nullable();
+            $table->text('description')->nullable();
             $table->timestamps();
             $table->softDeletes();
         });
@@ -34,7 +34,7 @@ return new class extends Migration
             $table->string('doi', 128)->nullable();
             $table->string('pmid', 50)->nullable();
             $table->string('title', 512)->nullable();
-            $table->string('journal', 256)->nullable();
+            $table->string('journal', 255)->nullable();
             $table->string('volume',50)->nullable();
             $table->string('issue',50)->nullable();
             $table->string('page',50)->nullable();
@@ -55,14 +55,14 @@ return new class extends Migration
             $table->integer('publication_id');
             $table->foreign('publication_id')->references('id')->on('publications')->onDelete('restrict');
             $table->integer('model_id');
-            $table->string('model_type', 256);
+            $table->string('model_type', 255);
             $table->index(['model_id', 'model_type'], 'model_has_publications_model_id_index');
         });
 
         Schema::create('keywords', function (Blueprint $table)  {
             $table->id();
             $table->integer('model_id');
-            $table->string('model_type', 256);
+            $table->string('model_type', 255);
             $table->index(['model_id', 'model_type'], 'model_has_keywords_model_id_index');
             $table->string('value', 80);
             $table->index('value');

@@ -32,15 +32,6 @@ return new class extends Migration
             $table->softDeletesDatetime();
         });
 
-        // Schema::create('substances', function (Blueprint $table) {
-        //     $table->id();
-        //     $table->string('identifier', 20)->nullable();
-        //     $table->unique('identifier');
-        //     $table->integer('structure_id')->nullable(); 
-        //     $table->foreign('structure_id')->references('id')->on('structures')->onDelete('restrict');
-        //     $table->timestamps();
-        // });
-
         Schema::create('identifiers', function (Blueprint $table) {
             $table->bigIncrements('id');
             $table->bigInteger('structure_id');
@@ -49,7 +40,7 @@ return new class extends Migration
             $table->tinyInteger('type');
             $table->tinyInteger('state');
             $table->bigInteger('source_id')->nullable();
-            $table->string('source_type', 256)->nullable();
+            $table->string('source_type', 255)->nullable();
             $table->json('logs')->nullable();
             $table->timestamps();
             $table->softDeletes();
@@ -70,7 +61,7 @@ return new class extends Migration
         Schema::create('model_has_files', function (Blueprint $table) {
             $table->integer('file_id');
             $table->integer('model_id');
-            $table->string('model_type', 256);
+            $table->string('model_type', 255);
             $table->index(['model_id', 'model_type'], 'model_has_files_model_id_index');
             $table->foreign('file_id')
                 ->references('id')
@@ -88,7 +79,7 @@ return new class extends Migration
         Schema::create('datasets', function(Blueprint $table) {
             $table->id();
             $table->tinyInteger('type');
-            $table->string('name', 256);
+            $table->string('name', 255);
             $table->text('comment')->nullable();
             $table->integer('membrane_id')->nullable();
             $table->foreign('membrane_id')->references('id')->on('membranes')->onDelete('restrict');
@@ -128,7 +119,6 @@ return new class extends Migration
         Schema::dropIfExists('model_has_files');
         Schema::dropIfExists('files');
         Schema::dropIfExists('identifiers');
-        // Schema::dropIfExists('substances');
         Schema::dropIfExists('structures');
     }
 };
