@@ -1,74 +1,104 @@
 services:
   web:
     image: nginx:alpine
-    container_name: molmedb-web-server
+    container_name: molmedb-nginx
     restart: unless-stopped
     volumes:
-     - mmdb-storage-production:/var/www
+     - ./:/var/www
+     - molmedb-storage-production:/var/www/storage
      - ./docker/production/nginx/nginx.conf:/etc/nginx/nginx.conf
     tty: true
     ports:
-      - "9080:80"
       - "8443:443"
     networks:
-      - mmdb-network
+      - molmedb-network
     depends_on:
       - app
         # condition: service_healthy 
 
   app:
-    image: molmedb-app
+    image: molmedb-backend
+    user: "www-data"
     build:
       context: .
       dockerfile: ./docker/common/php-fpm/Dockerfile
       target: production
     restart: unless-stopped
-    container_name: molmedb-app
+    container_name: molmedb-backend
     volumes:
       - ./:/var/www
-      - mmdb-storage-production:/var/www/storage  
+      - molmedb-storage-production:/var/www/storage
+      - /var/www/bootstrap
     env_file:
       - .env
+    environment:
+      # - APP_ENV=production
+      # - APP_DEBUG=false
+      - FRONTEND_URL=http://frontend:3000 
     networks:
-      - mmdb-network
+      - molmedb-network
     # healthcheck: // TODO
     #   test: ["CMD-SHELL", "php-fpm-healthcheck || exit 1"]
     #   interval: 10s
     #   timeout: 5s
     #   retries: 3
     depends_on:
-      postgres:
+      db:
         condition: service_healthy
 
   app-scheduler-worker:
-    image: molmedb-app 
+    image: molmedb-backend 
     container_name: molmedb-scheduler-worker
     tty: true
+    env_file:
+      - .env
     environment:
-      SERVICE_NAME: molmedb-scheduler-worker
-      SERVICE_TAGS: dev
+      - SERVICE_TAGS=dev
+      - SERVICE_NAME=molmedb-scheduler-worker
     working_dir: /var/www
     volumes:
       - ./:/var/www
+      - /var/www/bootstrap
     networks:
-      - mmdb-network
+      - molmedb-network
     depends_on:
       - app
     command: php artisan schedule:work
     restart: unless-stopped 
 
-  postgres:
+  # frontend:
+  #   container_name: molmedb-frontend
+  #   build:
+  #     context: ./frontend/src
+  #     dockerfile: ../../docker/production/frontend/Dockerfile
+  #   restart: unless-stopped
+  #   networks:
+  #     - molmedb-network
+  #   env_file:
+  #     - .env
+  #   environment:
+  #     #if you???re using Windows, you may need to uncomment the next line - Sol from @Kobe E
+  #     # - WATCHPACK_POLLING=true
+  #     - NEXT_PUBLIC_BACKEND_URL=http://web:443
+  #     - NODE_ENV=production
+  #   ports:
+  #     - 3000:3000
+  #   depends_on:
+  #     - app
+
+
+  db:
     build: ./modules/bingo
     platform: linux/amd64
     privileged: true
-    container_name: molmedb-db
+    container_name: molmedb-dev-db
     env_file: ./.env
     environment:
       POSTGRES_DB: ${DB_DATABASE}
       POSTGRES_USER: ${DB_USERNAME}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
-      - "5432:5432"
+      - "5433:5432"
     shm_size: '8gb'
     healthcheck:
       test: [ "CMD", "pg_isready", "-U", "${DB_USERNAME}", "-d", "${DB_DATABASE}" ]
@@ -76,9 +106,10 @@ services:
       timeout: 5s
       retries: 5
     volumes:
-      - mmdb-db:/var/lib/postgresql/data
+      - molmedb-db:/var/lib/postgresql/data
     networks:
-      - mmdb-network
+      - molmedb-network
+
   adminer:
     image: adminer
     container_name: molmedb-adminer
@@ -86,30 +117,17 @@ services:
     ports: 
       - "8080:8080"
     depends_on:
-      - postgres
+      - db
     networks:
-      - mmdb-network
+      - molmedb-network
 
-  # Currently not used by app
-  # redis:
-  #   image: redis:alpine
-  #   restart: unless-stopped  # Automatically restart unless the service is explicitly stopped
-  #   networks:
-  #     - laravel-production
-  #   # Health check for Redis
-  #   # -----------------------------------------------------------
-  #   # Checks if Redis is responding to the 'PING' command.
-  #   # This ensures that the service is not only running but also operational.
-  #   # -----------------------------------------------------------
-  #   healthcheck:
-  #     test: ["CMD", "redis-cli", "ping"]
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 3
-
-networks:
-  mmdb-network:
+  
 
 volumes:
-  mmdb-storage-production:
-  mmdb-db:
+  molmedb-storage-production:
+  molmedb-db:
+
+networks:
+  molmedb-network:
+
+

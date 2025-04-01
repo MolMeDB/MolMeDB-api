@@ -57,6 +57,7 @@ RUN apt-get update && apt-get install -y \
     libicu-dev \
     libzip-dev \
     libfcgi-bin \
+    nano \
     procps 
     
 RUN apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
@@ -85,20 +86,21 @@ COPY --from=builder /usr/local/bin/docker-php-ext-* /usr/local/bin/
 # security in a live environment.
 # -----------------------------------------------------------
 RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
-RUN echo "extension=php_pgsql.so" >> "$PHP_INI_DIR/php.ini"
+RUN echo "extension=pdo_pgsql.so" >> "$PHP_INI_DIR/php.ini"
 
 # Enable PHP-FPM status page by modifying zz-docker.conf with sed
 RUN sed -i '/\[www\]/a pm.status_path = /status' /usr/local/etc/php-fpm.d/zz-docker.conf
 
 # Copy existing application directory permissions
-COPY --from=builder /var/www /var/www
+COPY --from=builder --chown=www-data:www-data /var/www /var/www
 WORKDIR /var/www
-RUN chown -R www-data:www-data /var/www
-USER www-data
 
 RUN mkdir -p storage/logs \
     && chown -R www-data:www-data storage \
-    && chmod -R 775 storage 
+    && chmod -R 775 storage \
+    && chmod -R 775 bootstrap 
+
+USER www-data
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
