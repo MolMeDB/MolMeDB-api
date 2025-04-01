@@ -22,7 +22,30 @@ class File extends Model
 
     protected $guarded = [];
 
-    const TYPE_COSMO_MEMBRANE = 1;
+    /** SPECIAL TYPES OF FILES FOR EASY FINDING */
+    const TYPE_STATS_INTERACTIONS_ALL = 1;
+    const TYPE_STATS_ACTIVE_PASSIVE = 2;
+    const TYPE_STATS_IDENTIFIERS = 3;
+    const TYPE_STATS_SUBST_INTERACTIONS = 4;
+
+    /** RDF SPECIAL FILES */
+    const TYPE_RDF_VOCABULARY = 100;
+    const TYPE_EXAMPLE_ENERGY = 51;
+
+    /** UPLOAD FILES */
+    const TYPE_UPLOAD_PASSIVE  = 20;
+    const TYPE_UPLOAD_ACTIVE   = 21;
+    const TYPE_UPLOAD_ENERGY   = 22;
+
+    /** SCHEDULER REPORTS */
+    const TYPE_SCHEDULER_REPORT = 30;
+    const TYPE_SCHEDULER_DEL_EMPTY_SUBSTANCES = 31;
+    const TYPE_SCHEDULER_CHECK_PASSIVE_DATASETS = 32;
+
+    /** MEMBRANE SPECIAL FILES */
+    const TYPE_COSMO_MEMBRANE = 41;
+
+    /** IMAGE FILES */
     const TYPE_IMAGE = 2;
 
     private static $enumTypes = [

@@ -250,6 +250,11 @@ class Identifier extends Model
         return $this->morphTo();
     }
 
+    public function children() : MorphMany
+    {
+        return $this->morphMany(Identifier::class, 'source');
+    }
+
     public function childIdentifiers() : MorphMany
     {
         return $this->morphMany(self::class, 'source');

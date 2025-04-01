@@ -36,7 +36,7 @@ return new class extends Migration
             $table->bigIncrements('id');
             $table->bigInteger('structure_id');
             $table->foreign('structure_id')->references('id')->on('structures')->onDelete('cascade');
-            $table->string('value', 64)->index();
+            $table->string('value', 255)->index();
             $table->tinyInteger('type');
             $table->tinyInteger('state');
             $table->bigInteger('source_id')->nullable();
@@ -50,10 +50,11 @@ return new class extends Migration
             $table->id();
             $table->tinyInteger('type');
             $table->string('mime', 30)->nullable();
+            $table->text('comment')->nullable();
             $table->binary('content')->nullable();
-            $table->string('name', 30)->nullable();
+            $table->string('name', 100)->nullable();
             $table->string('path')->nullable();
-            $table->string('hash', 32);
+            $table->string('hash', 32)->unique()->nullable();
             $table->integer('user_id')->nullable();
             $table->foreign('user_id')->references('id')->on('users')->restrictOnDelete();
             $table->timestamps();
@@ -102,6 +103,8 @@ return new class extends Migration
             $table->foreign('file_id')->references('id')->on('files')->onDelete('restrict');
             $table->integer('dataset_id');
             $table->foreign('dataset_id')->references('id')->on('datasets')->onDelete('cascade');
+            $table->integer('user_id')->nullable();
+            $table->foreign('user_id')->references('id')->on('users')->restrictOnDelete();
             $table->json('logs')->nullable();
             $table->timestamps(); 
         });

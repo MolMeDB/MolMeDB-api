@@ -42,6 +42,7 @@ class InteractionsPassiveRelationManager extends RelationManager
         if ($ownerRecord::class == Dataset::class) {
             return match($ownerRecord->type) {
                 Dataset::TYPE_PASSIVE => parent::canViewForRecord($ownerRecord, $pageClass),
+                Dataset::TYPE_PASSIVE_INTERNAL_COSMO => parent::canViewForRecord($ownerRecord, $pageClass),
                 default => false
             };
         }

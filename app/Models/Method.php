@@ -94,6 +94,29 @@ class Method extends Model
             ->wherePivot('model_type', self::class);
     }
 
+    public static function selectOptionsGrouped($include_trashed = false)
+    {
+        $lastLevelGroups = Category::where('type', Category::TYPE_METHOD)->without('children')->get();
+        $groups = array();
+        foreach($lastLevelGroups as $group)
+        {
+            if(!$group->methods->count())
+                continue;
+
+            $groups[$group->getTitleHierarchy()] = $include_trashed ? 
+                $group->methods()
+                    ->withTrashed()
+                    ->get(['methods.id', 'methods.name', 'deleted_at'])
+                    ->mapWithKeys(function($method) {
+                        $name = $method->deleted_at ? "(DELETED) {$method->name}" : $method->name;
+                        return [$method->id => $name];
+                    })
+                    ->toArray() : 
+                $group->methods->pluck('name', 'id')->toArray();
+        }
+        return $groups;
+    }
+
     /**
      * References link
      */

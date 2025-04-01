@@ -33,7 +33,7 @@ class EditMembrane extends EditRecord
     public function getTitle(): string
     {
         return ($this->record->trashed() ? '(DELETED) ' : "") .  
-            "Edit membrane [ID:" . $this->record->id . "] - " . $this->record->name;
+            "Edit membrane [ID:" . $this->record->id . "] - " . $this->record->abbreviation;
     }
 
     public function hasCombinedRelationManagerTabsWithContent(): bool

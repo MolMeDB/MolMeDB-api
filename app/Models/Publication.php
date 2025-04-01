@@ -9,11 +9,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class Publication extends Model
 {
     /** @use HasFactory<\Database\Factories\PublicationFactory> */
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, LogsActivity;
 
     protected $guarded = [];
 
@@ -119,5 +121,13 @@ class Publication extends Model
     public function authors() : BelongsToMany
     {
         return $this->belongsToMany(Author::class, 'publication_has_authors');
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logAll()
+            ->dontLogIfAttributesChangedOnly(['updated_at'])
+            ->logOnlyDirty();
     }
 }

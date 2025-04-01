@@ -102,6 +102,29 @@ class Membrane extends Model
             ->wherePivot('model_type', Membrane::class);
     }
 
+    public static function selectOptionsGrouped($include_trashed = false)
+    {
+        $lastLevelGroups = Category::where('type', Category::TYPE_MEMBRANE)->without('children')->get();
+        $groups = array();
+        foreach($lastLevelGroups as $group)
+        {
+            if(!$group->membranes->count())
+                continue;
+
+            $groups[$group->getTitleHierarchy()] = $include_trashed ? 
+                $group->membranes()
+                    ->withTrashed()
+                    ->get(['membranes.id', 'membranes.name', 'deleted_at'])
+                    ->mapWithKeys(function($membrane) {
+                        $name = $membrane->deleted_at ? "(DELETED) {$membrane->name}" : $membrane->name;
+                        return [$membrane->id => $name];
+                    })
+                    ->toArray() : 
+                $group->membranes->pluck('name', 'id')->toArray();
+        }
+        return $groups;
+    }
+
     /**
      * Returns all assigned passive interactions
      */

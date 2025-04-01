@@ -20,11 +20,23 @@ class Category extends Model
         'parent_id' => 'int'
     ];
 
-    /**
-     * TYPES
-     */
     const TYPE_MEMBRANE = 1;
     const TYPE_METHOD = 2;
+    const TYPE_PROTEIN = 3;
+
+    private static $enumTypes = array
+    (
+        self::TYPE_MEMBRANE => 'Membrane',
+        self::TYPE_METHOD => 'Method',
+        self::TYPE_PROTEIN => 'Protein'
+    );
+
+    public static function enumType($type) : string | null | array
+    {
+        if($type === null)
+            return self::$enumTypes;
+        return isset(self::$enumTypes[$type]) ? self::$enumTypes[$type] : null;
+    }
 
     /**
      * Returns parent category
@@ -76,5 +88,28 @@ class Category extends Model
     public function hasChildren() : bool
     {
         return $this->children()->count() > 0;
+    }
+
+    /**
+     * Returns categories hierarchy
+     * 
+     * @return array
+     */
+    public function getTitleHierarchy() : string | null
+    {
+        $result = '';
+        $record = $this;
+
+        if(!$record?->id)
+            return null;
+
+        $result = $record->title;
+
+        while($record->parent)
+        {
+            $result = $record->parent->title . ' » ' . $result;
+            $record = $record->parent;
+        }
+        return $result;
     }
 }

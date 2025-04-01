@@ -43,10 +43,12 @@ class Dataset extends Model
 
     const TYPE_PASSIVE = 1;
     const TYPE_ACTIVE = 2;
+    const TYPE_PASSIVE_INTERNAL_COSMO = 3;
 
     private static $enum_types = [
         self::TYPE_PASSIVE => 'Passive interactions',
         self::TYPE_ACTIVE => 'Active interactions',
+        self::TYPE_PASSIVE_INTERNAL_COSMO => 'Internal cosmo interactions'
     ];
 
     public static function enumType(?int $type = null) : string|array|null

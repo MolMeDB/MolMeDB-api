@@ -73,7 +73,11 @@ class FileRelationManager extends RelationManager
                             ->label('File type')
                             ->required()
                             ->reactive()
-                            ->options(File::enumTypes(FileRestrictionType::METHOD)),
+                            ->options(fn() => match($this->getOwnerRecord()::class) {
+                                Method::class => File::enumTypes(FileRestrictionType::METHOD),
+                                Membrane::class => File::enumTypes(FileRestrictionType::MEMBRANE),
+                                default => File::enumTypes()
+                            }),
                         Forms\Components\TextInput::make('name')
                             ->label('Alternative name')
                             ->hint(fn(Get $get) => $get('type') == File::TYPE_COSMO_MEMBRANE ? 'Not available for structure files' : 'If set, will be used instead of file name when downloaded. Max 30 characters.')
@@ -114,8 +118,9 @@ class FileRelationManager extends RelationManager
                     ->label('Download')
                     ->color('success')
                     ->icon(IconEnums::DOWNLOAD->value)
+                    ->disabled(fn (File $record) => !$record->hash)
                     ->openUrlInNewTab()
-                    ->url(fn (File $record) => route('public.download', ['hash' => $record->hash])),
+                    ->url(fn (File $record) => $record->hash ? route('public.download', ['hash' => $record->hash]) : null),
                 Tables\Actions\DeleteAction::make()
                     ->successNotificationTitle('File deleted'),
             ])

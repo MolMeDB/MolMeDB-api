@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Enums\IconEnums;
 use App\Filament\Resources\DatasetResource\Pages;
 use App\Filament\Resources\SharedRelationManagers;
+use App\Models\Category;
 use App\Models\Dataset;
 use App\Models\Membrane;
 use App\Models\Method;
@@ -26,7 +27,7 @@ class DatasetResource extends Resource
     protected static ?string $navigationGroup = 'Data management';
 
     public static function form(Form $form): Form
-    {
+    {   
         return $form
             ->schema([
                 Forms\Components\Section::make('Basic assignment')
@@ -39,10 +40,8 @@ class DatasetResource extends Resource
                     Forms\Components\Select::make('dataset_group_id')
                         ->relationship('group', 'name'),
                     Forms\Components\Select::make('method_id')
-                        ->relationship('method', 'name', fn ($query, $record) => $record->trashed() ? $query->withTrashed() : $query)
-                        ->getOptionLabelFromRecordUsing(fn(Method $record) => "$record->name" . (
-                            $record->trashed() ? ' (DELETED)' : ''
-                        ))
+                        ->options(fn(Dataset $record) => Method::selectOptionsGrouped($record->trashed()))
+                        ->hidden(fn (Dataset $record) => $record->type == Dataset::TYPE_ACTIVE)
                         ->suffixAction(Components\Actions\Action::make('show_method')
                             ->icon(IconEnums::VIEW->value)
                             ->url(fn (Get $get) => $get('method_id') ? MethodResource::getUrl('edit', ['record' => Method::withTrashed()->find($get('method_id'))]) : null)
@@ -51,10 +50,8 @@ class DatasetResource extends Resource
                         ->reactive()
                         ->required(),
                     Forms\Components\Select::make('membrane_id')
-                        ->relationship('membrane', 'name', fn ($query, $record) => $record->trashed() ? $query->withTrashed() : $query)
-                        ->getOptionLabelFromRecordUsing(fn(Membrane $record) => "$record->name" . (
-                            $record->trashed() ? ' (DELETED)' : ''
-                        ))
+                        ->options(fn(Dataset $record) => Membrane::selectOptionsGrouped($record->trashed()))
+                        ->hidden(fn (Dataset $record) => $record->type == Dataset::TYPE_ACTIVE)
                         ->suffixAction(Components\Actions\Action::make('show_membrane')
                             ->icon(IconEnums::VIEW->value)
                             ->url(fn (Get $get) => $get('membrane_id') ? MembraneResource::getUrl('edit', ['record' => Membrane::withTrashed()->find($get('membrane_id'))]) : null)
@@ -87,7 +84,7 @@ class DatasetResource extends Resource
                     ->tooltip(fn(Dataset $record) => $record->trashed() ? 'Deleted record' : null)
                     ->toggleable(isToggledHiddenByDefault: false),
                 Tables\Columns\TextColumn::make('type')
-                    ->formatStateUsing(fn (string $state) : string => Dataset::enumType($state))
+                    ->formatStateUsing(fn (string $state) : string => $state ? Dataset::enumType($state) : "Unknown")
                     ->badge()
                     ->color(fn ($state) => match ($state) {
                         Dataset::TYPE_ACTIVE => 'success',
@@ -106,30 +103,30 @@ class DatasetResource extends Resource
                     ->wrap()
                     ->searchable()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('method.name')
+                Tables\Columns\TextColumn::make('method.abbreviation')
                     ->label('Method')
-                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->toggleable(isToggledHiddenByDefault: false)
                     ->sortable(),
-                Tables\Columns\TextColumn::make('membrane.name')
+                Tables\Columns\TextColumn::make('membrane.abbreviation')
                     ->label('Membrane')
-                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->toggleable(isToggledHiddenByDefault: false)
                     ->sortable(),
                 Tables\Columns\TextColumn::make('comment')
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->wrap()
                     ->searchable()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('interactions_count')
-                    ->label('# interactions')
-                    ->badge()
-                    ->color(fn (Dataset $dataset) => $dataset->trashed() ? 'danger' : 'primary')
-                    ->tooltip(fn (Dataset $dataset) => $dataset->trashed() ? 'All assigned interaction will be restored with dataset in case.' : '')
-                    ->alignCenter()
-                    ->getStateUsing(fn (Dataset $record) => match($record->type) {
-                        Dataset::TYPE_ACTIVE => $record->interactionsActive()->withTrashed()->count(),
-                        Dataset::TYPE_PASSIVE => $record->interactionsPassive()->withTrashed()->count(),
-                        default => "N/A"
-                    })
+                // Tables\Columns\TextColumn::make('interactions_count')
+                //     ->label('# interactions')
+                //     ->badge()
+                //     ->color(fn (Dataset $dataset) => $dataset->trashed() ? 'danger' : 'primary')
+                //     ->tooltip(fn (Dataset $dataset) => $dataset->trashed() ? 'All assigned interaction will be restored with dataset in case.' : '')
+                //     ->alignCenter()
+                //     ->getStateUsing(fn (Dataset $record) => match($record->type) {
+                //         Dataset::TYPE_ACTIVE => $record->interactionsActive()->withTrashed()->count(),
+                //         Dataset::TYPE_PASSIVE => $record->interactionsPassive()->withTrashed()->count(),
+                //         default => "N/A"
+                //     })
                 
             ])
             ->filters([

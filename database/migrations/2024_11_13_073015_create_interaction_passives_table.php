@@ -36,6 +36,32 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
         });
+
+        Schema::create('fluorescent_properties', function (Blueprint $table) {
+            $table->id();
+            $table->integer('dataset_id');
+            $table->foreign('dataset_id')->references('id')->on('datasets')->onDelete('cascade');
+            $table->integer('structure_id');
+            $table->foreign('structure_id')->references('id')->on('structures')->onDelete('restrict');
+            $table->integer('publication_id')->nullable();
+            $table->foreign('publication_id')->references('id')->on('publications')->onDelete('restrict');
+            $table->double('temperature')->nullable();
+            $table->double('ph')->nullable();
+            $table->string('charge', 40)->nullable();
+            $table->string('note', 255)->nullable();
+            $table->float('theta')->nullable();
+            $table->float('theta_accuracy')->nullable();
+            $table->float('abs_wl')->nullable();
+            $table->float('abs_wl_accuracy')->nullable();
+            $table->float('fluo_wl')->nullable();
+            $table->float('fluo_wl_accuracy')->nullable();
+            $table->float('qy')->nullable();
+            $table->float('qy_accuracy')->nullable();
+            $table->float('lt')->nullable();
+            $table->float('lt_accuracy')->nullable();
+            $table->timestamps();
+            $table->softDeletes();
+        });
     }
 
     /**
@@ -43,6 +69,7 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::dropIfExists('fluorescent_properties');
         Schema::dropIfExists('interactions_passive');
     }
 };

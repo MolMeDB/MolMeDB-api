@@ -16,6 +16,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Str;
 
 class MembraneResource extends Resource
 {
@@ -87,10 +88,8 @@ class MembraneResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('name')
                     ->sortable()
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('description')
-                    ->wrap()
-                    ->lineClamp(2)
+                    ->label('Name and description')
+                    ->description(fn(Membrane $record) => Str::limit(strip_tags($record->description), 90))
                     ->searchable(),
                 Tables\Columns\TextColumn::make('keywords.value')
                     ->label('Keywords')
@@ -100,11 +99,11 @@ class MembraneResource extends Resource
                     ->alignCenter()
                     ->searchable(),
                 Tables\Columns\TextColumn::make('created_at')
-                    ->dateTime()
+                    ->date()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('updated_at')
-                    ->dateTime()
+                    ->date()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
