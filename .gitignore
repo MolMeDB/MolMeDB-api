@@ -6,7 +6,7 @@
 /storage/*.key
 /storage/pail
 /vendor
-.docker-compose.yaml
+docker-compose.yaml
 .env
 .env.backup
 .env.production
