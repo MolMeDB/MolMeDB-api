@@ -58,7 +58,8 @@ class FileRelationManager extends RelationManager
                         return $record->user?->name;
                     }),
                 Tables\Columns\TextColumn::make('created_at')
-                    ->date()
+                    ->since()
+                    ->dateTimeTooltip()
                     ->sortable(),
             ])
             ->filters([

@@ -99,11 +99,13 @@ class MembraneResource extends Resource
                     ->alignCenter()
                     ->searchable(),
                 Tables\Columns\TextColumn::make('created_at')
-                    ->date()
+                    ->since()
+                    ->dateTimeTooltip()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('updated_at')
-                    ->date()
+                    ->since()
+                    ->dateTimeTooltip()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])

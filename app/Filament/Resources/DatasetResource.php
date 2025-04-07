@@ -116,6 +116,16 @@ class DatasetResource extends Resource
                     ->wrap()
                     ->searchable()
                     ->sortable(),
+                Tables\Columns\TextColumn::make('created_at')
+                    ->since()
+                    ->dateTimeTooltip()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('updated_at')
+                    ->since()
+                    ->dateTimeTooltip()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 // Tables\Columns\TextColumn::make('interactions_count')
                 //     ->label('# interactions')
                 //     ->badge()

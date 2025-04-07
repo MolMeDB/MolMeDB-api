@@ -226,6 +226,16 @@ class InteractionActiveResource extends Resource
                     ->tooltip(fn (Model $record) => $record->ic50_accuracy ? "+/- $record->ic50_accuracy" : null)
                     ->color(fn(Model $record) => $record->ic50_accuracy ? 'warning' : null)
                     ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('created_at')
+                    ->since()
+                    ->dateTimeTooltip()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('updated_at')
+                    ->since()
+                    ->dateTimeTooltip()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 Tables\Filters\TrashedFilter::make()

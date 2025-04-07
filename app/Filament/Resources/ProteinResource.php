@@ -53,7 +53,17 @@ class ProteinResource extends Resource
                     ->label('Total interactions')
                     ->alignCenter()
                     ->badge()
-                    ->color('primary')
+                    ->color('primary'),
+                Tables\Columns\TextColumn::make('created_at')
+                    ->since()
+                    ->dateTimeTooltip()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('updated_at')
+                    ->since()
+                    ->dateTimeTooltip()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 //

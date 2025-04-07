@@ -113,7 +113,17 @@ class IdentifiersRelationManager extends RelationManager
                         strval(Identifier::STATE_VALIDATED) => 'Validated',
                         strval(Identifier::STATE_INVALID) => 'Invalid identifier',
                         default => 'Unknown state',
-                    })
+                    }),
+                Tables\Columns\TextColumn::make('created_at')
+                    ->since()
+                    ->dateTimeTooltip()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('updated_at')
+                    ->since()
+                    ->dateTimeTooltip()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 Tables\Filters\TrashedFilter::make()

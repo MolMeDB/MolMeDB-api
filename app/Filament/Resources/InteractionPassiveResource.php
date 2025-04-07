@@ -215,6 +215,16 @@ class InteractionPassiveResource extends Resource
                     ->tooltip(fn (Model $record) => $record->logperm_accuracy ? "+/- $record->logperm_accuracy" : null)
                     ->color(fn(Model $record) => $record->logperm_accuracy ? 'warning' : null)
                     ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('created_at')
+                    ->since()
+                    ->dateTimeTooltip()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('updated_at')
+                    ->since()
+                    ->dateTimeTooltip()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 Tables\Filters\TrashedFilter::make()
