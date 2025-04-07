@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Enums\IconEnums;
 use App\Filament\Resources\ProteinResource\Pages;
+use App\Filament\Resources\ProteinResource\RelationManagers\IdentifiersRelationManager;
 use App\Filament\Resources\SharedRelationManagers;
 use App\Models\Protein;
 use Filament\Forms\Form;
@@ -32,11 +33,6 @@ class ProteinResource extends Resource
                             ->maxLength(50)
                             ->hint('Maximum 50 characters.')
                             ->hintColor('danger'),
-                        Components\TextInput::make('name')
-                            ->required()
-                            ->maxLength(150)
-                            ->hint('Maximum 150 characters.')
-                            ->hintColor('danger')
                     ])
             ]);
     }
@@ -50,10 +46,6 @@ class ProteinResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('uniprot_id')
                     ->label('Uniprot ID')
-                    ->searchable()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('name')
-                    ->label('Name')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('interactionsActive_count')
@@ -88,7 +80,8 @@ class ProteinResource extends Resource
     public static function getRelations(): array
     {
         return [
-            SharedRelationManagers\InteractionsActiveRelationManager::class
+            SharedRelationManagers\InteractionsActiveRelationManager::class,
+            IdentifiersRelationManager::class
         ];
     }
 

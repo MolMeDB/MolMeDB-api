@@ -40,4 +40,8 @@ class Protein extends Model
     {
         return $this->hasMany(InteractionActive::class);
     }
+
+    public function identifiers() : HasMany {
+        return $this->hasMany(ProteinIdentifier::class);
+    }
 }
