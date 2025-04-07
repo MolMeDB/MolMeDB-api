@@ -11,6 +11,7 @@ use App\Models\InteractionActive;
 use App\Models\Protein;
 use App\Models\Publication;
 use App\Models\Structure;
+use BaconQrCode\Encoder\MaskUtil;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
@@ -110,6 +111,8 @@ class InteractionActiveResource extends Resource
                             ->numeric()
                             ->minValue(0)
                             ->maxValue(14)
+                            ->formatStateUsing(fn ($state) => number_format($state, 1, '.', ''))
+                            ->mutateDehydratedStateUsing(fn ($state) => round((float) $state, 1))
                             ->label('pH'),
                         Forms\Components\TextInput::make('charge')
                             ->label('Charge (Q)')

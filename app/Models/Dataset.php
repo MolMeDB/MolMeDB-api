@@ -139,6 +139,8 @@ class Dataset extends Model
     public function getAuthorNameAttribute()
     {
         return $this->activityLogs()
+            ->where('event', 'created')
+            ->where('causer_type', User::class)
             ->orderby('created_at', 'asc')
             ->first()
             ?->causer?->name;
