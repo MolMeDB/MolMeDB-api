@@ -29,7 +29,7 @@ class PublicationResource extends Resource
             ->schema([
                 Fieldset::make('Citation')
                     ->schema([
-                        Forms\Components\TextArea::make('citation')
+                        Forms\Components\Textarea::make('citation')
                             ->maxLength(1024)
                             ->hint('Maximum 1024 characters.')
                             ->hintColor('warning')
