@@ -14,12 +14,13 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\Auth;
 
 class RolesRelationManager extends RelationManager
 {
     protected static string $relationship = 'roles';
-    protected static ?string $navigationIcon = IconEnums::ROLES->value;
-    protected static ?string $title = 'Assigned access roles';
+    protected static ?string $icon = IconEnums::ROLES->value;
+    protected static ?string $title = 'Access roles';
 
     public function form(Form $form): Form
     {
@@ -45,18 +46,18 @@ class RolesRelationManager extends RelationManager
                 Tables\Actions\AttachAction::make()
                     ->preloadRecordSelect()
                     ->recordSelectOptionsQuery(function (Builder $query) {
-                        if(auth()->user()->hasRole(RoleEnums::ADMIN))
+                        if(Auth::user()->hasRole(RoleEnums::ADMIN))
                             return $query;
                         else // If not admin, cannot assign admin role to anyone
                             return $query->where('name', '!=', RoleEnums::ADMIN->value);
                     })
                     ->color('primary')
-                    ->visible(fn ($record): bool => RolePolicy::attach(auth()->user()))
+                    ->visible(fn ($record): bool => RolePolicy::attach(Auth::user()))
             ])
             ->actions([
                 Tables\Actions\DetachAction::make()
-                    ->visible(fn ($record): bool => $this->ownerRecord->id !== auth()->user()->id && // Cannot detach own roles.
-                        RolePolicy::attach(auth()->user())) 
+                    ->visible(fn ($record): bool => $this->ownerRecord->id !== Auth::user()->id && // Cannot detach own roles.
+                        RolePolicy::attach(Auth::user())) 
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

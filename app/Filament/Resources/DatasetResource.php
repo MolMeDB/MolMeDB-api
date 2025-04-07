@@ -3,12 +3,14 @@
 namespace App\Filament\Resources;
 
 use App\Enums\IconEnums;
+use App\Enums\PermissionEnums;
 use App\Filament\Resources\DatasetResource\Pages;
 use App\Filament\Resources\SharedRelationManagers;
 use App\Models\Category;
 use App\Models\Dataset;
 use App\Models\Membrane;
 use App\Models\Method;
+use App\Models\User;
 use Filament\Forms;
 use Filament\Forms\Components;
 use Filament\Forms\Components\Component;
@@ -76,7 +78,10 @@ class DatasetResource extends Resource
 
     public static function table(Table $table): Table
     {
+        // dd(Dataset::find(38)->author?->name);
+
         return $table
+            ->query(fn () => Dataset::query()->with(['activityLogs.causer']))
             ->columns([
                 Tables\Columns\TextColumn::make('id')
                     ->sortable()
@@ -116,6 +121,9 @@ class DatasetResource extends Resource
                     ->wrap()
                     ->searchable()
                     ->sortable(),
+                Tables\Columns\TextColumn::make('author_name')
+                    ->label('Author')
+                    ->badge(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->since()
                     ->dateTimeTooltip()
@@ -154,6 +162,18 @@ class DatasetResource extends Resource
                     ->multiple()
                     ->searchable()
                     ->preload(),
+                Tables\Filters\SelectFilter::make('author')
+                ->label('Author')
+                // ->options(User::permission(PermissionEnums::DATASET_EDIT->value)->pluck('name', 'id')->toArray())
+                ->options(User::pluck('name', 'id')->toArray())
+                ->modifyQueryUsing(function ($query, $state) {
+                    if (array_key_exists('value', $state) && is_numeric($state['value'])) {
+                        $query->whereHas('activityLogs', function ($q) use ($state) {
+                            $q->where('causer_id', $state)
+                                ->where('causer_type', User::class);
+                        });
+                    }
+                }),
                 Tables\Filters\TrashedFilter::make()
             ])
             ->actions([

@@ -83,7 +83,7 @@ class PublicationResource extends Resource
                 Tables\Columns\TextColumn::make('citation')
                     ->wrap()
                     ->searchable(),
-                Tables\Columns\TextColumn::make('authors.name')
+                Tables\Columns\TextColumn::make('author.name')
                     ->limitList(3)
                     ->expandableLimitedList()
                     ->listWithLineBreaks(),

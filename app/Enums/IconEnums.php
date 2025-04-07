@@ -19,6 +19,7 @@ enum IconEnums: string
     case IDENTIFIERS = 'heroicon-s-italic';
     case INTERACTIONS = 'heroicon-s-arrows-up-down';
     case KEYWORDS = 'heroicon-s-hashtag';
+    case LOGS = 'heroicon-s-numbered-list';
     case METHOD = 'heroicon-o-beaker';
     case MEMBRANE = 'heroicon-o-circle-stack';
     case NEWTAB = 'heroicon-o-arrow-top-right-on-square';

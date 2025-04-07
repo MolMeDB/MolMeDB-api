@@ -8,7 +8,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Spatie\Activitylog\Models\Activity;
 
 class Dataset extends Model
 {
@@ -127,5 +129,18 @@ class Dataset extends Model
         }
 
         return $this->membrane && $this->method;
+    }
+
+    public function activityLogs(): MorphMany
+    {
+        return $this->morphMany(Activity::class, 'subject');
+    }
+
+    public function getAuthorNameAttribute()
+    {
+        return $this->activityLogs()
+            ->orderby('created_at', 'asc')
+            ->first()
+            ?->causer?->name;
     }
 }

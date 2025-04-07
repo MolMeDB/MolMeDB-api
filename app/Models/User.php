@@ -11,18 +11,20 @@ use Filament\Models\Contracts\HasName;
 use Filament\Panel;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Notifications\Notification;
+use Spatie\Activitylog\Traits\CausesActivity;
 use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable implements MustVerifyEmail, FilamentUser, HasName, HasAvatar
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable, SoftDeletes;
-    use HasRoles;
+    use HasRoles, CausesActivity;
 
     /**
      * The attributes that are mass assignable.
@@ -109,5 +111,10 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser, Has
     public function name() : ?string
     {
         return $this->name;
+    }
+
+    public function logs() : MorphMany
+    {
+        return $this->actions();
     }
 }
