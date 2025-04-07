@@ -87,8 +87,8 @@ class InteractionPassiveResource extends Resource
                             ->numeric()
                             ->minValue(0)
                             ->maxValue(14)
-                            ->formatStateUsing(fn ($state) => number_format($state, 1, '.', ''))
-                            ->mutateDehydratedStateUsing(fn ($state) => round((float) $state, 1))
+                            ->formatStateUsing(fn ($state) => $state === null ? null : number_format($state, 1, '.', ''))
+                            ->mutateDehydratedStateUsing(fn ($state) => $state === null ? null : round((float) $state, 1))
                             ->label('pH'),
                         Forms\Components\TextInput::make('charge')
                             ->label('Charge (Q)')
