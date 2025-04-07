@@ -23,12 +23,14 @@ class Category extends Model
     const TYPE_MEMBRANE = 1;
     const TYPE_METHOD = 2;
     const TYPE_PROTEIN = 3;
+    const TYPE_ACTIVE_INTERACTION = 4;
 
     private static $enumTypes = array
     (
         self::TYPE_MEMBRANE => 'Membrane',
         self::TYPE_METHOD => 'Method',
-        self::TYPE_PROTEIN => 'Protein'
+        self::TYPE_PROTEIN => 'Protein',
+        self::TYPE_ACTIVE_INTERACTION => 'Active Interaction'
     );
 
     public static function enumType($type) : string | null | array
@@ -74,12 +76,19 @@ class Category extends Model
             ->wherePivot('model_type', Method::class);
     }
 
+    public function interactionsActive() : HasMany
+    {
+        return $this->hasMany(InteractionActive::class);
+    }
+
     /**
      * Checks, if category can be deleted
      */
     public function isDeletable() : bool
     {
-        return $this->membranes()->count() === 0 && $this->methods()->count() === 0;
+        return $this->membranes()->count() === 0 && 
+            $this->methods()->count() === 0 && 
+            $this->interactionsActive()->count() === 0;
     }
 
     /**

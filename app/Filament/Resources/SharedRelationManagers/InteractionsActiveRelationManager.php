@@ -5,6 +5,7 @@ namespace App\Filament\Resources\SharedRelationManagers;
 use App\Enums\IconEnums;
 use App\Filament\Resources\InteractionActiveResource;
 use App\Filament\Resources\StructureResource;
+use App\Models\Category;
 use App\Models\Dataset;
 use App\Models\InteractionActive;
 use App\Models\Membrane;
@@ -30,7 +31,7 @@ class InteractionsActiveRelationManager extends RelationManager
 
     private function getTableDescriptions() : string
     {
-        $deletedParent = $this->ownerRecord->trashed();
+        $deletedParent = method_exists($this->ownerRecord, 'trashed') && $this->ownerRecord->trashed();
         return match($this->ownerRecord::class){
             Structure::class => 'Active interactions assigned to the structure.',
             Dataset::class => 'Active interactions originating from the dataset.',
@@ -38,6 +39,7 @@ class InteractionsActiveRelationManager extends RelationManager
             Method::class => $deletedParent ? 'Warning! Interactions labeled as "deleted" are hidden. Restore this record to see all assigned interaction.' : 'Active interactions assigned to the method.',
             Membrane::class => $deletedParent ? 'Warning! Interactions labeled as "deleted" are hidden. Restore this record to see all assigned interaction.' : 'Active interactions assigned to the membrane.',
             Publication::class => 'Interactions with current record as PRIMARY reference.',
+            Category::class => 'Interactions of this type/category.',
             default => '' 
         };
     }
@@ -55,7 +57,7 @@ class InteractionsActiveRelationManager extends RelationManager
 
     public function table(Table $table): Table
     {
-        static $isParentTrashed = $this->ownerRecord->trashed();
+        static $isParentTrashed = method_exists($this->ownerRecord, 'trashed') && $this->ownerRecord->trashed();
 
         return InteractionActiveResource::table($table)
             ->description($this->getTableDescriptions())

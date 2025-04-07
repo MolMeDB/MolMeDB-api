@@ -80,8 +80,8 @@ class ProteinResource extends Resource
     public static function getRelations(): array
     {
         return [
+            IdentifiersRelationManager::class,
             SharedRelationManagers\InteractionsActiveRelationManager::class,
-            IdentifiersRelationManager::class
         ];
     }
 

@@ -1,33 +1,28 @@
 <?php
 
-namespace App\Filament\Clusters\Categories\Resources\MethodCategoryResource\Pages;
+namespace App\Filament\Clusters\Categories\Resources\InteractionActiveCategoryResource\Pages;
 
 use App\Enums\IconEnums;
-use App\Filament\Clusters\Categories;
-use App\Filament\Clusters\Categories\Resources\MethodCategoryResource;
+use App\Filament\Clusters\Categories\Resources\InteractionActiveCategoryResource;
 use App\Models\Category;
-use Filament\Pages\Actions\CreateAction;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Model;
 use SolutionForest\FilamentTree\Actions;
 use SolutionForest\FilamentTree\Actions\DeleteAction;
-use SolutionForest\FilamentTree\Concern;
 use SolutionForest\FilamentTree\Resources\Pages\TreePage as BasePage;
-use SolutionForest\FilamentTree\Support\Utils;
 
-class MethodCategoryTree extends BasePage
+class InteractionActiveCategoryTree extends BasePage
 {
-    protected static string $resource = MethodCategoryResource::class;
+    protected static string $resource = InteractionActiveCategoryResource::class;
     // protected static ?string $cluster = Categories::class;
 
-    protected static int $maxDepth = 2;
+    protected static int $maxDepth = 1;
 
     protected function getFormSchema(): array
     {
         return [
             \Filament\Forms\Components\TextInput::make('title'),
             \Filament\Forms\Components\Hidden::make('type')
-                ->default(Category::TYPE_METHOD),
+                ->default(Category::TYPE_ACTIVE_INTERACTION),
         ];
     }
 
@@ -36,7 +31,7 @@ class MethodCategoryTree extends BasePage
      */
     public function getTitle(): string
     {
-        return 'Manage method categories';
+        return 'Manage active interactions categories';
     }
 
     /**
@@ -44,7 +39,7 @@ class MethodCategoryTree extends BasePage
      */
     public function getBreadcrumb(): ?string
     {
-        return 'Method';
+        return 'Active interactions';
     }
 
     /**
@@ -57,8 +52,8 @@ class MethodCategoryTree extends BasePage
         }
         $title = $record->title;
         $parent = $record->parent?->title;
-        $total_methods = $record->methods()->count();
-        return ($parent ? "{$parent} >> " : '') . "{$title}" . ($parent || $total_methods ? " (# Methods: {$total_methods})"  : '');
+        $total_methods = $record->interactionsActive()->count();
+        return ($parent ? "{$parent} >> " : '') . "{$title}" . ($parent || $total_methods ? " (# Interactions: {$total_methods})"  : '');
     }
 
     /**
@@ -66,7 +61,7 @@ class MethodCategoryTree extends BasePage
      */
     public function getTreeQuery() : Builder
     {
-        return Category::query()->where('type', Category::TYPE_METHOD);
+        return Category::query()->where('type', Category::TYPE_ACTIVE_INTERACTION);
     }
 
     /**
@@ -96,17 +91,17 @@ class MethodCategoryTree extends BasePage
             Actions\EditAction::make()
                 ->tooltip('Change category name'),
             Actions\ViewAction::make()
-                ->icon(IconEnums::METHOD->value)
+                ->icon(IconEnums::INTERACTIONS->value)
                 ->color('warning')
-                ->tooltip('Manage assigned methods')
+                ->tooltip('Manage assigned interactions')
                 ->visible(fn (Category $record) => static::getResource()::canEdit($record))
                 ->modal(false)
                 ->url(function (Category $record) {
-                    return static::getResource()::getUrl('edit_record', ['record' => $record]);
+                    return static::getResource()::getUrl('edit', ['record' => $record]);
                 }),
             Actions\DeleteAction::make()
                 ->tooltip('Delete category')
-                ->before(fn (DeleteAction $action, Category $record) => MethodCategoryResource::checkIfDeletable($action, $record)),
+                ->before(fn (DeleteAction $action, Category $record) => InteractionActiveCategoryResource::checkIfDeletable($action, $record)),
         ];
     }
 

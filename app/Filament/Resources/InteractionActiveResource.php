@@ -3,8 +3,10 @@
 namespace App\Filament\Resources;
 
 use App\Enums\IconEnums;
+use App\Filament\Clusters\Categories\Resources\InteractionActiveCategoryResource;
 use App\Filament\Resources\InteractionActiveResource\Pages;
 use App\Filament\Resources\InteractionActiveResource\RelationManagers;
+use App\Models\Category;
 use App\Models\InteractionActive;
 use App\Models\Protein;
 use App\Models\Publication;
@@ -68,9 +70,15 @@ class InteractionActiveResource extends Resource
                             ->reactive()
                             ->searchable()
                             ->required(),
-                        Forms\Components\Select::make('type')
-                            ->label('Type')
-                            ->options(InteractionActive::enumType())
+                        Forms\Components\Select::make('category_id')
+                            ->label('Category')
+                            ->options(InteractionActive::enumCategories())
+                            ->suffixAction(fn (Get $get) => Forms\Components\Actions\Action::make('manage_category')
+                                ->url(fn () => InteractionActiveCategoryResource::getUrl('categoryTree'))
+                                ->icon(IconEnums::EDIT->value)
+                                ->color('warning')
+                                ->tooltip('Manage categories')
+                                ->openUrlInNewTab())
                             ->required(),
                         Forms\Components\Select::make('publication_id')
                             ->relationship('publication', 'citation', fn ($query, $record) => $record->trashed() ? $query->withTrashed() : $query)
@@ -160,14 +168,13 @@ class InteractionActiveResource extends Resource
                     ->sortable()
                     ->label('Protein')
                     ->color('primary'),
-                Tables\Columns\TextColumn::make('type')
+                Tables\Columns\TextColumn::make('category.title')
                     ->sortable()
                     ->badge()
-                    ->label('Type')
+                    ->label('Category')
                     ->color('success')
-                    ->formatStateUsing(fn (Model $record) : string => InteractionActive::enumType($record->type))
-                    ->alignCenter(),
-                    // ->toggleable(isToggledHiddenByDefault: true),
+                    ->alignCenter()
+                    ->toggleable(isToggledHiddenByDefault: false),
                 Tables\Columns\TextColumn::make('publication_id')
                     ->sortable()
                     ->label('Prim. reference')

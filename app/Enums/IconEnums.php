@@ -12,6 +12,7 @@ enum IconEnums: string
     case DATASET = 'heroicon-o-archive-box';
     case DELETE = 'heroicon-o-trash';
     case DOWNLOAD = 'heroicon-s-arrow-down-tray';
+    case EDIT = 'heroicon-s-pencil-square';
     case FILES = 'heroicon-o-document';
     case FILE_DOCUMENT = 'heroicon-s-document-text';
     case FILE_IMAGE = 'heroicon-s-photo';
