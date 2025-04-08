@@ -12,6 +12,7 @@ docker-compose.yaml
 .env.production
 .phpactor.json
 .phpunit.result.cache
+.bash_history
 **.sql
 Homestead.json
 Homestead.yaml
