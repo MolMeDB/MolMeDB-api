@@ -88,7 +88,7 @@ services:
 
 
   db:
-    build: ./modules/bingo
+    build: ./database/extensions/bingo
     platform: linux/amd64
     privileged: true
     container_name: molmedb-dev-db
