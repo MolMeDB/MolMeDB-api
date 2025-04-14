@@ -61,6 +61,7 @@ class InteractionsActiveRelationManager extends RelationManager
 
         return InteractionActiveResource::table($table)
             ->description($this->getTableDescriptions())
+            ->query(null)
             ->filters([
                 Tables\Filters\TrashedFilter::make()
                     ->default($isParentTrashed ? 1 : null),

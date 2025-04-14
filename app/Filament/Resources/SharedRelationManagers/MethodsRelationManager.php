@@ -27,6 +27,7 @@ class MethodsRelationManager extends RelationManager
 
         return MethodResource::table($table)
             ->description($this->getTableDescriptions())
+            ->query(null)
             ->filters([
                 Tables\Filters\TrashedFilter::make()
                     ->default($isParentTrashed ? 1 : null),

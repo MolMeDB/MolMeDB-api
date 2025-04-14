@@ -68,6 +68,7 @@ class IdentifiersRelationManager extends RelationManager
         return $table
             ->recordTitleAttribute('value')
             ->description(fn() : ?string => $this->getDescription())
+            ->query(null)
             ->columns([
                 Tables\Columns\TextColumn::make('id')
                     ->color(fn(Identifier $record) => $record->trashed() ? 'danger' : null)

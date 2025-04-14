@@ -35,6 +35,7 @@ class FileRelationManager extends RelationManager
     {
         return $table
             ->recordTitleAttribute('name')
+            ->query(null)
             ->emptyStateHeading('No assigned files')
             ->emptyStateDescription($this->getEmptyStateDescription())
             ->emptyStateIcon(IconEnums::MEMBRANE->value)

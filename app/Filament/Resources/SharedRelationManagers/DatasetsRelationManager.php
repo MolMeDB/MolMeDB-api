@@ -11,6 +11,7 @@ use Filament\Forms\Form;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class DatasetsRelationManager extends RelationManager
 {
@@ -28,6 +29,7 @@ class DatasetsRelationManager extends RelationManager
 
         return DatasetResource::table($table)
             ->description($this->getTableDescriptions())
+            ->query(null)
             ->filters([
                 Tables\Filters\SelectFilter::make('type')
                     ->options(Dataset::enumType()),

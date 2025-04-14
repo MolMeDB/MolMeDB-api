@@ -53,6 +53,7 @@ class PublicationsRelationManager extends RelationManager
     {
         return PublicationResource::table($table)
             ->description($this->getDescription())
+            ->query(null)
             ->headerActions([
                 Tables\Actions\CreateAction::make()
                     ->label('Add new publication')
