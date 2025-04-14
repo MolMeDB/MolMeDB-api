@@ -13,18 +13,18 @@ use Modules\EuropePMC\Models\Record;
 
 class EuropePMC
 {
-    private $path = 'modules/EuropePMC/';
-    
     protected string $baseUrl = '';
 
     public function __construct()
     {
-        if (file_exists($this->path . './.env')) {
-            $dotenv = Dotenv::createImmutable($this->path);
+        if (file_exists( __DIR__ . '/.env')) {
+            $dotenv = Dotenv::createImmutable(__DIR__);
             $dotenv->load();
         }
 
-        $this->baseUrl = env('EUROPE_PMC_ENDPOINT');
+        $this->baseUrl = env('EUROPE_PMC_ENDPOINT', '');
+
+        if(!$this->baseUrl) throw new Exception("Europe PMC endpoint is not set. Check your .env file.");
     }
 
 
@@ -32,10 +32,13 @@ class EuropePMC
         return $this->baseUrl;
     }
 
+    public function connected() {
+        return $this->search('molmedb', page: 1, pageSize: 1) !== null;
+    }
+
     /**
      * Returns list of EuropePMC articles matching the query
      * 
-     * @return Record[]
      */
     public function search(
         string $query, 
@@ -85,12 +88,16 @@ class EuropePMC
 
     /**
      * Returns detail of article
+     * 
+     * @return Record|null
      */
     public function detail(
-        string $id,
-        Sources $source
-    )
+        ?string $id,
+        ?Sources $source
+    ) : ?Record
     {
+        if(!$id || !$source) return null;
+
         try
         {
             $response = Http::timeout(10)

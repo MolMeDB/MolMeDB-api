@@ -40,6 +40,11 @@ class Category extends Model
         return isset(self::$enumTypes[$type]) ? self::$enumTypes[$type] : null;
     }
 
+    public static function types() : array
+    {
+        return self::$enumTypes;
+    }
+
     /**
      * Returns parent category
      */

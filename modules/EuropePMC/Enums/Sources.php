@@ -22,6 +22,21 @@ enum Sources: string
         return self::cases();
     }
 
+    public static function toSelect() : array {
+        return [
+            self::AGR->value => self::AGR->definition(),
+            self::CBA->value => self::CBA->definition(),
+            self::CTX->value => self::CTX->definition(),
+            self::ETH->value => self::ETH->definition(),
+            self::HIR->value => self::HIR->definition(),
+            self::MED->value => self::MED->definition(),
+            self::NBK->value => self::NBK->definition(),
+            self::PAT->value => self::PAT->definition(),
+            self::PMC->value => self::PMC->definition(),
+            self::EUROPEPMC->value => self::EUROPEPMC->definition(),
+        ];
+    }
+
     public function definition() : string {
         switch ($this) {
             case self::AGR:

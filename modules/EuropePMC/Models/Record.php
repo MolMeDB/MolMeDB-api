@@ -68,6 +68,17 @@ class Record {
         return $data ?? $default;
     }
 
+    public function citation() 
+    {
+        return "$this->authorString: $this->title " .
+            $this->journal?->title . ', ' .
+            ($this->journal?->volume ? 'Volume ' . $this->journal->volume . (
+                $this->journal?->issue ? ' (' . $this->journal->issue . ')' : ''
+            ) : '') . ', ' . 
+            ($this->pageInfo ? $this->pageInfo . ', ' : '') . 
+            $this->journal?->yearOfPublication;
+    }
+
     public static function from(array $data) 
     {
         return new self(

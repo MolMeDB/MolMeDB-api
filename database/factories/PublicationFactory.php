@@ -2,8 +2,8 @@
 
 namespace Database\Factories;
 
-use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Modules\EuropePMC\Enums\Sources;
 
 /**
  * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Publication>
@@ -23,13 +23,15 @@ class PublicationFactory extends Factory
             'type' => $types[array_rand($types)],
             'citation' => fake()->text(256),
             'doi' => fake()->text(50),
-            'pmid' => fake()->text(5),
+            'identifier' => fake()->text(5),
+            'identifier_source' => Sources::MED->value,
             'title' => fake()->text(50),
             'journal' => fake()->text(10),
             'volume' => fake()->text(5),
             'issue' => fake()->text(5),
             'page' => random_int(1,1000),
-            'publicated_date' => fake()->date(),
+            'published_at' => fake()->date(),
+            'validated_at' => fake()->date(),
         ];
     }
 }

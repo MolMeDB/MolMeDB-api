@@ -17,8 +17,11 @@ class AuthorFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => fake()->name(),
-            'email' => fake()->email()
+            'first_name' => fake()->firstName(),
+            'last_name' => fake()->lastName(),
+            'full_name' => fake()->name(),
+            'email' => fake()->email(),
+            'affiliation' => fake()->company(),
         ];
     }
 }
