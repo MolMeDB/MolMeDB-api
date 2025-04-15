@@ -12,8 +12,8 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withCommands([
-        __DIR__.'/../modules/EuropePMC/Console/Commands', // TODO: Not working
-        Modules\EuropePMC\Console\Commands\ValidatePublications::class
+        __DIR__.'/../modules/References/EuropePMC/Console/Commands', // TODO: Not working
+        Modules\References\EuropePMC\Console\Commands\ValidatePublications::class
     ])
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->trustProxies(at: '*');

@@ -1,7 +1,7 @@
 <?php 
-namespace Modules\EuropePMC\Models;
+namespace Modules\References\Models;
 
-use Modules\EuropePMC\Enums\Sources;
+use Modules\References\EuropePMC\Enums\Sources;
 
 class Record {
     public function __construct(
@@ -70,7 +70,9 @@ class Record {
 
     public function citation() 
     {
-        return "$this->authorString: $this->title " .
+        $authors = $this->getAuthorString();
+
+        return "$authors: $this->title. " .
             $this->journal?->title . ', ' .
             ($this->journal?->volume ? 'Volume ' . $this->journal->volume . (
                 $this->journal?->issue ? ' (' . $this->journal->issue . ')' : ''
@@ -79,7 +81,61 @@ class Record {
             $this->journal?->yearOfPublication;
     }
 
-    public static function from(array $data) 
+    public function getAuthorString() {
+        if($this->authorString) return $this->authorString;
+
+        return implode(', ', array_map(fn($author) => $author->getFullName(), $this->authors));
+    }
+
+    public static function fromCrossRefResponse(array $data) : Record
+    {
+        $title = self::getValue($data, 'title');
+        $issn = self::getValue($data, 'ISSN');
+        $published = self::getValue($data, 'published.date-parts') ?? self::getValue($data, 'published-online.date-parts') ?? [];
+        $published = count($published) ? $published[0] : [];
+        $journalName = self::getValue($data, 'container-title') ?? [];
+
+        return new self(
+            null,
+            null,
+            null,
+            null,
+            new Journal(
+                count($journalName) ? $journalName[0] : null,
+                self::getValue($data, 'issue'),
+                self::getValue($data, 'volume'),
+                count($published) > 2 ? $published[0] . '-' . $published[1] . '-' . $published[2] : null,
+                count($published) > 1 ? $published[1] : null, 
+                count($published) ? $published[0] : null,
+                is_array($issn) && count($issn) ? $issn[0] : null,
+                null
+            ),
+            is_array($title) && count($title) ? $title[0] : null,
+            null,
+            array_map(fn ($author) => new Author(
+                self::getValue($author, 'given') . ' ' . self::getValue($author, 'family'),
+                self::getValue($author, 'given'),
+                self::getValue($author, 'family'),
+                null,
+                array_map(fn ($affiliation) => self::getValue($affiliation, 'name'), self::getValue($author, 'affiliation') ?? [])
+            ), self::getValue($data, 'author') ?? []),
+            self::getValue($data, 'DOI'),
+            null,
+            null,
+            null,
+            null,
+            null,
+            self::getValue($data, 'abstract'),
+            null,
+            self::getValue($data, 'is-referenced-by-count'),
+            (self::getValue($data, 'reference-count') ?? 0) > 0,
+            null,
+            null,
+            null
+        );
+    }
+
+    public static function fromEuropePMCResponse(array $data) : Record
     {
         return new self(
             self::getValue($data, 'id'),

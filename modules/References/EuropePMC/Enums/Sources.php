@@ -1,5 +1,5 @@
 <?php 
-namespace Modules\EuropePMC\Enums;
+namespace Modules\References\EuropePMC\Enums;
 
 enum Sources: string 
 {

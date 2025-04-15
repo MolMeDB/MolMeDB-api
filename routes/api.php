@@ -3,7 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-require __DIR__.'/../modules/EuropePMC/Routes/api.php';
+require __DIR__.'/../modules/References/EuropePMC/Routes/api.php';
 
 Route::middleware(['auth:sanctum'])->get('/api/user', function (Request $request) {
     return $request->user();

@@ -1,5 +1,5 @@
 <?php 
-namespace Modules\EuropePMC\Enums\Query;
+namespace Modules\References\EuropePMC\Enums\Query;
 
 enum SortBy: string 
 {

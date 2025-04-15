@@ -1,11 +1,11 @@
 <?php
 
-namespace Modules\EuropePMC\Console\Commands;
+namespace Modules\References\EuropePMC\Console\Commands;
 
 use App\Models\Author;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Console\Isolatable;
-use Modules\EuropePMC\Enums\Sources;
+use Modules\References\EuropePMC\Enums\Sources;
 use Illuminate\Support\Str;
 
 class ValidatePublications extends Command implements Isolatable
@@ -31,7 +31,7 @@ class ValidatePublications extends Command implements Isolatable
     {
         $this->info('Starting validation of all not-validated publications...');
 
-        $europePMC = new \Modules\EuropePMC\EuropePMC();
+        $europePMC = new \Modules\References\EuropePMC\EuropePMC();
 
         if(!$europePMC->connected()) {
             $this->fail('EuropePMC is not connected. Stopping...');

@@ -1,5 +1,5 @@
 <?php 
-namespace Modules\EuropePMC\Models;
+namespace Modules\References\Models;
 
 class Author {
     public function __construct(
@@ -11,4 +11,8 @@ class Author {
         public ?array $affiliations,
     )
     {}
+
+    public function getFullName() {
+        return $this->lastName . ' ' . ($this->lastName ? substr($this->firstName, 0, 1) . '.' : '');
+    }
 }

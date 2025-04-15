@@ -8,7 +8,6 @@ use App\Filament\Resources\PublicationResource\RelationManagers\AuthorRelationMa
 use App\Filament\Resources\SharedRelationManagers;
 use App\Models\Publication;
 use Filament\Forms;
-use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\Fieldset;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
@@ -20,12 +19,11 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Set;
 use Filament\Notifications\Notification;
-use Illuminate\Validation\Rules\Exists;
-use Modules\EuropePMC\Enums\Query\SortBy;
-use Modules\EuropePMC\Enums\Query\SortOrder;
-use Modules\EuropePMC\Enums\Sources;
-use Modules\EuropePMC\EuropePMC;
-use Modules\EuropePMC\Models\Record;
+use Modules\References\CrossRef\CrossRef;
+use Modules\References\EuropePMC\Enums\Query\SortBy;
+use Modules\References\EuropePMC\Enums\Query\SortOrder;
+use Modules\References\EuropePMC\Enums\Sources;
+use Modules\References\EuropePMC\EuropePMC;
 
 class PublicationResource extends Resource
 {
@@ -37,6 +35,7 @@ class PublicationResource extends Resource
     public static function form(Form $form): Form
     {
         $europePMC = new EuropePMC();
+        $crossRef = new CrossRef();
         return $form
             ->schema([
                 Fieldset::make('Citation')
@@ -160,7 +159,7 @@ class PublicationResource extends Resource
                             ->searchable()
                             ->reactive()
                             ->unique(ignoreRecord: true)
-                            ->getSearchResultsUsing(function (string $query) use ($europePMC) {
+                            ->getSearchResultsUsing(function (string $query) use ($europePMC, $crossRef) {
                                 $result = $europePMC->search($query, SortBy::SCORE, SortOrder::DESC, 1, 1);
                                 $options = [];
 
@@ -170,30 +169,38 @@ class PublicationResource extends Resource
                                     {
                                         if($record->id && $record->source)
                                         {
-                                            $options[$record->id . '&&&' . $record->source->value] = $record->doi;
+                                            $options[$record->id . '&&&' . $record->source->value] = $record->doi . ' [EuropePMC]';
                                         }
+                                    }
+                                }
+                                else
+                                {
+                                    $result = $crossRef->work($query);
+                                    if($result)
+                                    {
+                                        $options[$result->doi] = $result->doi . ' [CrossRef]';
                                     }
                                 }
                                 return $options;
                             })
-                            ->afterStateUpdated(function (Set $set, Get $get, $state) use ($europePMC) {
+                            ->afterStateUpdated(function (Set $set, Get $get, $state) use ($europePMC, $crossRef) {
                                 if(!str_contains($state, '&&&')){
                                     if(!$state) return;
 
-                                    $searchResult = $europePMC->search($state, SortBy::SCORE, SortOrder::DESC, 1, 1);
-                                    if($searchResult && count($searchResult['records']) > 0)
-                                    {
-                                        $state = $searchResult['records'][0]->id . '&&&' . $searchResult['records'][0]->source->value;
-                                    }
-                                    else return;
+                                    $record = $crossRef->work($state);
+                                    if(!$record) return;
+                                }
+                                else
+                                {
+                                    $identifier = explode('&&&', $state);
+                                    $record = $europePMC->detail($identifier[0], Sources::tryFrom($identifier[1]));
                                 }
 
-                                $identifier = explode('&&&', $state);
-                                $record = $europePMC->detail($identifier[0], Sources::tryFrom($identifier[1]));
+                                if(!$record) return;
                                 
                                 // Fill form
                                 $set('identifier', $record->id);
-                                $set('identifier_source', $record->source->value);
+                                $set('identifier_source', $record->source?->value);
                                 $set('citation', $record->citation());
                                 $set('title', $record->title);
                                 $set('journal', $record->journal?->title);

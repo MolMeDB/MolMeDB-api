@@ -5,12 +5,12 @@ namespace App\Filament\Resources\PublicationResource\Pages;
 use App\Enums\IconEnums;
 use App\Filament\Resources\PublicationResource;
 use App\Models\Author;
-use Exception;
 use Filament\Actions;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
-use Modules\EuropePMC\Enums\Sources;
-use Modules\EuropePMC\EuropePMC;
+use Modules\References\CrossRef\CrossRef;
+use Modules\References\EuropePMC\Enums\Sources;
+use Modules\References\EuropePMC\EuropePMC;
 
 class EditPublication extends EditRecord
 {
@@ -95,6 +95,43 @@ class EditPublication extends EditRecord
                     ->title('Record not found on Europe PMC server.')
                     ->danger()
                     ->body('Please check the identifier and try again.')
+                    ->send();
+            }
+        }
+        else if (isset($data['doi']))
+        {
+            $service = new CrossRef();
+            $record = $service->work($data['doi']);
+
+            if($record)
+            {
+                $data['title'] = $record->title;
+                $data['journal'] = $record->journal?->title;
+                $data['volume'] = $record->journal?->volume;
+                $data['issue'] = $record->journal?->issue;
+                $data['page'] = $record->pageInfo;
+                $data['year'] = $record->journal?->yearOfPublication;
+                $data['validated_at'] = now();
+
+                foreach($record->authors as $author)
+                {
+                    // Add author if not exists
+                    $authorModel = Author::firstOrCreate([
+                        'first_name' => $author->firstName,
+                        'last_name' => $author->lastName,
+                        'full_name' => $author->fullName, 
+                        'affiliation' => $author->affiliations && count($author->affiliations) ? $author->affiliations[0] : null
+                    ]);
+
+                    $this->record->authors()->syncWithoutDetaching($authorModel->id);
+                }
+            }
+            else
+            {
+                Notification::make()
+                    ->title('Record not found on CrossRef server.')
+                    ->danger()
+                    ->body('Please check the DOI and try again.')
                     ->send();
             }
         }

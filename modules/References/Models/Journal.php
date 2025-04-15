@@ -1,5 +1,5 @@
 <?php 
-namespace Modules\EuropePMC\Models;
+namespace Modules\References\Models;
 
 class Journal {
     public function __construct(

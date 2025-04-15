@@ -1,15 +1,15 @@
 <?php
-namespace Modules\EuropePMC;
+namespace Modules\References\EuropePMC;
 
 use Dotenv\Dotenv;
 use Exception;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
-use Modules\EuropePMC\Enums\Query\SortBy;
-use Modules\EuropePMC\Enums\Query\SortOrder;
-use Modules\EuropePMC\Enums\Sources;
-use Modules\EuropePMC\Models\Record;
+use Modules\References\EuropePMC\Enums\Query\SortBy;
+use Modules\References\EuropePMC\Enums\Query\SortOrder;
+use Modules\References\EuropePMC\Enums\Sources;
+use Modules\References\Models\Record;
 
 class EuropePMC
 {
@@ -76,7 +76,7 @@ class EuropePMC
 
             return [
                 'total' => $response['hitCount'],
-                'records' => array_map(fn($record) => Record::from($record), $response['resultList']['result'])
+                'records' => array_map(fn($record) => Record::fromEuropePMCResponse($record), $response['resultList']['result'])
             ];
         }
         catch(\Exception $e)
@@ -119,7 +119,7 @@ class EuropePMC
                 return null;
             }
 
-            return Record::from($response['result']);
+            return Record::fromEuropePMCResponse($response['result']);
 
         }
         catch(Exception $e)
@@ -164,7 +164,7 @@ class EuropePMC
 
             return [
                 'total' => $response['hitCount'],
-                'records' => array_map(fn($record) => Record::from($record), $response['citationList']['citation'])
+                'records' => array_map(fn($record) => Record::fromEuropePMCResponse($record), $response['citationList']['citation'])
             ];
         }
         catch(Exception $e)
@@ -209,7 +209,7 @@ class EuropePMC
 
             return [
                 'total' => $response['hitCount'],
-                'records' => array_map(fn($record) => Record::from($record), $response['referenceList']['reference'])
+                'records' => array_map(fn($record) => Record::fromEuropePMCResponse($record), $response['referenceList']['reference'])
             ];
         }
         catch(Exception $e)

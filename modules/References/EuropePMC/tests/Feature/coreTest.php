@@ -1,8 +1,9 @@
 <?php
+uses(Tests\TestCase::class);
 
 use Illuminate\Support\Facades\Http;
-use Modules\EuropePMC\Enums\Sources;
-use Modules\EuropePMC\EuropePMC;
+use Modules\References\EuropePMC\Enums\Sources;
+use Modules\References\EuropePMC\EuropePMC;
 
 $testID = '37842337';
 
@@ -68,5 +69,5 @@ test('can get detail', function() use ($testID) {
 
     expect($result)
         ->toBeObject()
-        ->and(get_class($result))->toBe(Modules\EuropePMC\Models\Record::class);
+        ->and(get_class($result))->toBe(Modules\References\Models\Record::class);
 });

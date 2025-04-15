@@ -3,7 +3,7 @@
 namespace Database\Factories;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Modules\EuropePMC\Enums\Sources;
+use Modules\References\EuropePMC\Enums\Sources;
 
 /**
  * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Publication>
