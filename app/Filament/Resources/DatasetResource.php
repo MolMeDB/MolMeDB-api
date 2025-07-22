@@ -26,7 +26,7 @@ class DatasetResource extends Resource
 {
     protected static ?string $model = Dataset::class;
     protected static ?string $navigationIcon = IconEnums::DATASET->value;
-    protected static ?string $navigationGroup = 'Data management';
+    protected static ?string $navigationGroup = 'Interactions management';
 
     public static function form(Form $form): Form
     {   
@@ -36,14 +36,14 @@ class DatasetResource extends Resource
                 ->columns(2)
                 ->schema([
                     Forms\Components\Select::make('type')
-                        ->options(Dataset::enumType())
-                        ->disabled()
-                        ->required(),
+                        ->options(fn(?Dataset $record) => $record?->id ? Dataset::enumType() : Dataset::enumTypesSelectable())
+                        ->required()
+                        ->disabledOn('edit'),
                     Forms\Components\Select::make('dataset_group_id')
                         ->relationship('group', 'name'),
                     Forms\Components\Select::make('method_id')
-                        ->options(fn(Dataset $record) => Method::selectOptionsGrouped($record->trashed()))
-                        ->hidden(fn (Dataset $record) => $record->type == Dataset::TYPE_ACTIVE)
+                        ->options(fn(?Dataset $record) => Method::selectOptionsGrouped($record?->trashed()))
+                        ->hidden(fn (?Dataset $record) => $record && $record->type == Dataset::TYPE_ACTIVE)
                         ->suffixAction(Components\Actions\Action::make('show_method')
                             ->icon(IconEnums::VIEW->value)
                             ->url(fn (Get $get) => $get('method_id') ? MethodResource::getUrl('edit', ['record' => Method::withTrashed()->find($get('method_id'))]) : null)
@@ -52,8 +52,8 @@ class DatasetResource extends Resource
                         ->reactive()
                         ->required(),
                     Forms\Components\Select::make('membrane_id')
-                        ->options(fn(Dataset $record) => Membrane::selectOptionsGrouped($record->trashed()))
-                        ->hidden(fn (Dataset $record) => $record->type == Dataset::TYPE_ACTIVE)
+                        ->options(fn(?Dataset $record) => Membrane::selectOptionsGrouped($record?->trashed()))
+                        ->hidden(fn (?Dataset $record) => $record && $record->type == Dataset::TYPE_ACTIVE)
                         ->suffixAction(Components\Actions\Action::make('show_membrane')
                             ->icon(IconEnums::VIEW->value)
                             ->url(fn (Get $get) => $get('membrane_id') ? MembraneResource::getUrl('edit', ['record' => Membrane::withTrashed()->find($get('membrane_id'))]) : null)

@@ -9,6 +9,7 @@ enum IconEnums: string
     case AUTHORS = 'heroicon-o-identification';
     case CATEGORIES = 'heroicon-o-squares-2x2';
     case CHARGED_MOL = 'heroicon-o-plus-circle';
+    case CHECK = 'heroicon-o-check';
     case DATASET = 'heroicon-o-archive-box';
     case DELETE = 'heroicon-o-trash';
     case DOWNLOAD = 'heroicon-s-arrow-down-tray';
@@ -34,8 +35,10 @@ enum IconEnums: string
     case STATE_NEW = 'heroicon-o-lock-open';
     case STATE_VALIDATED = 'heroicon-o-lock-closed';
     case STATE_INVALID = 'heroicon-o-exclamation-triangle';
+    case STOP = 'heroicon-o-x-mark';
     case STRUCTURE = 'heroicon-o-cube-transparent';
     case UPLOAD = 'heroicon-s-cloud-arrow-up';
+    case UPLOAD_QUEUE = 'heroicon-o-document-arrow-up';
     case USER = 'heroicon-s-user';
     case USERS = 'heroicon-o-user-group';
     case VIEW = 'heroicon-o-eye';

@@ -121,11 +121,25 @@ services:
     networks:
       - molmedb-network
 
+  redis:
+    image: redis:alpine
+    container_name: molmedb-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD}"
+    ports:
+      - "6379:6379"
+    volumes:
+      - molmedb-redis:/data
+    networks:
+      - molmedb-network
+    
+
   
 
 volumes:
   molmedb-storage-production:
   molmedb-db:
+  molmedb-redis:
 
 networks:
   molmedb-network:

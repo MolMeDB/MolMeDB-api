@@ -4,8 +4,10 @@ namespace App\Filament\Resources\MethodResource\Pages;
 
 use App\Enums\IconEnums;
 use App\Filament\Resources\MethodResource;
+use App\ValueObjects\MethodParameters;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
+use phpDocumentor\Reflection\DocBlock\Tags\MethodParameter;
 
 class EditMethod extends EditRecord
 {
@@ -49,5 +51,12 @@ class EditMethod extends EditRecord
     public function getContentTabIcon(): ?string
     {
         return IconEnums::METHOD->value;
+    }
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        $data['parameters'] = new MethodParameters($data['parameters']);
+
+        return $data;
     }
 }

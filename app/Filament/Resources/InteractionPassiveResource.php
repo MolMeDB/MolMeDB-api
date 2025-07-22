@@ -4,7 +4,6 @@ namespace App\Filament\Resources;
 
 use App\Enums\IconEnums;
 use App\Filament\Resources\InteractionPassiveResource\Pages;
-use App\Filament\Resources\InteractionPassiveResource\RelationManagers;
 use App\Models\Dataset;
 use App\Models\InteractionPassive;
 use App\Models\Publication;
@@ -26,7 +25,7 @@ class InteractionPassiveResource extends Resource
     protected static ?string $navigationIcon = IconEnums::INTERACTIONS->value;
     protected static ?string $label = "Passive interaction";
     protected static ?string $navigationLabel = "Passive";
-    protected static ?string $navigationGroup = 'Interactions';
+    protected static ?string $navigationGroup = 'Interactions management';
 
     public static function form(Form $form): Form
     {

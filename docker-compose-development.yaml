@@ -105,7 +105,7 @@ services:
       timeout: 5s
       retries: 5
     volumes:
-      - mmdb-db:/var/lib/postgresql/data
+      - molmedb-db:/var/lib/postgresql/data
     networks:
       - molmedb-dev-network
 
@@ -118,13 +118,25 @@ services:
     depends_on:
       - db
     networks:
-      - mmdb-dev-network
+      - molmedb-dev-network
 
+  redis:
+    image: redis:alpine
+    container_name: molmedb-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD}"
+    ports:
+      - "6379:6379"
+    volumes:
+      - molmedb-redis:/data
+    networks:
+      - molmedb-dev-network
   
 
 volumes:
   molmedb-dev-storage-production:
   molmedb-db:
+  molmedb-redis:
 
 networks:
   molmedb-dev-network:

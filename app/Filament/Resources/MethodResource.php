@@ -30,7 +30,7 @@ class MethodResource extends Resource
     {
         return $form
             ->schema([
-                Fieldset::make('Assignment')
+                Forms\Components\Section::make('Assignment')
                     ->schema([
                         Forms\Components\Select::make('type')
                             ->label('Special type')
@@ -48,16 +48,18 @@ class MethodResource extends Resource
                             ->placeholder('Please, select method category')
                             ->columnSpanFull(),
                     ]),
-                Fieldset::make('Description')
+                Forms\Components\Section::make('Description')
                     ->schema([
                         Forms\Components\TextInput::make('name')
                             ->hint('Maximum 150 characters.')
                             ->maxLength(150)
+                            ->unique(ignoreRecord: true)
                             ->required(),
                         Forms\Components\TextInput::make('abbreviation')
                             ->hint('Maximum 15 characters.')
                             ->maxLength(15)
                             ->minLength(2)
+                            ->unique(ignoreRecord: true)
                             ->rule('regex:/^[a-zA-Z0-9-_]+$/') 
                             ->required(),
                         Forms\Components\RichEditor::make('description')
@@ -65,6 +67,18 @@ class MethodResource extends Resource
                             ->fileAttachmentsDisk('public')
                             ->fileAttachmentsVisibility('public')
                             ->columnSpanFull(),
+                    ]),
+                Forms\Components\Section::make('Configuration')
+                    ->description('It is used to set up alerts for unusual values in interactions.')
+                    ->schema([
+                        FieldSet::make('LogPerm custom alert limits')
+                            ->schema([
+                                Forms\Components\TextInput::make('parameters.alert_limits.logperm.min')
+                                    ->numeric(),
+                                Forms\Components\TextInput::make('parameters.alert_limits.logperm.max')
+                                    ->numeric(),
+                            ])
+                            ->columns(2),
                     ])
             ]);
     }

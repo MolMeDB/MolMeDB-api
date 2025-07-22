@@ -2,13 +2,16 @@
 
 namespace App\Models;
 
+use Exception;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\File as FacadesFile;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 enum FileRestrictionType: string
 {
@@ -89,10 +92,49 @@ class File extends Model
         });
 
         static::saving(function ($file) {
-            $file->hash = md5($file->path);
+            $realPath = null;
+            if(Storage::disk('public')->exists($file->path))
+            {
+                $realPath = Storage::disk('public')->path($file->path);
+            }
+            else if (Storage::disk('private')->exists($file->path)) {
+                $realPath = Storage::disk('private')->path($file->path);
+            }
+            else
+            {
+                throw new Exception('File does not exist.');
+            }
+
+            $file->hash = File::hash($realPath);
             $file->user_id = Auth::user()?->id;
-            $file->name ??= basename($file->path);
+            $file->mime = FacadesFile::mimeType($realPath);
+            // $file->setAttribute('name', $file->name ?? basename($file->path));
+            // $file->name ??= basename($file->path);
         });
+    }
+
+    public function existsOnDisk($disk = 'public') : bool
+    {
+        return Storage::disk($disk)->exists($this->path);
+    }
+
+    public static function getUniqueNameForSave(TemporaryUploadedFile $file, string $targetFolder, string $disk) : string 
+    {
+        $originalName = pathinfo(basename($file->getClientOriginalName()), PATHINFO_FILENAME);
+        $extension = $file->getClientOriginalExtension();
+        //remove suffix
+        $name = $originalName;
+        $i = 1;
+        while (Storage::disk($disk)->exists(trim($targetFolder, '/') . '/' . $name . '.' . $extension)) {
+            $name = pathinfo($originalName, PATHINFO_FILENAME) . "_$i";
+            $i++;
+        }
+        return $name . '.' . $extension;
+    }
+
+    public static function hash($path)
+    {
+        return md5_file($path);
     }
 
     public static function enumTypes(?FileRestrictionType $restriction = null) : array

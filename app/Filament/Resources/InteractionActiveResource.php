@@ -29,7 +29,7 @@ class InteractionActiveResource extends Resource
     protected static ?string $navigationIcon = IconEnums::INTERACTIONS->value;
     protected static ?string $label = "Active interaction";
     protected static ?string $navigationLabel = "Active";
-    protected static ?string $navigationGroup = 'Interactions';
+    protected static ?string $navigationGroup = 'Interactions management';
 
     public static function form(Form $form): Form
     {

@@ -53,11 +53,21 @@ class Dataset extends Model
         self::TYPE_PASSIVE_INTERNAL_COSMO => 'Internal cosmo interactions'
     ];
 
+    private static $enum_types_selectable = [
+        self::TYPE_PASSIVE => 'Passive interactions',
+        self::TYPE_ACTIVE => 'Active interactions'
+    ];
+
     public static function enumType(?int $type = null) : string|array|null
     {
         if($type)
             return isset(self::$enum_types[$type]) ? self::$enum_types[$type] : null;
         return self::$enum_types;
+    }
+
+    public static function enumTypesSelectable() : array
+    {
+        return self::$enum_types_selectable;
     }
 
     public function membrane() : BelongsTo
