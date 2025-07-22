@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\MembraneController;
+use App\Http\Controllers\MethodController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -14,4 +16,18 @@ Route::prefix('/api')->group(function()
     Route::get('test', function () {
         return response()->json(['message' => 'OK'], 200);
     });
+
+    Route::prefix('membrane')
+        ->controller(MembraneController::class)
+        ->group(function() { 
+           Route::get('/categories', 'categories'); 
+           Route::get('/{membrane}', 'show');
+        });
+
+    Route::prefix('method')
+        ->controller(MethodController::class)
+        ->group(function() { 
+           Route::get('/categories', 'categories'); 
+           Route::get('/{method}', 'show');
+        });
 });

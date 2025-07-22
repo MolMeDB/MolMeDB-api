@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreMembraneRequest;
 use App\Http\Requests\UpdateMembraneRequest;
+use App\Http\Resources\CategoryCollection;
+use App\Http\Resources\MembraneResource;
+use App\Models\Category;
 use App\Models\Membrane;
 
 class MembraneController extends Controller
@@ -14,6 +17,19 @@ class MembraneController extends Controller
     public function index()
     {
         //
+    }
+
+    /**
+     * Returns list of membrane categories (with membranes)
+     */
+    public function categories()
+    {
+        $models = Category::where('type', Category::TYPE_MEMBRANE)
+            ->with('membranes')
+            ->orderby('order', 'asc')
+            ->get();
+
+        return CategoryCollection::make($models);
     }
 
     /**
@@ -29,7 +45,7 @@ class MembraneController extends Controller
      */
     public function show(Membrane $membrane)
     {
-        //
+        return MembraneResource::make($membrane);
     }
 
     /**

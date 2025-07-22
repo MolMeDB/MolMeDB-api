@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreMethodRequest;
 use App\Http\Requests\UpdateMethodRequest;
+use App\Http\Resources\CategoryCollection;
+use App\Http\Resources\MethodResource;
+use App\Models\Category;
 use App\Models\Method;
 
 class MethodController extends Controller
@@ -25,11 +28,24 @@ class MethodController extends Controller
     }
 
     /**
+     * Returns list of membrane categories (with membranes)
+     */
+    public function categories()
+    {
+        $models = Category::where('type', Category::TYPE_METHOD)
+            ->with('methods')
+            ->orderby('order', 'asc')
+            ->get();
+
+        return CategoryCollection::make($models);
+    }
+
+    /**
      * Display the specified resource.
      */
     public function show(Method $method)
     {
-        //
+        return MethodResource::make($method);
     }
 
     /**
