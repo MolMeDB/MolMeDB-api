@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreProteinRequest;
 use App\Http\Requests\UpdateProteinRequest;
+use App\Http\Resources\CategoryCollection;
+use App\Http\Resources\ProteinResource;
+use App\Models\Category;
 use App\Models\Protein;
 
 class ProteinController extends Controller
@@ -24,12 +27,36 @@ class ProteinController extends Controller
         //
     }
 
+    public function stats(Protein $protein)
+    {
+        return response()->json([
+            'data' => [
+                'protein' => ProteinResource::make($protein),
+                'interactions_count' => $protein->interactionsActive->count(),
+                'structures_count' => $protein->structures->count(),
+            ]
+        ]);
+    }
+
+    /**
+     * Returns list of protein categories (with proteins)
+     */
+    public function categories()
+    {
+        $models = Category::where('type', Category::TYPE_PROTEIN)
+            ->with('proteins')
+            ->orderby('order', 'asc')
+            ->get();
+
+        return CategoryCollection::make($models);
+    }
+
     /**
      * Display the specified resource.
      */
     public function show(Protein $protein)
     {
-        //
+        return ProteinResource::make($protein);
     }
 
     /**

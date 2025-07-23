@@ -58,6 +58,11 @@ class ProteinIdentifier extends Model
         return isset(self::$enum_types[$type]) ? self::$enum_types[$type] : 'N/A';
     }
 
+    public static function enumState($state) : string 
+    {
+        return isset(self::$enum_states[$state]) ? self::$enum_states[$state] : 'N/A';
+    }
+
     /**
      * Returns all available identifier types
      */

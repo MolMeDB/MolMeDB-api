@@ -81,6 +81,13 @@ class Category extends Model
             ->wherePivot('model_type', Method::class);
     }
 
+    public function proteins() : BelongsToMany
+    {
+        return $this->belongsToMany(Protein::class, 'model_has_categories', 'category_id', 'model_id')
+            ->withPivot('model_type', 'model_id')
+            ->wherePivot('model_type', Protein::class);
+    }
+
     public function interactionsActive() : HasMany
     {
         return $this->hasMany(InteractionActive::class);
@@ -93,7 +100,8 @@ class Category extends Model
     {
         return $this->membranes()->count() === 0 && 
             $this->methods()->count() === 0 && 
-            $this->interactionsActive()->count() === 0;
+            $this->interactionsActive()->count() === 0 && 
+            $this->proteins()->count() === 0;
     }
 
     /**

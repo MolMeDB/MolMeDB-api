@@ -43,10 +43,16 @@ class CategoryCollection extends ResourceCollection
                     'name' => $membrane->abbreviation,
                 ];
             })),
-            'methods' => $category->whenLoaded('methods', $category->methods->map(function ($membrane) {
+            'methods' => $category->whenLoaded('methods', $category->methods->map(function ($method) {
                 return [
-                    'id' => $membrane->id,
-                    'name' => $membrane->abbreviation,
+                    'id' => $method->id,
+                    'name' => $method->abbreviation,
+                ];
+            })),
+            'proteins' => $category->whenLoaded('proteins', $category->proteins->map(function ($protein) {
+                return [
+                    'id' => $protein->id,
+                    'name' => $protein->uniprot_id,
                 ];
             }))
         ];

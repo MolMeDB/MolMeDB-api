@@ -1,21 +1,21 @@
 <?php
 
-namespace App\Filament\Clusters\Categories\Resources\MethodCategoryResource\Pages;
+namespace App\Filament\Clusters\Categories\Resources\ProteinCategoryResource\Pages;
 
 use App\Enums\IconEnums;
-use App\Filament\Clusters\Categories\Resources\MethodCategoryResource;
+use App\Filament\Clusters\Categories\Resources\ProteinCategoryResource;
 use App\Models\Category;
 use Illuminate\Database\Eloquent\Builder;
 use SolutionForest\FilamentTree\Actions;
 use SolutionForest\FilamentTree\Actions\DeleteAction;
 use SolutionForest\FilamentTree\Resources\Pages\TreePage as BasePage;
 
-class MethodCategoryTree extends BasePage
+class ProteinCategoryTree extends BasePage
 {
-    protected static string $resource = MethodCategoryResource::class;
+    protected static string $resource = ProteinCategoryResource::class;
     // protected static ?string $cluster = Categories::class;
 
-    protected static int $maxDepth = 2;
+    protected static int $maxDepth = 5;
 
     protected function getFormSchema(): array
     {
@@ -31,7 +31,7 @@ class MethodCategoryTree extends BasePage
      */
     public function getTitle(): string
     {
-        return 'Manage method categories';
+        return 'Manage protein categories';
     }
 
     /**
@@ -39,7 +39,7 @@ class MethodCategoryTree extends BasePage
      */
     public function getBreadcrumb(): ?string
     {
-        return 'Method';
+        return 'Protein';
     }
 
     /**
@@ -52,8 +52,8 @@ class MethodCategoryTree extends BasePage
         }
         $title = $record->title;
         $parent = $record->parent?->title;
-        $total_methods = $record->methods()->count();
-        return ($parent ? "{$parent} >> " : '') . "{$title}" . ($parent || $total_methods ? " (# Methods: {$total_methods})"  : '');
+        $total_proteins = $record->proteins()->count();
+        return ($parent ? "{$parent} >> " : '') . "{$title}" . ($parent || $total_proteins ? " (# Proteins: {$total_proteins})"  : '');
     }
 
     /**
@@ -61,7 +61,7 @@ class MethodCategoryTree extends BasePage
      */
     public function getTreeQuery() : Builder
     {
-        return Category::query()->where('type', Category::TYPE_METHOD);
+        return Category::query()->where('type', Category::TYPE_PROTEIN);
     }
 
     /**
@@ -91,17 +91,17 @@ class MethodCategoryTree extends BasePage
             Actions\EditAction::make()
                 ->tooltip('Change category name'),
             Actions\ViewAction::make()
-                ->icon(IconEnums::METHOD->value)
+                ->icon(IconEnums::PROTEIN->value)
                 ->color('warning')
-                ->tooltip('Manage assigned methods')
+                ->tooltip('Manage assigned proteins')
                 ->visible(fn (Category $record) => static::getResource()::canEdit($record))
                 ->modal(false)
                 ->url(function (Category $record) {
-                    return static::getResource()::getUrl('edit_record', ['record' => $record]);
+                    return static::getResource()::getUrl('edit', ['record' => $record]);
                 }),
             Actions\DeleteAction::make()
                 ->tooltip('Delete category')
-                ->before(fn (DeleteAction $action, Category $record) => MethodCategoryResource::checkIfDeletable($action, $record)),
+                ->before(fn (DeleteAction $action, Category $record) => ProteinCategoryResource::checkIfDeletable($action, $record)),
         ];
     }
 

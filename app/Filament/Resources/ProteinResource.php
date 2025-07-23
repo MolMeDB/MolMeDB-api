@@ -6,7 +6,9 @@ use App\Enums\IconEnums;
 use App\Filament\Resources\ProteinResource\Pages;
 use App\Filament\Resources\ProteinResource\RelationManagers\IdentifiersRelationManager;
 use App\Filament\Resources\SharedRelationManagers;
+use App\Models\Category;
 use App\Models\Protein;
+use CodeWithDennis\FilamentSelectTree\SelectTree;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -33,6 +35,16 @@ class ProteinResource extends Resource
                             ->maxLength(50)
                             ->hint('Maximum 50 characters.')
                             ->hintColor('danger'),
+                        SelectTree::make('categories')
+                            ->relationship('categories', 'title', 'parent_id', modifyQueryUsing: fn ($query) => $query->where('type', Category::TYPE_PROTEIN))
+                            ->required()
+                            ->pivotData(['model_type' => Protein::class])
+                            ->withCount()
+                            ->parentNullValue(-1)
+                            ->defaultOpenLevel(2)
+                            ->clearable(false)
+                            ->placeholder('Please, select protein category')
+                            ->columnSpanFull(),
                     ])
             ]);
     }
