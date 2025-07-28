@@ -23,12 +23,12 @@ class LineChart
         }, $this->data);
     }
 
-    public function addItem(int $date, int $value1, ?int $value2) : void 
+    public function addItem(int | string $date, int $value1, ?int $value2) : void 
     {
         $this->data[] = new LineChartItem($date, $value1, $value2);
     }
 
-    public static function makeItem(int $date, int $value1, ?int $value2 = null) : LineChartItem
+    public static function makeItem(int | string $date, int $value1, ?int $value2 = null) : LineChartItem
     {
         return new LineChartItem($date, $value1, $value2);
     }
@@ -37,7 +37,7 @@ class LineChart
 class LineChartItem 
 {
     function __construct(
-        public int $date,
+        public int | string $date,
         public int $value1,
         public ?int $value2
     ) {}

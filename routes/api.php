@@ -3,6 +3,7 @@
 use App\Http\Controllers\MembraneController;
 use App\Http\Controllers\MethodController;
 use App\Http\Controllers\ProteinController;
+use App\Http\Controllers\PublicationController;
 use App\Http\Controllers\StatsController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -41,9 +42,18 @@ Route::prefix('/api')->group(function()
            Route::get('/{protein}/stats', 'stats');
         });
 
+    Route::prefix("publication")
+        ->controller(PublicationController::class)
+        ->group(function() {
+            Route::get('/', 'index');
+            Route::get('/{publication}', 'show');
+            Route::get('/{publication}/stats', 'stats');
+        });
+
     Route::prefix('stats')
         ->controller(StatsController::class)
         ->group(function() {
            Route::get('/', 'index');
+           Route::get('/publications', 'publications');
         });
 });

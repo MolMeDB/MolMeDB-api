@@ -20,6 +20,8 @@ class Stats extends Model
     const TYPE_INTERACTION_SUBSTANCE_HISTORY = 2;
     const TYPE_DATABASES_BAR_COUNTS = 3;
     const TYPE_PROTEIN_BAR_COUNTS = 4;
+    const TYPE_PUBLICATIONS_BY_YEAR_STATS = 5;
+    const TYPE_PUBLICATIONS_BY_JOURNAL_STATS = 6;
 
     public static function getByType($type) : Stats
     {
@@ -81,6 +83,32 @@ class Stats extends Model
     public static function setProteinBarData(\App\DTO\Stats\BarChart $data) : void
     {
         $d = self::getByType(self::TYPE_PROTEIN_BAR_COUNTS);
+        $d->content = $data->toArray();
+        $d->save();
+    }
+
+    public static function getPublicationByYearStatsData() : \App\DTO\Stats\LineChart
+    {
+        $d = self::getByType(self::TYPE_PUBLICATIONS_BY_YEAR_STATS);
+        return \App\DTO\Stats\LineChart::from($d->content);
+    }
+
+    public static function setPublicationByYearStatsData(\App\DTO\Stats\LineChart $data) : void
+    {
+        $d = self::getByType(self::TYPE_PUBLICATIONS_BY_YEAR_STATS);
+        $d->content = $data->toArray();
+        $d->save();
+    }
+
+    public static function getPublicationByJournalStatsData() : \App\DTO\Stats\BarChart
+    {
+        $d = self::getByType(self::TYPE_PUBLICATIONS_BY_JOURNAL_STATS);
+        return \App\DTO\Stats\BarChart::from($d->content);
+    }
+
+    public static function setPublicationByJournalStatsData(\App\DTO\Stats\BarChart $data) : void
+    {
+        $d = self::getByType(self::TYPE_PUBLICATIONS_BY_JOURNAL_STATS);
         $d->content = $data->toArray();
         $d->save();
     }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Publication;
 use App\Models\Stats;
 use Illuminate\Http\Request;
 
@@ -35,6 +36,24 @@ class StatsController extends Controller
                     'proteinsBar' => [
                         'items' => Stats::getProteinBarData()->toArray() // Assuming similar structure for proteins
                     ]
+                ]
+            ]
+        ], 200);
+    }
+
+    public function publications(Request $request)
+    {
+        return response()->json([
+            'data' => [
+                'total' => [
+                    'publications' => Publication::count(),
+                ],
+                'minPublishedYear' => Publication::min('year'),
+                'byYear' => [
+                    'data' => Stats::getPublicationByYearStatsData()->toArray()
+                ],
+                'byJournal' => [
+                    'items' => Stats::getPublicationByJournalStatsData()->toArray()
                 ]
             ]
         ], 200);

@@ -142,5 +142,75 @@ class UpdateStatistics extends Command
             \App\DTO\Stats\BarChart::from($data)
         );
         $this->info('... 4) Finished.');
+
+        // Update publication by year stats
+        $this->warn('... 5) Updating publication by year stats');
+        $minYear = \App\Models\Publication::min('year');
+        $minYear =  $minYear - ($minYear % 5);
+        $maxYear = date('Y');
+
+        $data = [];
+
+        foreach(range($minYear, $maxYear, 5) as $year)
+        {
+            $this->info('... ## Processing year: ' . $year);
+            $data[] = \App\DTO\Stats\LineChart::makeItem(
+                "$year - " . $year + 4,
+                \App\Models\InteractionActive::whereHas('publication', function ($query) use ($year) 
+                { 
+                    $query->whereBetween('year', [$year, $year + 4]); 
+                })->count()
+                + \App\Models\InteractionPassive::whereHas('publication', function ($query) use ($year) 
+                { 
+                    $query->whereBetween('year', [$year, $year + 4]);
+                })->count(),
+                null
+            );
+        }
+
+        \App\Models\Stats::setPublicationByYearStatsData(
+            \App\DTO\Stats\LineChart::from($data)
+        );
+        $this->info('... 5) Finished.');
+
+        // Update publication by journal counts
+        $this->warn('... 6) Updating publications by journal bar counts');
+        
+        $data = [];
+
+        $journals = \App\Models\Publication::select('journal')
+            ->whereNotNull('journal')
+            ->distinct()
+            ->get();
+
+        foreach ($journals as $journal)
+        {
+            $this->info('... ## Processing journal: ' . $journal->journal);
+            $data[] = \App\DTO\Stats\BarChart::makeItem(
+                $journal->journal,
+                \App\Models\InteractionActive::whereHas('publication', function ($query) use ($journal) 
+                { 
+                    $query->where('journal', $journal->journal); 
+                })->count()
+                + \App\Models\InteractionPassive::whereHas('publication', function ($query) use ($journal) 
+                { 
+                    $query->where('journal', $journal->journal); 
+                })->count(),
+            );
+        }
+
+        usort($data, function ($a, $b) {
+            return $a->value1 < $b->value1;
+        });
+
+        $data = array_filter($data, function ($item) {
+            return $item->value1 > 100;
+        });
+
+        \App\Models\Stats::setPublicationByJournalStatsData(
+            \App\DTO\Stats\BarChart::from($data)
+        );
+
+        $this->info('... 6) Finished.');
     }
 }
