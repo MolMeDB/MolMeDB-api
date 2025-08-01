@@ -1,10 +1,13 @@
 <?php
 
+use App\Http\Controllers\InteractionActiveController;
+use App\Http\Controllers\InteractionPassiveController;
 use App\Http\Controllers\MembraneController;
 use App\Http\Controllers\MethodController;
 use App\Http\Controllers\ProteinController;
 use App\Http\Controllers\PublicationController;
 use App\Http\Controllers\StatsController;
+use App\Http\Controllers\StructureController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -19,6 +22,20 @@ Route::prefix('/api')->group(function()
     Route::get('test', function () {
         return response()->json(['message' => 'OK'], 200);
     });
+
+    Route::prefix('interactions')
+        ->group(function() {
+            Route::prefix('/passive')
+                ->controller(InteractionPassiveController::class)
+                ->group(function() {
+                    Route::get('/structure/{identifier}', 'byStructure');
+                }); 
+            Route::prefix('/active')
+                ->controller(InteractionActiveController::class)
+                ->group(function() {
+                    Route::get('/structure/{identifier}', 'byStructure');
+                });
+        });
 
     Route::prefix('membrane')
         ->controller(MembraneController::class)
@@ -55,5 +72,14 @@ Route::prefix('/api')->group(function()
         ->group(function() {
            Route::get('/', 'index');
            Route::get('/publications', 'publications');
+        });
+
+    Route::prefix('structure')
+        ->controller(StructureController::class)
+        ->group(function () {
+            Route::get('/{identifier}', 'show');
+            Route::get('mol/3d/{identifier}', 'mol3D');
+            Route::get('/{identifier}/form/select/membranes', 'formSelectMembranes');
+            Route::get('/{identifier}/form/select/methods', 'formSelectMethods');
         });
 });

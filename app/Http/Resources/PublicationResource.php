@@ -8,6 +8,13 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class PublicationResource extends JsonResource
 {
+    public $include_stats = true;
+
+    public function ignoreStats() : self {
+        $this->include_stats = false;
+        return $this;
+    }
+
     /**
      * Transform the resource into an array.
      *
@@ -27,7 +34,7 @@ class PublicationResource extends JsonResource
             'page' => $this->page,
             'year' => $this->year,
             'authors' => AuthorResource::collection($this->authors),
-            'stats' => [
+            'stats' => $this->include_stats ? [
                 'passive_interactions' => $this->whenCounted('interactionsPassive'),
                 'active_interactions' => $this->whenCounted('interactionsActive'),
                 'membranes' => $this->whenCounted('membranes'),
@@ -48,7 +55,7 @@ class PublicationResource extends JsonResource
                         ->sum('interactions_active_count')
                 ),
                 'authors' => $this->whenCounted('authors'),
-            ]
+            ] : null
         ];
     }
 }

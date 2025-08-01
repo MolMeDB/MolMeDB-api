@@ -548,40 +548,44 @@ class Rdkit extends IdentifiersWorker
     /**
      * For given SMILES returns SDF content (3D structure)
      * 
-     * @param Substances $substance
+     * @param Structure $structure
      * 
      * @return $string
      */
-    public function get_3d_structure($substance)
+    public function get_3d_structure($structure)
     {
-        if(!self::$STATUS || !$substance->SMILES)
+        if(!self::$STATUS || !$structure->canonical_smiles)
         {
             return NULL;
         }
 
-        $this->last_identifier = Validator_identifiers::ID_SMILES;
+        // $this->last_identifier = Validator_identifiers::ID_SMILES;
 
-        $uri = '3dstructure/generate';
-        $method = Http_request::METHOD_GET;
         $params = array
         (
-            'smi' => $substance->SMILES
+            'smi' => $structure->canonical_smiles
         );
 
         try
         {
-            $response = self::$client->request($uri, $method, $params, false, 6*60);
+            $response = Http::timeout(30)
+                ->acceptJson()
+                ->withUrlParameters(self::$url_parameters)
+                ->get('{+host}/3dstructure/generate', $params);
 
-            if(!empty($response) && isset($response[0]) && $response[0] != '')
+            $body = json_decode($response->body());
+            if($response->successful() && $body && is_array($body) 
+                && isset($body[0]) && $body[0] != '')
             {
-                return $response[0];
+                // Protect links
+                return $body[0];
             }
 
             return NULL;
         }
         catch(Exception $e)
         {
-            return NULL;
+            return null;
         }
     }
 

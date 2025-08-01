@@ -183,6 +183,11 @@ class Identifier extends Model
         return isset(self::$enum_types[$type]) ? self::$enum_types[$type] : 'N/A';
     }
 
+    public static function enumState($state) : string 
+    {
+        return isset(self::$enum_states[$state]) ? self::$enum_states[$state] : 'N/A';
+    }
+
     public static function enumServers($server) : string 
     {
         return isset(self::$enum_servers[$server]) ? self::$enum_servers[$server] : 'N/A';

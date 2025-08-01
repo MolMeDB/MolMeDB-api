@@ -7,6 +7,13 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class MethodResource extends JsonResource
 {
+    private $with_description = true;
+
+    public function ignoreDescription() : self {
+        $this->with_description = false;
+        return $this;
+    }
+
     /**
      * Transform the resource into an array.
      *
@@ -18,7 +25,7 @@ class MethodResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'abbreviation' => $this->abbreviation,
-            'description' => $this->description
+            'description' => $this->with_description ? $this->description : null
         ]; 
     }
 }
