@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Dflydev\DotAccessData\Data;
+use EloquentFilter\Filterable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -14,6 +15,7 @@ class Membrane extends Model
 {
     /** @use HasFactory<\Database\Factories\MembraneFactory> */
     use HasFactory, SoftDeletes;
+    use Filterable;
 
     protected $guarded = [];
 

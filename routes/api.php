@@ -6,6 +6,7 @@ use App\Http\Controllers\MembraneController;
 use App\Http\Controllers\MethodController;
 use App\Http\Controllers\ProteinController;
 use App\Http\Controllers\PublicationController;
+use App\Http\Controllers\SearchController;
 use App\Http\Controllers\StatsController;
 use App\Http\Controllers\StructureController;
 use Illuminate\Http\Request;
@@ -42,6 +43,7 @@ Route::prefix('/api')->group(function()
         ->group(function() { 
            Route::get('/categories', 'categories'); 
            Route::get('/{membrane}', 'show');
+           Route::get('/{membrane}/stats', 'stats');
         });
 
     Route::prefix('method')
@@ -49,6 +51,7 @@ Route::prefix('/api')->group(function()
         ->group(function() { 
            Route::get('/categories', 'categories'); 
            Route::get('/{method}', 'show');
+           Route::get('/{method}/stats', 'stats');
         });
 
     Route::prefix('protein')
@@ -65,6 +68,16 @@ Route::prefix('/api')->group(function()
             Route::get('/', 'index');
             Route::get('/{publication}', 'show');
             Route::get('/{publication}/stats', 'stats');
+        });
+
+    Route::prefix('search')
+        ->controller(SearchController::class)
+        ->group(function() {
+            Route::get('/structures', 'structure');
+            Route::get('/membranes', 'membrane');
+            Route::get('/methods', 'method');
+            Route::get('/proteins', 'protein');
+            Route::get('/datasets', 'dataset');
         });
 
     Route::prefix('stats')

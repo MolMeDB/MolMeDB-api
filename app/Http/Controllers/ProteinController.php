@@ -32,8 +32,8 @@ class ProteinController extends Controller
         return response()->json([
             'data' => [
                 'protein' => ProteinResource::make($protein),
-                'interactions_count' => $protein->interactionsActive->count(),
-                'structures_count' => $protein->structures->count(),
+                'interactions_count' => $protein->interactionsActive()->count(),
+                'structures_count' => $protein->structures()->count(),
             ]
         ]);
     }

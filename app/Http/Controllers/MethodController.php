@@ -40,6 +40,19 @@ class MethodController extends Controller
         return CategoryCollection::make($models);
     }
 
+    public function stats(Method $method)
+    {
+        return response()->json([
+            'data' => [
+                'method' => MethodResource::make($method),
+                'total' => [
+                    'interactions_passive' => $method->interactionsPassive()->count(),
+                    'structures' => $method->interactionsPassive()->distinct('structure_id')->count(),
+                ]
+            ]
+        ]);
+    }
+
     /**
      * Display the specified resource.
      */

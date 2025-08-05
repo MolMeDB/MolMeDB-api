@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use EloquentFilter\Filterable;
 use Exception;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -17,6 +18,7 @@ class Structure extends Model
 {
     /** @use HasFactory<\Database\Factories\SubstanceFactory> */
     use HasFactory, SoftDeletes;
+    use Filterable;
 
     protected $guarded = [];
 

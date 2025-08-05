@@ -34,5 +34,5 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
-
+    'cdk_depict_url' => env('CDK_DEPICT_URL'),
 ];

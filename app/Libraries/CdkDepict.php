@@ -42,14 +42,14 @@ class CdkDepict
 
         try
         {
-            self::$url_parameters['host'] = rtrim(env('CDK_DEPICT_URL') ?? "", '/');
+            self::$url_parameters['host'] = rtrim(config('services.cdk_depict_url') ?? "", '/');
             // Try to connect   
             self::try_connect();
         }
         catch(Exception $e)
         {
            self::$STATUS = false;
-           throw new Exception('Cannot establish connection to CdkDepict server.');
+           return;
         }
     }
 

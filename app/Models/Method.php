@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use App\Casts\MethodParametersCasts;
-use Illuminate\Contracts\Support\Arrayable;
+use EloquentFilter\Filterable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -16,6 +16,7 @@ class Method extends Model
 {
     /** @use HasFactory<\Database\Factories\MethodFactory> */
     use HasFactory, SoftDeletes;
+    use Filterable;
 
     protected $guarded = [];
 

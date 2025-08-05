@@ -32,6 +32,19 @@ class MembraneController extends Controller
         return CategoryCollection::make($models);
     }
 
+    public function stats(Membrane $membrane)
+    {
+        return response()->json([
+            'data' => [
+                'membrane' => MembraneResource::make($membrane),
+                'total' => [
+                    'interactions_passive' => $membrane->interactionsPassive()->count(),
+                    'structures' => $membrane->interactionsPassive()->distinct('structure_id')->count(),
+                ]
+            ]
+        ]);
+    }
+
     /**
      * Store a newly created resource in storage.
      */

@@ -8,7 +8,14 @@ class PublicationFilter extends ModelFilter
 {
     public function query($name)
     {
-        return $this->whereRaw('LOWER(citation) LIKE ?', ['%' . strtolower($name) . '%']);
+        $name = strtolower($name);
+
+        if(str_starts_with($name, 'id:'))
+        {
+            return $this->where('id', str_replace('id:', '', $name));
+        }
+
+        return $this->whereRaw('LOWER(citation) LIKE ?', ['%' . $name. '%']);
     }
 
     // public function sortby($name)
