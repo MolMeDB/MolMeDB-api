@@ -1,0 +1,55 @@
+@import "tailwindcss";
+@config "../tailwind.config.ts";
+
+:root {
+  height: 100%;
+    @apply light;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        @apply dark;
+    }
+}
+
+.msp-viewport-controls, .msp-viewport-top-left-controls {
+  display: none !important;
+}
+
+.html-content-block {
+    ul, ol {
+        @apply pl-5 flex flex-col gap-1;
+    }
+
+    li {
+        @apply pt-3
+    }
+
+    ul {
+        @apply list-disc marker:text-orange-600 dark:marker:text-warning/70;
+    }
+    
+    ol {
+        @apply list-decimal;
+    }
+
+    a {
+        @apply text-primary-600 hover:underline;
+    }
+
+    p {
+        @apply mb-4;
+    }
+
+    h2 {
+        @apply text-2xl font-bold !mb-4 !mt-8;
+    }
+
+    h3 {
+        @apply text-xl font-semibold !mb-2 !mt-4;
+    }
+
+    blockquote {
+        @apply border-l-4 dark:border-warning/70 border-orange-600/60 pl-4 text-gray-900 dark:text-gray-300 mb-4;
+    }
+}

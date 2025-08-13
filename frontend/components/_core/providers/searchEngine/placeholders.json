@@ -1,0 +1,22 @@
+{
+    "compounds": [
+        "Caffeine",
+        "Ibuprofen",
+        "Proximazol",
+        "Aspirin"
+    ],
+    "membranes": [
+        "DOPC",
+        "DMPC",
+        "DPPC"
+    ],
+    "methods": [
+        "CosmoMic15",
+        "CosmoMic18",
+        "PAMPA"
+    ],
+    "transporters": [
+        "ABC123",
+        "AC12252"
+    ]
+}
