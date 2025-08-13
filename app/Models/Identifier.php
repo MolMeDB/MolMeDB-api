@@ -50,6 +50,7 @@ class Identifier extends Model
     const STATE_NEW = 1;
     const STATE_VALIDATED = 2;
     const STATE_INVALID = 3;
+    const STATE_ACTIVE = 4;
     // const STATE_NEW = IdentifierValidation::STATE_NEW;
     // const STATE_VALIDATED = IdentifierValidation::STATE_VALIDATED;
     // const STATE_INVALID = IdentifierValidation::STATE_INVALID;
@@ -59,6 +60,7 @@ class Identifier extends Model
         self::STATE_NEW => 'New',
         self::STATE_VALIDATED => 'Validated',
         self::STATE_INVALID => 'Invalid',  
+        self::STATE_ACTIVE => 'Active',  
     );
 
     /**
