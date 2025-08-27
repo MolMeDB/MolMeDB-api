@@ -1,22 +1,37 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 
 import * as am5 from "@amcharts/amcharts5";
 import * as am5xy from "@amcharts/amcharts5/xy";
 import am5themes_Animated from "@amcharts/amcharts5/themes/Animated";
 import am5themes_Responsive from "@amcharts/amcharts5/themes/Responsive";
+import am5themes_Dark from "@amcharts/amcharts5/themes/Dark";
 import { ILineChartSetting } from "@/lib/api/admin/interfaces/Stats";
 
 export default function InteractionLine(props: { data: ILineChartSetting }) {
-  // Define data
-  // const data = ;
+  const [isDarkMode, setIsDarkMode] = useState<boolean | null>(null);
 
   useEffect(() => {
+    const darkModeMedia = window.matchMedia("(prefers-color-scheme: dark)");
+    setIsDarkMode(darkModeMedia.matches);
+
+    // poslouchání změny
+    const handler = (e: any) => {
+      setIsDarkMode(e.matches);
+    };
+    darkModeMedia.addEventListener("change", handler);
+
+    return () => {
+      darkModeMedia.removeEventListener("change", handler);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isDarkMode === null) return;
+
     if (props.data.data.length > 0) {
       var root = am5.Root.new("interactionLineRoot");
-
-      root.setThemes([am5themes_Animated.new(root)]);
 
       const myTheme = am5.Theme.new(root);
 
@@ -30,6 +45,7 @@ export default function InteractionLine(props: { data: ILineChartSetting }) {
         am5themes_Animated.new(root),
         myTheme,
         am5themes_Responsive.new(root),
+        ...(isDarkMode ? [am5themes_Dark.new(root)] : []),
       ]);
 
       var chart = root.container.children.push(
@@ -141,7 +157,7 @@ export default function InteractionLine(props: { data: ILineChartSetting }) {
     return () => {
       root.dispose();
     };
-  }, []);
+  }, [isDarkMode]);
 
   return (
     <div>

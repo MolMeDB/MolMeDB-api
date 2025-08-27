@@ -76,7 +76,10 @@ function StatsContent(props: { size: "small" | "large" }) {
   const ElementHeight = props.size === "small" ? 500 : 260;
 
   return (
-    <div className="relative w-full lg:h-[900px] h-[1100px] px-8 py-28 bg-gradient-to-br from-intro-blue via-intro-purple to-intro-pink">
+    <div
+      className="relative w-full lg:h-[900px] h-[1100px] px-8 py-28 bg-gradient-to-br 
+          from-intro-blue dark:from-intro-purple-dark via-intro-purple dark:via-intro-purple-dark to-intro-pink dark:to-intro-pink-dark"
+    >
       <div className="flex flex-col items-center gap-4 -mb-24">
         <motion.div
           initial={{ y: 50, opacity: 0 }}
@@ -333,7 +336,11 @@ function StatsContent(props: { size: "small" | "large" }) {
               strokeWidth="2"
               initial={{ pathLength: 0 }}
               whileInView={{ pathLength: 1 }}
-              transition={{ duration: 1, delay: 1, ease: "easeInOut" }}
+              transition={{
+                duration: 1,
+                delay: 1,
+                ease: "easeInOut",
+              }}
               viewport={{ once: true }}
             />
             {/* MEMBRANES -> METHODS */}
@@ -346,7 +353,11 @@ function StatsContent(props: { size: "small" | "large" }) {
               strokeWidth="2"
               initial={{ pathLength: 0 }}
               whileInView={{ pathLength: 1 }}
-              transition={{ duration: 1, delay: 2, ease: "easeInOut" }}
+              transition={{
+                duration: 1,
+                delay: 2,
+                ease: "easeInOut",
+              }}
               viewport={{ once: true }}
             />
             {/* INTERACTIONS -> PROTEINS */}
@@ -359,7 +370,11 @@ function StatsContent(props: { size: "small" | "large" }) {
               strokeWidth="2"
               initial={{ pathLength: 0 }}
               whileInView={{ pathLength: 1 }}
-              transition={{ duration: 1, delay: 1, ease: "easeInOut" }}
+              transition={{
+                duration: 1,
+                delay: 1,
+                ease: "easeInOut",
+              }}
               viewport={{ once: true }}
             />
           </svg>

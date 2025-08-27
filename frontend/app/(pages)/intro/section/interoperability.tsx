@@ -52,7 +52,10 @@ function InteroperabilityContent(props: { size: "small" | "large" }) {
   const logoSize = props.size === "small" ? height * 0.13 : height * 0.18; // např. 12 %
 
   return (
-    <div className="relative w-full h-screen lg:h-[950px] px-8 py-28 bg-gradient-to-br from-intro-blue via-intro-purple to-intro-pink">
+    <div
+      className="relative w-full h-screen lg:h-[950px] px-8 py-28 bg-gradient-to-br 
+    from-intro-blue dark:from-intro-purple-dark via-intro-purple dark:via-intro-purple-dark to-intro-pink dark:to-intro-pink-dark"
+    >
       <div className="flex flex-col items-center gap-4 -mb-24">
         <h1 className="text-4xl font-bold text-white text-center">
           Focused on interoperability
@@ -94,7 +97,10 @@ function InteroperabilityContent(props: { size: "small" | "large" }) {
                   // strokeDasharray="10 4"
                   initial={{ pathLength: 0 }}
                   whileInView={{ pathLength: 1 }}
-                  transition={{ duration: 2, ease: "easeInOut" }}
+                  transition={{
+                    duration: 2,
+                    ease: "easeInOut",
+                  }}
                   viewport={{ once: true }}
                 />
               );
@@ -147,7 +153,11 @@ function InteroperabilityContent(props: { size: "small" | "large" }) {
                 }}
                 initial={{ scale: 0, opacity: 0 }}
                 whileInView={{ scale: 1, opacity: 1 }}
-                transition={{ duration: 1, delay: 1, ease: "easeOut" }}
+                transition={{
+                  duration: 1,
+                  delay: 1,
+                  ease: "easeOut",
+                }}
                 viewport={{ once: true }}
               />
             );

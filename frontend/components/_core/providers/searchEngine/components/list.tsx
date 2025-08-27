@@ -28,6 +28,7 @@ export default function SearchListItems(props: {
         setRecords(response.data);
         return;
       }
+      console.warn(response);
       addToast({
         title: "Error",
         description: "Failed to load search results. Please, try again.",

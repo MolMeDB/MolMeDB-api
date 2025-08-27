@@ -6,7 +6,7 @@ import { JSX } from "react";
 
 export default function AccessibilitySection() {
   return (
-    <div className="relative w-full min-h-[650px] lg:min-h-auto overflow-hidden p-8 sm:p-16 lg:p-16 lg:py-24 xl:p-28 bg-zinc-200">
+    <div className="relative w-full min-h-[650px] lg:min-h-auto overflow-hidden p-8 sm:p-16 lg:p-16 lg:py-24 xl:p-28 bg-zinc-200 dark:bg-transparent">
       <div className="flex flex-col gap-8 sm:gap-16 lg:gap-24">
         <h1 className="text-3xl lg:text-4xl font-bold text-foreground text-center">
           Open and easily accessible
@@ -59,7 +59,7 @@ function Card(props: {
       whileInView={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
       viewport={{ once: true }}
-      className="bg-white rounded-xl p-8 flex flex-col gap-6 justift-center pb-16"
+      className="bg-white dark:bg-background-dark-2 rounded-xl p-8 flex flex-col gap-6 justift-center pb-16"
     >
       <div className="lg:max-h-[140px] flex justify-center mb-2">
         <Image

@@ -191,7 +191,7 @@ export default function UiTable<TData>(props: {
         items={items}
         isLoading={isLoading}
         loadingContent={
-          <div className="flex flex-row justify-center items-center bg-white/70 w-full h-full z-30">
+          <div className="flex flex-row justify-center items-center bg-background/70 dark:bg-background-dark-2/70 w-full h-full z-30">
             <Spinner size="lg" variant="wave" color="warning" />
           </div>
         }

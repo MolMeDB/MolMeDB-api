@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 
 export default function HowInteracts() {
   return (
-    <div className="relative w-full min-h-[650px] lg:min-h-auto overflow-hidden p-8 sm:p-16 lg:p-24 xl:p-32">
+    <div className="relative w-full min-h-[650px] lg:min-h-auto overflow-hidden p-8 sm:p-16 lg:p-24 xl:p-32 ">
       <motion.div
         initial={{ y: 200, opacity: 0 }}
         whileInView={{ y: 0, opacity: 1 }}
@@ -23,7 +23,7 @@ export default function HowInteracts() {
               sizes="100vw"
             />
           </div>
-          <div className="flex flex-col justify-center text-foreground gap-12">
+          <div className="flex flex-col justify-center text-foreground gap-12 ">
             <h1 className="text-2xl md:text-3xl font-bold leading-tight text-center lg:text-left">
               How do compounds interact with membranes?
             </h1>

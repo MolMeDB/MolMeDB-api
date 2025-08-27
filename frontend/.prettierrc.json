@@ -1,0 +1,18 @@
+{
+  "tabWidth": 2,
+  "useTabs": false,
+  "overrides": [
+    {
+      "files": ["*.ts", "*.tsx", "*.js", "*.jsx"],
+      "options": {
+        "tabWidth": 2
+      }
+    },
+    {
+      "files": ["*.php"],
+      "options": {
+        "tabWidth": 4
+      }
+    }
+  ]
+}

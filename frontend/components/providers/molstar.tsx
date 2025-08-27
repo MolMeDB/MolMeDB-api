@@ -1,5 +1,6 @@
 "use client";
 
+import { getJson } from "@/lib/api/admin";
 import { Spinner } from "@heroui/react";
 import Head from "next/head";
 import Script from "next/script";
@@ -16,6 +17,10 @@ export default function MolStar(props: { sdfPath: string }) {
         viewerRef.current
       ) {
         const instance = new (window as any).PDBeMolstarPlugin();
+
+        // Get file content
+        if (!props.sdfPath) return true;
+
         const options = {
           customData: {
             url: props.sdfPath,

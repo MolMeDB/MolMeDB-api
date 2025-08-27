@@ -7,7 +7,7 @@ import { JSX } from "react";
 
 export default function LabSection() {
   return (
-    <div className="relative w-full min-h-[650px] lg:min-h-auto overflow-hidden p-8 sm:p-16 lg:p-24 xl:px-48 xl:py-24 bg-zinc-200">
+    <div className="relative w-full min-h-[650px] lg:min-h-auto overflow-hidden p-8 sm:p-16 lg:p-24 xl:px-48 xl:py-24 bg-background dark:bg-background-dark">
       <div className="flex flex-col gap-12">
         <h1 className="text-3xl lg:text-4xl font-bold text-foreground text-center">
           Custom laboratory
@@ -90,7 +90,7 @@ export default function LabSection() {
           </div>
         </div>
         <div className="flex justify-end">
-          <Button radius="full" variant="flat" color="primary" size="lg">
+          <Button radius="full" variant="flat" color="warning" size="lg">
             Start now!
           </Button>
         </div>
@@ -108,9 +108,13 @@ function Card(props: {
     <motion.div
       initial={{ x: 100, opacity: 0 }}
       whileInView={{ x: 0, opacity: 1 }}
-      transition={{ duration: 0.6, ease: "easeOut", delay: 0.4 * props.order }}
+      transition={{
+        duration: 0.6,
+        ease: "easeOut",
+        delay: 0.4 * props.order,
+      }}
       viewport={{ once: true }}
-      className="bg-white rounded-full py-4 px-6 lg:py-6 lg:px-8 flex flex-row gap-6 justify-start items-center"
+      className="bg-white dark:bg-background-dark-2 rounded-full py-4 px-6 lg:py-6 lg:px-8 flex flex-row gap-6 justify-start items-center"
     >
       <div>
         <div className="font-bold text-2xl lg:text-4xl text-white bg-secondary px-6 py-2 rounded-full">

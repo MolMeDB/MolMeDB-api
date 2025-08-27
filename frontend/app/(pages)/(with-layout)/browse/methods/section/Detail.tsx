@@ -63,12 +63,14 @@ export default function SectionDetail(props: { methodId: string }) {
     <div ref={detailSectionRef} className="min-h-64 w-full">
       {isLoading ? (
         <div className="flex-1 flex justify-center items-center">
-          <Spinner label="Loading..." variant="wave" />
+          <Spinner label="Loading..." variant="wave" size="lg" />
         </div>
       ) : (
         <div className="flex flex-col gap-4">
           <div className="flex justify-between items-center gap-16">
-            <h1 className="text-2xl font-bold text-secondary">{data?.name}</h1>
+            <h1 className="text-2xl font-bold text-secondary dark:text-primary-600">
+              {data?.name}
+            </h1>
             {data ? (
               <Button
                 color="primary"
@@ -83,7 +85,9 @@ export default function SectionDetail(props: { methodId: string }) {
           </div>
           <div
             className="html-content-block"
-            dangerouslySetInnerHTML={{ __html: data?.description || "" }}
+            dangerouslySetInnerHTML={{
+              __html: data?.description || "",
+            }}
           />
         </div>
       )}

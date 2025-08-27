@@ -16,7 +16,7 @@ export default async function Intro() {
     <Site>
       <SiteMenu hideLogoOnTop />
       <IntroductionSection />
-      <div className="h-12 w-full flex-1 bg-[#6a50d9]" />
+      <div className="h-12 w-full flex-1 bg-big-delimiter dark:bg-big-delimiter-dark" />
       <HowInteracts />
       <StatsSection />
       <AccessibilitySection />

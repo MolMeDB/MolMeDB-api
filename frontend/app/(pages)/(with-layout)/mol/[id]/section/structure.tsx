@@ -44,9 +44,9 @@ export default function Compound2D3DStructure(props: { compound: IStructure }) {
         }
       >
         {!is3Ddisplayed || !props.compound.structure_3d_url ? (
-          <div className="flex flex-row justify-center items-center pt-8 px-8 relative h-[305px]">
+          <div className="flex flex-row justify-center items-center pt-8 px-8 relative h-[305px] dark:bg-background/70 rounded-2xl">
             {isLoading && (
-              <div className="absolute inset-0 flex items-center justify-center bg-gray/30 z-10">
+              <div className="absolute inset-0 flex items-center justify-center bg-gray/30 dark:bg-background-dark z-10">
                 <Spinner variant="wave" label="Loading..." />
               </div>
             )}
@@ -67,7 +67,7 @@ export default function Compound2D3DStructure(props: { compound: IStructure }) {
                 backdrop: "bg-[#292f46]/50 backdrop-opacity-40",
               }}
             >
-              <ModalContent className="flex justify-center items-center p-12">
+              <ModalContent className="flex justify-center items-center p-12 bg-background">
                 {(onClose) => (
                   <Image
                     alt="2D Structure"
@@ -79,7 +79,7 @@ export default function Compound2D3DStructure(props: { compound: IStructure }) {
             </Modal>
           </div>
         ) : (
-          <div className="flex flex-col justify-center items-center pt-8 px-8 relative h-[305px] w-full ">
+          <div className="flex flex-col justify-center items-center pt-8 px-8 relative h-[305px] w-full">
             <MolStar sdfPath={props.compound.structure_3d_url} />
           </div>
         )}

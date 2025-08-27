@@ -9,7 +9,7 @@ export default function RootLayout(
 ) {
   return (
     <Site>
-      <SiteMenu />
+      <SiteMenu isLogoClickable />
       {props.children}
     </Site>
   );

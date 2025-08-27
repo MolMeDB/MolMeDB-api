@@ -4,36 +4,39 @@ import Image from "next/image";
 
 export default function IntroductionSection() {
   return (
-    <div className="relative w-full min-h-[650px] mx-auto lg:min-h-auto overflow-hidden p-8 sm:p-16 lg:p-24 xl:px-56 xl:py-32 2xl:px-64 2xl:py-32">
+    <div
+      className="relative w-full min-h-[650px] mx-auto lg:min-h-auto overflow-hidden p-8 sm:p-16 lg:p-24 xl:px-56 xl:py-32 2xl:px-64 2xl:py-32
+               z-10 block"
+    >
       <div
         className="absolute inset-0
-            bg-gradient-to-br from-intro-blue via-intro-purple to-intro-pink z-10 block sm:hidden"
+            bg-gradient-to-br from-intro-blue dark:from-intro-blue-dark via-intro-purple dark:via-intro-purple-dark to-intro-pink dark:to-intro-pink-dark z-10 block sm:hidden"
         style={{
           clipPath: "polygon(0 0, 100% 0, 100% 18%, 0 16%)",
         }}
       ></div>
       <div
         className="absolute inset-0
-            bg-gradient-to-br from-intro-blue via-intro-purple to-intro-pink z-10 hidden sm:block lg:hidden"
+            bg-gradient-to-br from-intro-blue dark:from-intro-blue-dark via-intro-purple dark:via-intro-purple-dark to-intro-pink dark:to-intro-pink-dark z-10 hidden sm:block lg:hidden"
         style={{
           clipPath: "polygon(0 0, 100% 0, 100% 22%, 0 17%)",
         }}
       ></div>
       <div
         className="absolute inset-0
-            bg-gradient-to-br from-intro-blue via-intro-purple to-intro-pink z-10 hidden lg:block xl:hidden"
+            bg-gradient-to-br from-intro-blue dark:from-intro-blue-dark via-intro-purple dark:via-intro-purple-dark to-intro-pink dark:to-intro-pink-dark z-10 hidden lg:block xl:hidden"
         style={{
           clipPath: "polygon(0 0, 100% 0, 100% 35%, 0 25%)",
         }}
       ></div>
       <div
         className="absolute inset-0
-            bg-gradient-to-br from-intro-blue via-intro-purple to-intro-pink z-10 hidden xl:block"
+            bg-gradient-to-br from-intro-blue dark:from-intro-blue-dark via-intro-purple dark:via-intro-purple-dark to-intro-pink dark:to-intro-pink-dark z-10 hidden xl:block"
         style={{
           clipPath: "polygon(0 0, 100% 0, 100% 40%, 0 27%)",
         }}
       ></div>
-      <div className="relative z-10 flex flex-col gap-16 lg:grid lg:grid-rows-[300px_auto_auto] grid-cols-1 lg:grid-cols-2 gap-32 gap-y-32 h-full pt-8 lg:pt-20">
+      <div className="relative z-10 flex flex-col lg:grid lg:grid-rows-[300px_auto_auto] grid-cols-1 lg:grid-cols-2 gap-32 gap-y-32 h-full pt-8 lg:pt-20">
         {/* 1. řádek, 1. sloupec: Logo + text */}
         <div className="lg:row-start-1 lg:col-start-1 flex items-start justify-start text-white w-full">
           <div className="flex flex-col gap-4 w-full">
@@ -60,7 +63,7 @@ export default function IntroductionSection() {
           <h1 className="text-2xl md:text-3xl font-bold leading-tight">
             We study behavior of <br /> molecules on membranes...
           </h1>
-          <p className="text-lg lg:mt-4 lg:max-w-xl text-left text-semibold text-left sm:text-justify lg:text-left">
+          <p className="text-lg lg:mt-4 lg:max-w-xl text-left text-semibold sm:text-justify lg:text-left">
             Understanding how molecules interact with membranes is essential for
             evaluating their biological activity, bioavailability, and
             pharmacokinetics. These interactions can be expressed by
@@ -69,7 +72,7 @@ export default function IntroductionSection() {
             prediction methods.
           </p>
           <div className="mt-4 flex flex-row justify-end lg:justify-start">
-            <Button radius="full" variant="flat" color="primary" size="lg">
+            <Button radius="full" variant="flat" color="warning" size="lg">
               Discover
             </Button>
           </div>
@@ -126,7 +129,7 @@ export default function IntroductionSection() {
               />
             </div>
             <div className="flex flex-row justify-end lg:mt-4 w-full lg:max-w-xl">
-              <Button radius="full" variant="flat" color="primary" size="lg">
+              <Button radius="full" variant="flat" color="warning" size="lg">
                 Discover
               </Button>
             </div>

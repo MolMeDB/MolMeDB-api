@@ -3,7 +3,8 @@ import * as am5 from "@amcharts/amcharts5";
 import * as am5xy from "@amcharts/amcharts5/xy";
 import am5themes_Animated from "@amcharts/amcharts5/themes/Animated";
 import am5themes_Responsive from "@amcharts/amcharts5/themes/Responsive";
-import { useEffect } from "react";
+import am5themes_Dark from "@amcharts/amcharts5/themes/Dark";
+import { useEffect, useState } from "react";
 import { ILineChartSetting } from "@/lib/api/admin/interfaces/Stats";
 
 export default function SectionChartsHistory(props: {
@@ -11,7 +12,26 @@ export default function SectionChartsHistory(props: {
   totalPublications: number;
   minPublishedYear: number;
 }) {
+  const [isDarkMode, setIsDarkMode] = useState<boolean | null>(null);
+
   useEffect(() => {
+    const darkModeMedia = window.matchMedia("(prefers-color-scheme: dark)");
+    setIsDarkMode(darkModeMedia.matches);
+
+    // poslouchání změny
+    const handler = (e: any) => {
+      setIsDarkMode(e.matches);
+    };
+    darkModeMedia.addEventListener("change", handler);
+
+    return () => {
+      darkModeMedia.removeEventListener("change", handler);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isDarkMode === null) return;
+
     if (props.data.data.length > 0) {
       var root = am5.Root.new("interactionLineRoot");
 
@@ -29,6 +49,7 @@ export default function SectionChartsHistory(props: {
         am5themes_Animated.new(root),
         myTheme,
         am5themes_Responsive.new(root),
+        ...(isDarkMode ? [am5themes_Dark.new(root)] : []),
       ]);
 
       var chart = root.container.children.push(
@@ -139,7 +160,7 @@ export default function SectionChartsHistory(props: {
     return () => {
       root.dispose();
     };
-  }, []);
+  }, [isDarkMode]);
 
   return (
     <div className="flex flex-col lg:flex-row justify-between gap-16 lg:gap-32 lg:pt-8">

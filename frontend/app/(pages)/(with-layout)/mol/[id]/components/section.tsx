@@ -28,17 +28,17 @@ function Title(props: {
     <div className={cn("flex flex-col gap-2")}>
       <div className="flex flex-row justify-between items-center">
         <div className="flex flex-row gap-3">
-          <h2 className="text-xl font-bold text-secondary uppercase">
+          <h2 className="text-xl font-bold text-secondary dark:text-indigo-300 uppercase">
             {props.order}
             {"."}
           </h2>
-          <h2 className="text-xl font-bold text-secondary uppercase">
+          <h2 className="text-xl font-bold text-secondary dark:text-indigo-300 uppercase">
             {props.content}
           </h2>
         </div>
         {props.endContent}
       </div>
-      <div className="h-1.5 w-full bg-gradient-to-r from-secondary to-transparent rounded-full" />
+      <div className="h-1.5 w-full bg-gradient-to-r from-secondary dark:from-indigo-300 to-transparent rounded-full" />
     </div>
   );
 }

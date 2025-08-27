@@ -1,21 +1,40 @@
 "use client";
 
 import React, { useEffect, useLayoutEffect, useState } from "react";
-import { isServerSide } from "@/components/helpers/system";
-// import ReactApexChart from "react-apexcharts";
-import dynamic from "next/dynamic";
 
 import * as am5 from "@amcharts/amcharts5";
 import * as am5xy from "@amcharts/amcharts5/xy";
 import am5themes_Animated from "@amcharts/amcharts5/themes/Animated";
-import { Varela_Round } from "next/font/google";
+import am5themes_Dark from "@amcharts/amcharts5/themes/Dark";
 import { IBarChartSetting } from "@/lib/api/admin/interfaces/Stats";
 
 export default function DatabaseBar(props: { data: IBarChartSetting }) {
+  const [isDarkMode, setIsDarkMode] = useState<boolean | null>(null);
+
   useEffect(() => {
+    const darkModeMedia = window.matchMedia("(prefers-color-scheme: dark)");
+    setIsDarkMode(darkModeMedia.matches);
+
+    // poslouchání změny
+    const handler = (e: any) => {
+      setIsDarkMode(e.matches);
+    };
+    darkModeMedia.addEventListener("change", handler);
+
+    return () => {
+      darkModeMedia.removeEventListener("change", handler);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isDarkMode === null) return;
+
     let root = am5.Root.new("chartdiv");
 
-    root.setThemes([am5themes_Animated.new(root)]);
+    root.setThemes([
+      am5themes_Animated.new(root),
+      ...(isDarkMode ? [am5themes_Dark.new(root)] : []),
+    ]);
 
     var chart = root.container.children.push(
       am5xy.XYChart.new(root, {
@@ -115,7 +134,7 @@ export default function DatabaseBar(props: { data: IBarChartSetting }) {
     return () => {
       root.dispose();
     };
-  }, []);
+  }, [isDarkMode]);
 
   return (
     <div>

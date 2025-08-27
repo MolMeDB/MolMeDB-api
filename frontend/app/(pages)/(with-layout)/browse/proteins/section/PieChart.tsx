@@ -3,6 +3,7 @@
 import * as am5 from "@amcharts/amcharts5";
 import * as am5hierarchy from "@amcharts/amcharts5/hierarchy";
 import am5themes_Animated from "@amcharts/amcharts5/themes/Animated";
+import am5themes_Responsive from "@amcharts/amcharts5/themes/Responsive";
 import { Select, SelectItem, Spinner } from "@heroui/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import ICategory from "@/lib/api/admin/interfaces/Category";
@@ -52,6 +53,7 @@ export default function SectionPieChart(props: {
   const viewerRef = useRef(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [levels, setLevels] = useState<string[]>(["0"]);
+  const [isDarkMode, setIsDarkMode] = useState<boolean | null>(null);
   const [proteinId, setProteinId] = useState("");
 
   const categories = useMemo(
@@ -71,9 +73,29 @@ export default function SectionPieChart(props: {
   }, [proteinId]);
 
   useEffect(() => {
+    const darkModeMedia = window.matchMedia("(prefers-color-scheme: dark)");
+    setIsDarkMode(darkModeMedia.matches);
+
+    // poslouchání změny
+    const handler = (e: any) => {
+      setIsDarkMode(e.matches);
+    };
+    darkModeMedia.addEventListener("change", handler);
+
+    return () => {
+      darkModeMedia.removeEventListener("change", handler);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isDarkMode === null) return;
+
     if (typeof window !== "undefined" && viewerRef.current && categories) {
       const root = am5.Root.new(viewerRef.current);
-      root.setThemes([am5themes_Animated.new(root)]);
+      root.setThemes([
+        am5themes_Animated.new(root),
+        am5themes_Responsive.new(root),
+      ]);
 
       const container = root.container.children.push(
         am5.Container.new(root, {
@@ -135,6 +157,27 @@ export default function SectionPieChart(props: {
 
       series.data.setAll(categories);
 
+      // Legend
+      let legend = container.children.push(
+        am5.Legend.new(root, {
+          centerX: am5.percent(50),
+          x: am5.percent(50),
+          layout: root.horizontalLayout,
+        })
+      );
+
+      let textColor = isDarkMode ? 0xffffff : 0x000000;
+
+      legend.labels.template.setAll({
+        fill: am5.color(textColor),
+      });
+
+      legend.valueLabels.template.setAll({
+        fill: am5.color(textColor),
+      });
+
+      legend.data.setAll(series.dataItems[0].get("children"));
+
       // const legend = container.children.push(
       //   am5.Legend.new(root, {
       //     centerX: am5.percent(50),
@@ -151,7 +194,7 @@ export default function SectionPieChart(props: {
         root.dispose();
       };
     }
-  }, []);
+  }, [isDarkMode]);
 
   const renderSelects = () => {
     const selects = [];
@@ -167,7 +210,7 @@ export default function SectionPieChart(props: {
         <Select
           key={`level-${i}`}
           color="primary"
-          variant="flat"
+          variant="bordered"
           className="max-w-xs min-w-8 my-1"
           aria-label={`Select level ${i}`}
           placeholder="Select category"
@@ -208,7 +251,7 @@ export default function SectionPieChart(props: {
 
   return (
     <>
-      <div className="h-[650px] w-full hidden md:block">
+      <div className="h-[650px] w-full hidden md:block dark:bg-gradient-to-b dark:from-[#4a4b64] dark:to-[#373749] p-4 rounded-3xl">
         <div
           ref={viewerRef}
           style={{ height: "100%", width: "100%" }}

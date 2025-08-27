@@ -48,7 +48,7 @@ export function SiteMenu(props: {
       classNames={{
         base: `h-16 -mb-16 transition-all duration-500 ease-in-out text-white/80 ${
           isScrolled || isMenuOpen
-            ? " text-foreground/80 dark:bg-background-menu-dark/90"
+            ? " text-foreground/80 dark:bg-background-menu-dark"
             : "!bg-transparent backdrop-blur-none backdrop-saturate-100"
         }`,
         brand: `${

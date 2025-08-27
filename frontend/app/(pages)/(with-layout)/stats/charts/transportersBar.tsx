@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 
 import * as am5 from "@amcharts/amcharts5";
 import * as am5xy from "@amcharts/amcharts5/xy";
@@ -10,11 +10,31 @@ import { IBarChartSetting } from "@/lib/api/admin/interfaces/Stats";
 import am5themes_Responsive from "@amcharts/amcharts5/themes/Responsive";
 
 export default function TransportersBar(props: { data: IBarChartSetting }) {
+  // const [isDarkMode, setIsDarkMode] = useState<boolean | null>(null);
+
+  // useEffect(() => {
+  //     const darkModeMedia = window.matchMedia("(prefers-color-scheme: dark)");
+  //     setIsDarkMode(darkModeMedia.matches);
+
+  //     // poslouchání změny
+  //     const handler = (e: any) => {
+  //         setIsDarkMode(e.matches);
+  //     };
+  //     darkModeMedia.addEventListener("change", handler);
+
+  //     return () => {
+  //         darkModeMedia.removeEventListener("change", handler);
+  //     };
+  // }, []);
+
   useEffect(() => {
+    // if (isDarkMode === null) return;
+
     let root = am5.Root.new("transporterBarRoot");
 
     root.setThemes([
       am5themes_Animated.new(root),
+      // ...(isDarkMode ? [am5themes_Dark.new(root)] : []),
       am5themes_Dark.new(root),
       am5themes_Responsive.new(root),
     ]);

@@ -23,7 +23,6 @@ export default function RecentSearchList(props: {
       type: props.submittedQuery.type,
       datetime: new Date().toISOString(),
     });
-    console.log("Added");
   }, [props.submittedQuery.query, props.submittedQuery.type]);
 
   return (
@@ -40,7 +39,7 @@ export default function RecentSearchList(props: {
             }}
           >
             <div className="flex flex-row justify-start gap-3 items-center w-full cursor-pointer">
-              <div className="border-1 p-2 rounded-lg border-zinc-600 bg-zinc-200">
+              <div className="border-1 p-2 rounded-lg border-zinc-600 bg-zinc-200 dark:bg-background-dark-2">
                 <RxCountdownTimer size={13} />
               </div>
               <div className="flex flex-row justify-between items-center gap-4 w-full">

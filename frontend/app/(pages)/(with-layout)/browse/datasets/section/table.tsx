@@ -297,7 +297,7 @@ export default function SectionTable() {
           loadingState={isLoading ? "loading" : "idle"}
           //   loadingState={"loading"}
           loadingContent={
-            <div className="flex justify-center w-full h-full items-center bg-zinc-100/70 z-20">
+            <div className="flex justify-center w-full h-full items-center bg-background/70 dark:bg-background-dark/50 z-20">
               <Spinner size="lg" variant="wave" color="secondary" />
             </div>
           }

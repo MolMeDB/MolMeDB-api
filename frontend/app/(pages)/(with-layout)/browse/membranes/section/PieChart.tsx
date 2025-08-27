@@ -3,6 +3,7 @@
 import * as am5 from "@amcharts/amcharts5";
 import * as am5hierarchy from "@amcharts/amcharts5/hierarchy";
 import am5themes_Animated from "@amcharts/amcharts5/themes/Animated";
+import am5themes_Responsive from "@amcharts/amcharts5/themes/Responsive";
 import { Select, SelectItem, Spinner } from "@heroui/react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import ICategory from "@/lib/api/admin/interfaces/Category";
@@ -37,6 +38,7 @@ export default function SectionPieChart(props: {
 }) {
   const viewerRef = useRef(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState<boolean | null>(null);
   const [level1, setLevel1] = useState<string>("");
   const [level2, setLevel2] = useState<string>("");
   const [level3, setLevel3] = useState<string>("");
@@ -56,11 +58,31 @@ export default function SectionPieChart(props: {
     props.setSelectedMembraneId(level3);
   }, [level3]);
 
+  useEffect(() => {
+    const darkModeMedia = window.matchMedia("(prefers-color-scheme: dark)");
+    setIsDarkMode(darkModeMedia.matches);
+
+    // poslouchání změny
+    const handler = (e: any) => {
+      setIsDarkMode(e.matches);
+    };
+    darkModeMedia.addEventListener("change", handler);
+
+    return () => {
+      darkModeMedia.removeEventListener("change", handler);
+    };
+  }, []);
+
   useLayoutEffect(() => {
+    if (isDarkMode === null) return;
+
     if (typeof window !== "undefined" && viewerRef.current && categories) {
       var root = am5.Root.new(viewerRef.current);
 
-      root.setThemes([am5themes_Animated.new(root)]);
+      root.setThemes([
+        am5themes_Responsive.new(root),
+        am5themes_Animated.new(root),
+      ]);
 
       const container = root.container.children.push(
         am5.Container.new(root, {
@@ -156,6 +178,17 @@ export default function SectionPieChart(props: {
           layout: root.horizontalLayout,
         })
       );
+
+      let textColor = isDarkMode ? 0xffffff : 0x000000;
+
+      legend.labels.template.setAll({
+        fill: am5.color(textColor),
+      });
+
+      legend.valueLabels.template.setAll({
+        fill: am5.color(textColor),
+      });
+
       legend.data.setAll(series.dataItems[0].get("children"));
 
       series.appear(1000, 100);
@@ -194,13 +227,13 @@ export default function SectionPieChart(props: {
     return () => {
       root.dispose();
     };
-  }, []);
+  }, [isDarkMode]);
 
   const options = categories[0].children as PieChartItem[];
 
   return (
     <>
-      <div className="h-[550px] w-full hidden md:block">
+      <div className="h-[550px] w-full hidden md:block dark:bg-gradient-to-b dark:from-[#4a4b64] dark:to-[#373749] p-4 rounded-3xl">
         <div
           ref={viewerRef}
           style={{ height: "100%", width: "100%" }}
@@ -212,7 +245,7 @@ export default function SectionPieChart(props: {
       <div className="flex flex-col md:flex-row justify-start items-center gap-1 md:gap-4">
         <Select
           color="primary"
-          variant="flat"
+          variant="bordered"
           className="max-w-xs"
           aria-label="Membrane category selector"
           placeholder="Select category"
@@ -238,7 +271,7 @@ export default function SectionPieChart(props: {
         <Select
           color="primary"
           isDisabled={level1 === ""}
-          variant="flat"
+          variant="bordered"
           className="max-w-xs"
           placeholder={level1 === "" ? "" : "Select subcategory"}
           aria-label="Membrane category selector"
@@ -267,7 +300,7 @@ export default function SectionPieChart(props: {
         <Select
           color="primary"
           isDisabled={level2 === ""}
-          variant="flat"
+          variant="bordered"
           disallowEmptySelection
           className="max-w-xs"
           placeholder={level2 === "" ? "" : "Select membrane"}

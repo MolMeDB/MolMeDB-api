@@ -21,7 +21,7 @@ export default function SectionWrapper(props: { categories: ICategory[] }) {
           categories={props.categories}
           setSelectedProteinId={setSelectedProteinId}
         />
-        <div className="h-1 w-full bg-zinc-100" />
+        <div className="h-1 w-full bg-zinc-100 dark:bg-background-dark-2" />
         <SectionDetail proteinId={selectedProteinId} />
       </>
     )

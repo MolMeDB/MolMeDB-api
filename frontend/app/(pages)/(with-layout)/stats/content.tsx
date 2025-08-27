@@ -68,7 +68,7 @@ export default function StatsContent(props: { stats: IStatsGlobal }) {
           </div>
         </div>
       </div>
-      <div className="h-12 w-full bg-secondary"></div>
+      <div className="h-12 w-full bg-big-delimiter dark:bg-big-delimiter-dark"></div>
       <div className="flex flex-col-reverse xl:flex-row items-center justify-between gap-8 xl:gap-16 w-full xl:w-7xl xl:mx-auto">
         <div className="xl:p-8 flex flex-col gap-8">
           {props.stats.plots.databasesBar && (
@@ -85,7 +85,7 @@ export default function StatsContent(props: { stats: IStatsGlobal }) {
           </div>
         </div>
       </div>
-      <div className="w-full bg-secondary text-white font-sans">
+      <div className="w-full bg-big-delimiter dark:bg-big-delimiter-dark text-white font-sans">
         <div className="flex flex-col xl:flex-row gap-16 py-16 px-8 lg:px-16 mx-auto xl:w-7xl">
           <div className="w-full xl:w-1/2 flex flex-col justify-center gap-4 text-xl">
             While passive interactions describe the spontaneous permeation of a

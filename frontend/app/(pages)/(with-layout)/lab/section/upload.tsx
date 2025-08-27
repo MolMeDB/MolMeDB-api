@@ -9,7 +9,7 @@ export default function SectionUpload() {
     <>
       <div className="flex flex-col lg:flex-row gap-16 lg:gap-32 ">
         <div className="text-center flex flex-col justify-center items-center gap-8">
-          <h1 className="text-3xl font-bold text-primary">
+          <h1 className="text-3xl font-bold text-primary dark:text-primary-600">
             Do you already have computed data?
           </h1>
           <p className="text-lg">

@@ -17,7 +17,7 @@ export default function SectionComputationButtons() {
           />
         </div>
         <div className="text-center flex flex-col justify-center items-center gap-8 w-full md:w-1/2">
-          <h1 className="text-2xl lg:text-3xl font-bold text-primary">
+          <h1 className="text-2xl lg:text-3xl font-bold text-primary dark:text-primary-600">
             Help us expand MolMeDB with pharmacologically interesting molecules
           </h1>
           <p className="text-lg">

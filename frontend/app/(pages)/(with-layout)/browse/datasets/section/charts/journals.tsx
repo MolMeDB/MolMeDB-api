@@ -4,15 +4,38 @@ import { IBarChartSetting } from "@/lib/api/admin/interfaces/Stats";
 import * as am5 from "@amcharts/amcharts5";
 import * as am5xy from "@amcharts/amcharts5/xy";
 import am5themes_Animated from "@amcharts/amcharts5/themes/Animated";
-import { useEffect } from "react";
+import am5themes_Dark from "@amcharts/amcharts5/themes/Dark";
+import { useEffect, useState } from "react";
 
 export default function SectionChartsJournals(props: {
   data: IBarChartSetting;
 }) {
+  const [isDarkMode, setIsDarkMode] = useState<boolean | null>(null);
+
   useEffect(() => {
+    const darkModeMedia = window.matchMedia("(prefers-color-scheme: dark)");
+    setIsDarkMode(darkModeMedia.matches);
+
+    // poslouchání změny
+    const handler = (e: any) => {
+      setIsDarkMode(e.matches);
+    };
+    darkModeMedia.addEventListener("change", handler);
+
+    return () => {
+      darkModeMedia.removeEventListener("change", handler);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isDarkMode === null) return;
+
     let root = am5.Root.new("chartdiv");
 
-    root.setThemes([am5themes_Animated.new(root)]);
+    root.setThemes([
+      am5themes_Animated.new(root),
+      ...(isDarkMode ? [am5themes_Dark.new(root)] : []),
+    ]);
 
     var chart = root.container.children.push(
       am5xy.XYChart.new(root, {
@@ -112,11 +135,11 @@ export default function SectionChartsJournals(props: {
     return () => {
       root.dispose();
     };
-  }, []);
+  }, [isDarkMode]);
 
   return (
     <div className="w-full h-auto hidden sm:flex flex-col justify-center gap-8 items-center pt-16">
-      <h1 className="text-3xl font-bold text-secondary text-center">
+      <h1 className="text-3xl font-bold text-secondary dark:text-primary-600 text-center">
         Number of interactions by sources
       </h1>
       <div className="xl:pr-16">
