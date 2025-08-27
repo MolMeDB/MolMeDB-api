@@ -5,9 +5,9 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreStructureRequest;
 use App\Http\Requests\UpdateStructureRequest;
 use App\Http\Resources\StructureResource;
-use App\Libraries\Rdkit;
 use App\Models\Structure;
 use Illuminate\Support\Facades\Http;
+use Modules\Rdkit\Rdkit;
 
 class StructureController extends Controller
 {
@@ -46,7 +46,14 @@ class StructureController extends Controller
 
         $rdkit = new Rdkit();
 
-        $molContent = $rdkit->get_3d_structure($structure);
+        $molContent = $rdkit->get_3d_structure($structure->canonical_smiles);
+
+        if(!$molContent)
+        {
+            return response()->json([
+                'message' => 'Structure not found'
+            ], 404);
+        }
 
         $structure->molfile_3d = $molContent;
         $structure->save();

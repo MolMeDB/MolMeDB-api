@@ -3,10 +3,10 @@
 namespace App\Http\Resources;
 
 use App\Helpers\MMdbUrl;
-use App\Libraries\CdkDepict;
 use App\Models\Structure;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Modules\CdkDepict\CdkDepict;
 
 class StructureResource extends JsonResource
 {

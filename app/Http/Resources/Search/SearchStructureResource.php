@@ -1,9 +1,9 @@
 <?php
 namespace App\Http\Resources\Search;
 
-use App\Libraries\CdkDepict;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Modules\CdkDepict\CdkDepict;
 
 class SearchStructureResource extends JsonResource
 {

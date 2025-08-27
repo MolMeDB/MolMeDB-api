@@ -4,15 +4,13 @@ namespace App\Filament\Resources\StructureResource\Pages;
 
 use App\Filament\Resources\StructureResource;
 use App\Libraries\Identifiers;
-use App\Libraries\Rdkit;
-use App\Models\Identifier;
-use Filament\Actions;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Support\Exceptions\Halt;
 use Filament\Support\Facades\FilamentView;
 use Illuminate\Support\Facades\Auth;
+use Modules\Rdkit\Rdkit;
 use Throwable;
 
 use function Filament\Support\is_app_url;
@@ -45,26 +43,26 @@ class CreateStructure extends CreateRecord
         $substance = $this->getRecord();
         // Add MMDB identifier
         $substance->update([
-            'identifier' => Identifiers::get_identifier($substance->id)
+            'identifier' => Identifiers::generate($substance)
         ]);
 
         // Save other provided identifiers
-        $substance->identifiers()->create([
-            'value' => $data['smiles'],
-            'type'  => Identifier::TYPE_SMILES,
-            'user_id' => Auth::user()->id,
-            'is_active' => true,
-            'state' => Identifier::STATE_VALIDATED
-        ]);
+        // $substance->identifiers()->create([
+        //     'value' => $data['smiles'],
+        //     'type'  => Identifier::TYPE_SMILES,
+        //     'user_id' => Auth::user()->id,
+        //     'is_active' => true,
+        //     'state' => Identifier::STATE_VALIDATED
+        // ]);
 
-        $substance->identifiers()->create([
-            'value' => $data['inchikey'],
-            'type'  => Identifier::TYPE_INCHIKEY,
-            'user_id' => Auth::user()->id,
-            'is_active' => true,
-            'state' => Identifier::STATE_VALIDATED,
-            'server' => Identifier::SERVER_RDKIT
-        ]);
+        // $substance->identifiers()->create([
+        //     'value' => $data['inchikey'],
+        //     'type'  => Identifier::TYPE_INCHIKEY,
+        //     'user_id' => Auth::user()->id,
+        //     'is_active' => true,
+        //     'state' => Identifier::STATE_VALIDATED,
+        //     'server' => Identifier::SERVER_RDKIT
+        // ]);
     }
 
 
@@ -129,8 +127,8 @@ class CreateStructure extends CreateRecord
         // Set values
         $this->form->fill([
             ...$states,
-            'molecular_weight' => round($info->MW, 2),
-            'logp' => round($info->LogP, 2),
+            'molecular_weight' => round($info->mw, 2),
+            'logp' => round($info->logp, 2),
             'inchikey' => $info->inchi
         ]);
 
