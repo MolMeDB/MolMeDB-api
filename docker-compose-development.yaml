@@ -131,6 +131,21 @@ services:
       - molmedb-redis:/data
     networks:
       - molmedb-dev-network
+    
+  rdkit:
+    build:
+      context: ./modules/Rdkit/src
+      dockerfile: ./../../../docker/common/rdkit/Dockerfile
+    container_name: rdkit
+    ports:
+      - "9696:80"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/test"]
+      interval: 120s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
   
 
 volumes:

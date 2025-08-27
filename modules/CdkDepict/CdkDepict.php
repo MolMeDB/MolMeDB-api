@@ -1,5 +1,5 @@
 <?php
-namespace App\Libraries;
+namespace Modules\CdkDepict;
 
 use Exception;
 use Illuminate\Support\Facades\Http;
@@ -86,6 +86,6 @@ class CdkDepict
             'annotate' => 'none'
         ];
 
-        return self::$url_parameters['host'] . '?' . http_build_query($parameters); 
+        return self::$url_parameters['host'] . '/depict/bot/svg?' . http_build_query($parameters); 
     }
 }
