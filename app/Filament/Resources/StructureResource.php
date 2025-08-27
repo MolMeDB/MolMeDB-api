@@ -6,6 +6,7 @@ use App\Enums\IconEnums;
 use App\Filament\Resources\SharedRelationManagers;
 use App\Filament\Resources\StructureResource\Pages;
 use App\Filament\Resources\StructureResource\RelationManagers;
+use App\Libraries\Identifiers;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -15,6 +16,8 @@ use App\Models\Structure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\HtmlString;
+use Modules\CdkDepict\CdkDepict;
 
 class StructureResource extends Resource
 {
@@ -26,6 +29,8 @@ class StructureResource extends Resource
 
     public static function form(Form $form): Form
     {
+        $cdk = new CdkDepict();
+
         return $form
             ->schema([
                 Forms\Components\Section::make('Basic information')
@@ -46,6 +51,10 @@ class StructureResource extends Resource
                             // ->endsWith()
                             ->columnSpanFull(),
                             ]),
+                        Forms\Components\Placeholder::make('structure')
+                            ->label('2D structure')
+                            ->hiddenOn('create')
+                            ->content(fn (?Structure $record) => $record?->canonical_smiles ? new HtmlString('<img src="' . $cdk->get2dStructureUrl($record?->canonical_smiles) . '" style="max-width: 100%; max-height: 100%;">') : null),
                 Forms\Components\Section::make('Computed properties (readonly)')
                     ->columns(2)
                     ->schema([

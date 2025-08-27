@@ -107,12 +107,14 @@ class IdentifiersRelationManager extends RelationManager
                         strval(Identifier::STATE_NEW) => IconEnums::STATE_NEW->value,
                         strval(Identifier::STATE_VALIDATED) => IconEnums::STATE_VALIDATED->value,
                         strval(Identifier::STATE_INVALID) => IconEnums::STATE_INVALID->value,
+                        strval(Identifier::STATE_ACTIVE) => IconEnums::STATE_ACTIVE->value,
                         default => IconEnums::QUESTION_MARK->value,
                     })
                     ->tooltip(fn (?string $state): string => match ($state) {
                         strval(Identifier::STATE_NEW) => 'Waiting for validation',
                         strval(Identifier::STATE_VALIDATED) => 'Validated',
                         strval(Identifier::STATE_INVALID) => 'Invalid identifier',
+                        strval(Identifier::STATE_ACTIVE) => 'Primary',
                         default => 'Unknown state',
                     }),
                 Tables\Columns\TextColumn::make('created_at')
@@ -144,6 +146,13 @@ class IdentifiersRelationManager extends RelationManager
                     ->icon(IconEnums::VIEW->value)
                     ->url(fn ($record) => StructureResource::getUrl('edit', ['record' => $record->structure]))
                     ->visible(fn() : bool => $this->isSourceTypeOwner()),
+                Tables\Actions\Action::make('activate')
+                    ->label('Set as primary')
+                    ->icon(IconEnums::CHECK->value)
+                    ->action(fn (Identifier $record) => $record->activate())
+                    ->visible(fn(Identifier $record) : bool => !$this->isSourceTypeOwner() 
+                        && $record->type == Identifier::TYPE_NAME
+                        && $record->state !== Identifier::STATE_ACTIVE),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

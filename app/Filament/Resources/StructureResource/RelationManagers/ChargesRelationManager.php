@@ -17,7 +17,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 class ChargesRelationManager extends RelationManager
 {
     protected static string $relationship = 'chargedChildren';
-    protected static ?string $title = 'Ions';
+    protected static ?string $title = 'Related structures';
     protected static ?string $icon = IconEnums::CHARGED_MOL->value;
 
     public static function canViewForRecord(Model $ownerRecord, string $pageClass): bool

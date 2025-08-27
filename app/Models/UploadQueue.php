@@ -12,12 +12,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Auth;
+use Modules\Rdkit\Rdkit;
 
 class UploadQueue extends Model
 {
     use HasFactory;
     protected $guarded = [];
-    protected $table = 'upload_queue';
 
     protected function casts() : array
     {
@@ -98,6 +98,12 @@ class UploadQueue extends Model
         }
 
         return null;
+    }
+
+    public static function canBeAddedNewRecords() : bool 
+    {
+        $rdkit = new Rdkit();
+        return $rdkit->is_connected();
     }
 
     public function dataset(): BelongsTo

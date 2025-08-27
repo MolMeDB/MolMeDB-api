@@ -2,12 +2,14 @@
 namespace App\Libraries;
 
 use App\Models\Structure;
+use App\Models\StructureLink;
+use Exception;
 
 class Identifiers
 {
 	CONST PREFIX = 'MM';
 	CONST min_len = 7;
-	CONST PATTERN = '/^[M]{2}[0-9]{5,}$/i';
+	CONST PATTERN = '/^[M]{2}[0-9]{5,}(?:\.[0-9]+)?$/i';
 	
 	/**
 	 * Generates new identifier
@@ -16,25 +18,77 @@ class Identifiers
 	 * 
 	 * @return string
 	 */
-	public static function generate($id = NULL)
+	public static function generate(?Structure $structure = NULL)
 	{
-		// $subst_link_model = new Substance_links(); // TODO
-		$identifier = self::get_identifier($id);
-		
-		// Check, if already exists
-		$exists = Structure::query()->where('identifier', $identifier)->get_one();
-
-		// $exists_2 = $subst_link_model->where('identifier', $identifier)->get_one();
-
-		if(!$id || $exists->id) // || $exists_2->id)
+		if($structure?->parent?->id)
 		{
-			$id = Structure::max('id') + 1;
-			return self::get_identifier($id);
-		}
-		else
-		{
+			if(!$structure->parent->identifier)
+			{
+				throw new Exception('Parent structure has no identifier.');
+			}
+
+			if(self::isSubIdentifier($structure->parent->identifier))
+			{
+				throw new Exception('Parent structure has assigned subidentifier - ' . $structure->parent->identifier);
+			}
+
+			if($structure->parent->identifier == preg_replace('/\.\d+$/', '', $structure->identifier))
+			{
+				return $structure->identifier;
+			}
+
+			$maxSuffix = \App\Models\Structure::whereRaw("split_part(identifier, '.', 1) = ?", [$structure->parent->identifier])
+				->selectRaw("
+					MAX(
+						CASE
+							WHEN position('.' in identifier) > 0
+							THEN split_part(identifier, '.', 2)::int
+							ELSE 0
+						END
+					) as max_suffix
+				")
+				->value('max_suffix');
+
+			$i = 1;
+			$option = $structure->parent->identifier . '.' . ($maxSuffix + $i);
+			while(StructureLink::where('identifier', $option)->exists())
+			{
+				$i++;
+				$option = $structure->parent->identifier . '.' . ($maxSuffix + $i);
+			}
+
+			$identifier = $option;
 			return $identifier;
-		}	
+		}
+		else if($structure?->identifier &&!self::isSubIdentifier($structure->identifier))
+		{
+			return $structure->identifier;
+		}
+
+		if($structure?->id)
+		{
+			$identifier = self::get_identifier($structure->id);
+			$exists = Structure::query()->where('identifier', $identifier)->exists();
+
+			if(!$exists)
+			{
+				return $identifier;
+			}
+		}
+
+		$max = \App\Models\Structure::where('identifier', 'like', self::PREFIX.'%')
+			->selectRaw("MAX( (substring(split_part(identifier, '.', 1) from '[0-9]+$') )::int ) as max_number")
+			->value('max_number');
+
+		$i = 1;
+		$option = self::get_identifier($max + $i);
+		while(StructureLink::where('identifier', $option)->exists())
+		{
+			$i++;
+			$option = self::get_identifier($max + $i);
+		}
+
+		return $option;
 	}
 
 	/**
@@ -75,6 +129,19 @@ class Identifiers
 		}
 
 		return preg_match(self::PATTERN, $identifier);
+	}
+
+	/**
+	 * Checks, if given identifier is subidentifier
+	 */
+	public static function isSubIdentifier($identifier)
+	{
+		if(!self::is_valid($identifier))
+		{
+			return false;
+		}
+
+		return strpos($identifier, '.') !== false;
 	}
 
 	// /**

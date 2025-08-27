@@ -5,8 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -31,6 +29,7 @@ class Identifier extends Model
     const TYPE_CHEBI = 6;
     const TYPE_PDB = 7;
     const TYPE_CHEMBL = 8;
+    const TYPE_MOLMEDB = 9;
 
     /** Servers constants */
     const SERVER_PUBCHEM = self::TYPE_PUBCHEM;
@@ -43,8 +42,8 @@ class Identifier extends Model
     const SERVER_MOLMEDB = 99;
 
     /** ACTIVE STATES */
-    const INACTIVE = 0;
-    const ACTIVE = 1;
+    // const INACTIVE = 0;
+    // const ACTIVE = 1;
 
     /** STATES */
     const STATE_NEW = 1;
@@ -82,6 +81,7 @@ class Identifier extends Model
         self::TYPE_CHEBI  => 'ChEBI',
         self::TYPE_PDB    => 'PDB',
         self::TYPE_CHEMBL => 'ChEMBL',
+        self::TYPE_MOLMEDB => 'MolMeDB',
     );
 
     /**
@@ -174,11 +174,11 @@ class Identifier extends Model
     /**
      * Enum active states
      */
-    private static $enum_active_states = array
-    (
-        self::INACTIVE => "inactive",
-        self::ACTIVE => 'active'
-    );
+    // private static $enum_active_states = array
+    // (
+    //     self::INACTIVE => "inactive",
+    //     self::ACTIVE => 'active'
+    // );
 
     public static function enumType($type) : string 
     {
@@ -244,6 +244,17 @@ class Identifier extends Model
         return $this->belongsTo(Structure::class);
     }
 
+    public function activate() : void
+    {
+        // Deativate other of the same type
+        self::where('type', $this->type)
+            ->where('structure_id', $this->structure_id)
+            ->where('state', self::STATE_ACTIVE)
+            ->update(['state' => self::STATE_VALIDATED]);
+
+        $this->state = self::STATE_ACTIVE;
+        $this->save();
+    }
     /**
      * Return parent identifier
      */

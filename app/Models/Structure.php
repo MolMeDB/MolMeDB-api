@@ -57,10 +57,42 @@ class Structure extends Model
         return $this->hasMany(Identifier::class);
     }
 
-    public function nameIdentifier()  {
+    public function nameIdentifier() : HasMany {
         return $this->identifiers()
             ->where('type', Identifier::TYPE_NAME)
+            ->whereNot('state', Identifier::STATE_INVALID)            
+            ->orderBy('state', 'desc')
+            ->orderBy('id', 'asc')
             ->limit(1);
+    }
+
+    public function changeMainIdentifier($newIdentifier)
+    {
+        if(!$newIdentifier)
+            return;
+
+        if(StructureLink::where('identifier', $newIdentifier)->exists()
+            || Structure::where('identifier', $newIdentifier)->exists())
+        {
+            throw new Exception('Identifier ' . $newIdentifier . ' is already in use.');
+        }
+
+        if(!$this->identifier)
+        {
+            $this->identifier = $newIdentifier;
+            $this->save();
+            return;
+        }
+
+        // Remove, if exists invalid record
+        StructureLink::where('identifier', $this->identifier)?->delete();
+
+        $this->links()->create([
+            'identifier' => $this->identifier
+        ]);
+
+        $this->identifier = $newIdentifier;
+        $this->save();
     }
 
     public function parent() : BelongsTo {
@@ -83,28 +115,25 @@ class Structure extends Model
         return $this->hasMany(Structure::class, 'parent_id');
     }
 
+    public function links() : HasMany {
+        return $this->hasMany(StructureLink::class);
+    }
+
     public function isRestoreable() : bool {
         if(!$this?->id)
             return false;
         return $this->parent && true;
     }
 
-    public function generateIdentifier()
+    public function setParent(Structure $parent)
     {
-        $owner = $this->parent()->first() ?? $this;
-
-        if(!$owner->identifier)
-        {// Parent must have identifier from upload
-            throw new Exception('Structure has no identifier');
+        foreach($this->children()->get() as $child)
+        {
+            $child->parent_id = $parent->id;
+            $child->save();
         }
 
-        $last_id = $owner->children()->orderby('identifier', 'desc')->first();
-
-        if(!$last_id || !preg_match('/\.\d+$/', $last_id->identifier)) {
-            return $owner->identifier . '.1';
-        }
-
-        $last_id = intval(explode('.', $last_id->identifier)[1]) + 1;
-        return $owner->identifier . '.' . $last_id;
+        $this->parent_id = $parent->id;
+        $this->save();
     }
 }
