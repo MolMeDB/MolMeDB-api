@@ -86,6 +86,6 @@ class CdkDepict
             'annotate' => 'none'
         ];
 
-        return self::$url_parameters['host'] . '/depict/bot/svg?' . http_build_query($parameters); 
+        return self::$url_parameters['host'] . '/depict/cot/svg?' . http_build_query($parameters); 
     }
 }
