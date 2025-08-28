@@ -1,13 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import IUiTableColumn from "./interface/columns";
 import { useAsyncList } from "@react-stately/data";
 import { getJson } from "@/lib/api/admin";
 import FilteredResponse from "@/lib/api/admin/interfaces/http/FilteredResponse";
 import {
   addToast,
+  Button,
+  Chip,
+  Input,
   Pagination,
+  SortDescriptor,
   Spinner,
   Switch,
   Table,
@@ -18,6 +22,7 @@ import {
   TableRow,
 } from "@heroui/react";
 import { FaEye, FaEyeSlash } from "react-icons/fa6";
+import { MdSearch } from "react-icons/md";
 
 function getValueByPath(obj: any, path: string): any {
   return path.split(".").reduce((acc, key) => {
@@ -34,12 +39,19 @@ export default function UiTable<TData>(props: {
   columns: IUiTableColumn<TData>[];
   itemKey: keyof TData;
   defaultRowsPerPage?: number;
+  hasSearch?: boolean;
+  searchPlaceholder?: string;
 }) {
   const [hideEmptyCols, setHideEmptyCols] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [items, setItems] = useState<TData[]>([]);
+  const [query, setQuery] = useState("");
+  const [sortBy, setSortBy] = useState<SortDescriptor>({
+    column: "",
+    direction: "ascending",
+  });
   const rowsPerPage = props.defaultRowsPerPage ?? 10;
 
   let list = useAsyncList({
@@ -51,12 +63,12 @@ export default function UiTable<TData>(props: {
           {
             ...props.apiParams,
             page,
+            query,
             per_page: rowsPerPage,
             sortBy: props.columns.find(
-              (c) => c.key.toString() === list.sortDescriptor?.column.toString()
+              (c) => c.key.toString() === sortBy.column.toString()
             )?.sortKey,
-            sortByDirection:
-              list.sortDescriptor?.direction === "ascending" ? "asc" : "desc",
+            sortByDirection: sortBy.direction === "ascending" ? "asc" : "desc",
           },
           signal
         );
@@ -91,13 +103,9 @@ export default function UiTable<TData>(props: {
       }
     },
     sort: (a) => {
-      if (page === 1) {
-        list.reload();
-      } else {
-        setPage(1);
-      }
+      setSortBy(a.sortDescriptor);
       return {
-        items: items,
+        items: a.items,
       };
     },
   });
@@ -119,7 +127,17 @@ export default function UiTable<TData>(props: {
 
   useEffect(() => {
     list.reload();
-  }, [page, rowsPerPage, props.apiParams]);
+  }, [page, rowsPerPage, props.apiParams, sortBy]);
+
+  const onSearchChange = React.useCallback((value?: string) => {
+    if (value) {
+      setQuery(value);
+      setPage(1);
+    } else {
+      setQuery("");
+      list.reload();
+    }
+  }, []);
 
   return (
     <Table
@@ -135,27 +153,66 @@ export default function UiTable<TData>(props: {
       }
       onSortChange={list.sort}
       topContent={
-        <div className="flex flex-row justify-between items-center text-foreground/60 text-sm">
-          <div>Total: {totalItems}</div>
-          <div className="flex items-center">
-            <Switch
-              defaultSelected={hideEmptyCols}
-              color="primary"
-              size="sm"
-              onChange={(e) => setHideEmptyCols(e.target.checked)}
-              thumbIcon={({ isSelected, className }) =>
-                isSelected ? (
-                  <FaEyeSlash className={className} />
-                ) : (
-                  <FaEye className={className} />
-                )
-              }
-              classNames={{
-                label: "text-sm text-foreground/60",
-              }}
-            >
-              Hide empty columns
-            </Switch>
+        <div className="flex flex-col gap-4">
+          {props.hasSearch && (
+            <div className="flex flex-row gap-4 w-full h-full">
+              <div className="w-1/2">
+                <Input
+                  className="w-full"
+                  placeholder="Search publication..."
+                  startContent={<MdSearch />}
+                  value={query}
+                  onValueChange={onSearchChange}
+                  endContent={
+                    <Chip
+                      size="sm"
+                      color="default"
+                      onClick={() => {
+                        if (page !== 1) setPage(1);
+                        else {
+                          list.reload();
+                        }
+                      }}
+                    >
+                      <MdSearch />
+                    </Chip>
+                  }
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      if (page !== 1) setPage(1);
+                      else {
+                        list.reload();
+                      }
+                    }
+                  }}
+                />
+              </div>
+            </div>
+          )}
+          <div className="flex flex-row justify-between items-center text-foreground/60 text-sm">
+            <div>Total: {totalItems}</div>
+            {tableColumns.some((c) => c.isHideable === true) && (
+              <div className="flex items-center">
+                <Switch
+                  defaultSelected={hideEmptyCols}
+                  color="primary"
+                  size="sm"
+                  onChange={(e) => setHideEmptyCols(e.target.checked)}
+                  thumbIcon={({ isSelected, className }) =>
+                    isSelected ? (
+                      <FaEyeSlash className={className} />
+                    ) : (
+                      <FaEye className={className} />
+                    )
+                  }
+                  classNames={{
+                    label: "text-sm text-foreground/60",
+                  }}
+                >
+                  Hide empty columns
+                </Switch>
+              </div>
+            )}
           </div>
         </div>
       }

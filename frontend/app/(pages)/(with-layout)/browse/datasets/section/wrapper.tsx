@@ -1,10 +1,10 @@
 "use client";
 
-import SectionTable from "./table";
 import { Tab, Tabs } from "@heroui/react";
 import { MdSearch } from "react-icons/md";
 import { IoMdStats } from "react-icons/io";
 import SectionStats from "./charts";
+import DatasetsTable from "./table";
 
 export default function SectionWrapper() {
   return (
@@ -30,7 +30,7 @@ export default function SectionWrapper() {
             </div>
           }
         >
-          <SectionTable />
+          <DatasetsTable />
         </Tab>
         <Tab
           key="stats"
