@@ -79,12 +79,16 @@ class UnifyStrucureRecords extends Command
             }
             
             $repr_smiles = $rdkit->get_representant($structure->canonical_smiles);
-
+            
             if(!$repr_smiles)
             {
                 $this->error('Failed to get representant SMILES for structure ID: ' . $structure->id);
                 return;
             }
+
+            $representant = \App\Models\Structure::where('canonical_smiles', $repr_smiles)
+                ->orderBy('id', 'asc')
+                ->first();
 
             if($canonized_smiles === $repr_smiles)
             {
@@ -96,15 +100,19 @@ class UnifyStrucureRecords extends Command
 
                 if($structure->parent?->exists())
                 {
-                    $this->danger('Structure is neutralized, but has parent. Please, check the record.');
+                    $this->error('Structure is neutralized, but has parent. Please, check the record.');
+                    return;
+                }
+
+                if($representant?->id !== $structure->id)
+                {
+                    $this->error('... Found duplicity. Structure has the same SMILES as molecule ID:'. $representant->id);
                     return;
                 }
 
                 $this->info('.... OK - structure is self-representative.');
                 continue;
             }
-
-            $representant = \App\Models\Structure::where('canonical_smiles', $repr_smiles)->first();
 
             if($representant && $representant->id == $structure->parent_id)
             {
