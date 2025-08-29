@@ -21,7 +21,7 @@ class StructureResource extends JsonResource
 
         return [
             'id' => $this->id,
-            'name' => $this->nameIdentifier()->first()->value,
+            'name' => $this->name,
             'canonical_smiles' => $this->canonical_smiles,
             'charge' => $this->charge,
             'inchi' => $this->inchi,

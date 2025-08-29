@@ -34,13 +34,15 @@ class MembraneController extends Controller
 
     public function stats(Membrane $membrane)
     {
+        $membrane->load('files');
+        
         return response()->json([
             'data' => [
                 'membrane' => MembraneResource::make($membrane),
                 'total' => [
                     'interactions_passive' => $membrane->interactionsPassive()->count(),
                     'structures' => $membrane->interactionsPassive()->distinct('structure_id')->count(),
-                ]
+                ],
             ]
         ]);
     }

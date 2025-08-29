@@ -1,3 +1,5 @@
+import IFile from "./File";
+
 export default interface IPublication {
   id: number;
   identifier: IPublicationIdentifier;
@@ -20,6 +22,7 @@ export default interface IPublication {
     dataset_passive_interactions?: number;
     dataset_active_interactions?: number;
   };
+  datasets?: IFile[];
 }
 
 export interface IPublicationIdentifier {

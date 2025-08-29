@@ -116,6 +116,12 @@ class Publication extends Model
             ->wherePivot('model_type', Dataset::class);
     }
 
+    public function files() : BelongsToMany
+    {
+        return $this->belongsToMany(File::class, 'model_has_files', 'model_id')
+            ->wherePivot('model_type', self::class);
+    }
+    
     public function interactionsPassive() : HasMany
     {
         return $this->hasMany(InteractionPassive::class);

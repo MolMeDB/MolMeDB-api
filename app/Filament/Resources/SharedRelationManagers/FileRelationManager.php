@@ -45,6 +45,10 @@ class FileRelationManager extends RelationManager
                 Tables\Columns\IconColumn::make('type')
                     ->alignCenter()
                     ->icon(fn (File $record) => match ($record->type) {
+                        File::TYPE_EXPORT_INTERACTIONS_ACTIVE_PUBLICATION => IconEnums::DATASET->value,
+                        File::TYPE_EXPORT_INTERACTIONS_PASSIVE_PUBLICATION => IconEnums::DATASET->value,
+                        File::TYPE_EXPORT_INTERACTIONS_MEMBRANE => IconEnums::DATASET->value,
+                        File::TYPE_EXPORT_INTERACTIONS_METHOD => IconEnums::DATASET->value,
                         File::TYPE_IMAGE => IconEnums::FILE_IMAGE->value,
                         default => IconEnums::FILE_DOCUMENT->value
                     })
@@ -136,7 +140,7 @@ class FileRelationManager extends RelationManager
     public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
         return match($ownerRecord::class) {
-            Method::class => 'Gallery',
+            // Method::class => 'Gallery',
             default => parent::getTitle($ownerRecord, $pageClass)
         };
     }
@@ -144,7 +148,7 @@ class FileRelationManager extends RelationManager
     public static function getIcon(Model $ownerRecord, string $pageClass): string
     {
         return match($ownerRecord::class) {
-            Method::class => IconEnums::FILE_IMAGE->value,
+            // Method::class => IconEnums::FILE_IMAGE->value,
             default => self::$icon
         };
     }
@@ -152,8 +156,8 @@ class FileRelationManager extends RelationManager
     private function getEmptyStateDescription()
     {
         return match ($this->ownerRecord::class) {
-            Method::class => 'Start by adding new image file.',
-            Membrane::class => 'Start by adding new image or COSMO structure file.',
+            // Method::class => 'Start by adding new image file.',
+            // Membrane::class => 'Start by adding new image or COSMO structure file.',
             default => 'Start by adding new file.'
         };
     }

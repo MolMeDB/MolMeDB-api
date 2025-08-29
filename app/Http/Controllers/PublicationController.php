@@ -48,6 +48,8 @@ class PublicationController extends Controller
      */
     public function stats(Publication $publication)
     {
+        $publication->load('files');
+
         $publication->loadCount([
             'interactionsPassive', 
             'interactionsActive',

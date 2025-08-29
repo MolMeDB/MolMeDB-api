@@ -31,6 +31,12 @@ class File extends Model
     const TYPE_STATS_IDENTIFIERS = 3;
     const TYPE_STATS_SUBST_INTERACTIONS = 4;
 
+    /** EXPORTS */
+    const TYPE_EXPORT_INTERACTIONS_MEMBRANE = 10;
+    const TYPE_EXPORT_INTERACTIONS_METHOD = 11;
+    const TYPE_EXPORT_INTERACTIONS_PASSIVE_PUBLICATION = 12;
+    const TYPE_EXPORT_INTERACTIONS_ACTIVE_PUBLICATION = 13;
+
     /** RDF SPECIAL FILES */
     const TYPE_RDF_VOCABULARY = 100;
     const TYPE_EXAMPLE_ENERGY = 51;
@@ -53,7 +59,11 @@ class File extends Model
 
     private static $enumTypes = [
         self::TYPE_COSMO_MEMBRANE => 'Cosmo structure definition',
-        self::TYPE_IMAGE => 'Image'
+        self::TYPE_IMAGE => 'Image',
+        self::TYPE_EXPORT_INTERACTIONS_ACTIVE_PUBLICATION => 'Assigned active interactions',
+        self::TYPE_EXPORT_INTERACTIONS_PASSIVE_PUBLICATION => 'Assigned passive interactions',
+        self::TYPE_EXPORT_INTERACTIONS_MEMBRANE => 'Assigned membrane interactions',
+        self::TYPE_EXPORT_INTERACTIONS_METHOD => 'Assigned method interactions'
     ];
 
     private static $enumTypeFolders = [
@@ -157,16 +167,30 @@ class File extends Model
         return null;
     }
 
+    public function publications() : BelongsToMany
+    {
+        return $this->belongsToMany(Publication::class, 'model_has_files', 'file_id', 'model_id')
+            ->wherePivot('model_type', Publication::class);
+    }
+
     public function membranes() : BelongsToMany
     {
         return $this->belongsToMany(Membrane::class, 'model_has_files', 'file_id', 'model_id')
             ->wherePivot('model_type', Membrane::class);
     }
 
+    public function methods() : BelongsToMany
+    {
+        return $this->belongsToMany(Method::class, 'model_has_files', 'file_id', 'model_id')
+            ->wherePivot('model_type', Method::class);
+    }
+
     public function name()
     {
         $name = !empty($this->name) ? $this->name : pathinfo($this->path, PATHINFO_FILENAME);
         $extension = pathinfo($this->path, PATHINFO_EXTENSION);
+        if(str_ends_with($name, '.' . $extension))
+            return $name;
         return "$name.$extension"; 
     }
 
@@ -175,7 +199,33 @@ class File extends Model
         $membrane = $this->membranes()->first();
         if($membrane && $membrane->abbreviation)
         {
-            return $membrane->abbreviation . '_' . 'cosmo.inp';
+            return match($this->type)
+            {
+                self::TYPE_COSMO_MEMBRANE => $membrane->abbreviation . '_' . 'cosmo.inp',
+                self::TYPE_EXPORT_INTERACTIONS_MEMBRANE => $membrane->abbreviation . '_' . $this->name(),
+                default => $this->name()
+            };
+        }
+
+        $method = $this->methods()->first();
+        if($method && $method->abbreviation)
+        {
+            return match($this->type)
+            {
+                self::TYPE_EXPORT_INTERACTIONS_METHOD => $method->abbreviation . '_' . $this->name(),
+                default => $this->name()
+            };
+        }
+
+        $publication = $this->publications()->first();
+        if($publication && $publication->identifier)
+        {
+            return match($this->type)
+            {
+                self::TYPE_EXPORT_INTERACTIONS_ACTIVE_PUBLICATION => $publication->identifier . '_' . 'ActInt_' . $this->name(),
+                self::TYPE_EXPORT_INTERACTIONS_PASSIVE_PUBLICATION => $publication->identifier . '_' . 'PassInt_' . $this->name(),
+                default => $this->name()
+            };
         }
 
         return $this->name();

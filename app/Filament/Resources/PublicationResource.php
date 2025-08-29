@@ -355,6 +355,7 @@ class PublicationResource extends Resource
             SharedRelationManagers\InteractionsPassiveRelationManager::class,
             SharedRelationManagers\MethodsRelationManager::class,
             SharedRelationManagers\MembranesRelationManager::class,
+            SharedRelationManagers\FileRelationManager::class
 
         ];
     }

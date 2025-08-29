@@ -142,7 +142,7 @@ class StructureResource extends Resource
                     ->label('Identifier')
                     ->badge()
                     ->searchable(),
-                Tables\Columns\TextColumn::make('nameIdentifier.value')
+                Tables\Columns\TextColumn::make('name')
                     ->toggleable(isToggledHiddenByDefault: false)
                     ->label('Name')
                     ->searchable(),

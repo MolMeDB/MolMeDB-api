@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\File;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -25,7 +26,8 @@ class MembraneResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'abbreviation' => $this->abbreviation,
-            'description' => $this->with_description ? $this->description : null
+            'description' => $this->with_description ? $this->description : null,
+            'datasets' => $this->whenLoaded('files', FileResource::collection($this->files->where('type', File::TYPE_EXPORT_INTERACTIONS_MEMBRANE)))
         ]; 
     }
 }

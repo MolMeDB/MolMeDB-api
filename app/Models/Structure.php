@@ -4,14 +4,10 @@ namespace App\Models;
 
 use EloquentFilter\Filterable;
 use Exception;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasManyThrough;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Structure extends Model
@@ -21,6 +17,8 @@ class Structure extends Model
     use Filterable;
 
     protected $guarded = [];
+
+    protected $with = ['identifiers'];
 
     protected static function boot()
     {
@@ -54,16 +52,8 @@ class Structure extends Model
     }
 
     public function identifiers() : HasMany {
-        return $this->hasMany(Identifier::class);
-    }
-
-    public function nameIdentifier() : HasMany {
-        return $this->identifiers()
-            ->where('type', Identifier::TYPE_NAME)
-            ->whereNot('state', Identifier::STATE_INVALID)            
-            ->orderBy('state', 'desc')
-            ->orderBy('id', 'asc')
-            ->limit(1);
+        return $this->hasMany(Identifier::class)
+            ->orderBy('id', 'asc');
     }
 
     public function changeMainIdentifier($newIdentifier)
@@ -135,5 +125,59 @@ class Structure extends Model
 
         $this->parent_id = $parent->id;
         $this->save();
+    }
+
+    public function getNameAttribute()
+    {
+        return $this->identifiers
+            ->where('type', Identifier::TYPE_NAME)
+            ->where('state', '!=', Identifier::STATE_INVALID)            
+            ->sortByDesc('state')
+            ->first()?->value;
+    }
+
+    public function getPdbAttribute()
+    {
+        return $this->identifiers
+            ->where('type', Identifier::TYPE_PDB)
+            ->where('state', '!=', Identifier::STATE_INVALID)            
+            ->sortByDesc('state')
+            ->first()?->value;
+    }
+
+    public function getPubchemAttribute()
+    {
+        return $this->identifiers
+            ->where('type', Identifier::TYPE_PUBCHEM)
+            ->where('state', '!=', Identifier::STATE_INVALID)            
+            ->sortByDesc('state')
+            ->first()?->value;
+    }
+
+    public function getDrugbankAttribute()
+    {
+        return $this->identifiers
+            ->where('type', Identifier::TYPE_DRUGBANK)
+            ->where('state', '!=', Identifier::STATE_INVALID)            
+            ->sortByDesc('state')
+            ->first()?->value;
+    }
+
+    public function getChemblAttribute()
+    {
+        return $this->identifiers
+            ->where('type', Identifier::TYPE_CHEMBL)
+            ->where('state', '!=', Identifier::STATE_INVALID)            
+            ->sortByDesc('state')
+            ->first()?->value;
+    }
+
+    public function getChebiAttribute()
+    {
+        return $this->identifiers
+            ->where('type', Identifier::TYPE_CHEBI)
+            ->where('state', '!=', Identifier::STATE_INVALID)            
+            ->sortByDesc('state')
+            ->first()?->value;
     }
 }

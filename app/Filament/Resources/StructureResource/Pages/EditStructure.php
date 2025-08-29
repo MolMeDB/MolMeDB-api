@@ -44,7 +44,7 @@ class EditStructure extends EditRecord
     public function getTitle(): string
     {
         return ($this->record->trashed() ? '(DELETED) ' : "") . 
-            "Edit structure [ID:" . $this->record->id . "] - " . ($this->record->nameIdentifier()->first()?->value ?? $this->record->identifier);
+            "Edit structure [ID:" . $this->record->id . "] - " . ($this->record->name ?? $this->record->identifier);
     }
 
     public function hasCombinedRelationManagerTabsWithContent(): bool

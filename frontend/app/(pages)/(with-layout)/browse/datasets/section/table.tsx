@@ -57,7 +57,12 @@ export default function DatasetsTable(props: {}) {
         defaultRowsPerPage={10}
         hasSearch
       />
-      <Modal size="4xl" isOpen={isOpenDetail} onOpenChange={onOpenChangeDetail}>
+      <Modal
+        scrollBehavior="inside"
+        size="xl"
+        isOpen={isOpenDetail}
+        onOpenChange={onOpenChangeDetail}
+      >
         <ModalContent>
           {(onClose) => (
             <PublicationModalContent onClose={onClose} id={detailId} />

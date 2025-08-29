@@ -54,7 +54,7 @@ return new class extends Migration
             $table->binary('content')->nullable();
             $table->string('name', 100)->nullable();
             $table->string('path')->nullable();
-            $table->string('hash', 32)->unique()->nullable();
+            $table->string('hash', 32)->index()->nullable();
             $table->integer('user_id')->nullable();
             $table->foreign('user_id')->references('id')->on('users')->restrictOnDelete();
             $table->timestamps();

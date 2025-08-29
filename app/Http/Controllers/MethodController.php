@@ -42,6 +42,8 @@ class MethodController extends Controller
 
     public function stats(Method $method)
     {
+        $method->load('files');
+
         return response()->json([
             'data' => [
                 'method' => MethodResource::make($method),

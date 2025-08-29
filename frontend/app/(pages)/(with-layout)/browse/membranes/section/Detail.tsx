@@ -92,7 +92,12 @@ export default function SectionDetail(props: { membraneId: string }) {
         </div>
       )}
       {data ? (
-        <Modal isOpen={isOpen} onOpenChange={onOpenChange} size="3xl">
+        <Modal
+          scrollBehavior="inside"
+          isOpen={isOpen}
+          onOpenChange={onOpenChange}
+          size="xl"
+        >
           <ModalContent>
             {(onClose) => (
               <>

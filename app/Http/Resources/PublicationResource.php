@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\File;
 use App\Models\Publication;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -55,7 +56,16 @@ class PublicationResource extends JsonResource
                         ->sum('interactions_active_count')
                 ),
                 'authors' => $this->whenCounted('authors'),
-            ] : null
+            ] : null,
+            'datasets' => $this->whenLoaded('files', 
+                FileResource::collection($this->files
+                    ->whereIn('type', [
+                        File::TYPE_EXPORT_INTERACTIONS_ACTIVE_PUBLICATION,
+                        File::TYPE_EXPORT_INTERACTIONS_PASSIVE_PUBLICATION,
+                    ])
+                    ->sortByDesc('created_at')
+                )
+            )
         ];
     }
 }

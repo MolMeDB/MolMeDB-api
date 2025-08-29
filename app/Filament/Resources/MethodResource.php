@@ -160,7 +160,7 @@ class MethodResource extends Resource
             SharedRelationManagers\FileRelationManager::class,
             SharedRelationManagers\DatasetsRelationManager::class,
             SharedRelationManagers\InteractionsPassiveRelationManager::class,
-            SharedRelationManagers\InteractionsActiveRelationManager::class
+            SharedRelationManagers\InteractionsActiveRelationManager::class,
         ];
     }
 
