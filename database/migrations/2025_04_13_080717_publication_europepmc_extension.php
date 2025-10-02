@@ -39,7 +39,6 @@ return new class extends Migration
         Schema::table('authors', function (Blueprint $table) {
             $table->renameColumn('first_name', 'name');
             $table->dropColumn('last_name');
-            $table->dropColumn('affiliation_id');
             $table->dropColumn('affiliation');
         });
 

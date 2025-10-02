@@ -20,21 +20,22 @@ First, create the .env file to set all the necessary values.
 ```bash
 cp .env.example .env
 ```
+#### For developers
 The file is mostly prepared for local development, but some values still need to be checked. First, install the necessary libraries for developing the Laravel application on your machine by following the official documentation - https://laravel.com/docs/12.x/installation.
 
 Then, run the following command:
 ```bash
+composer install
 php artisan key:generate
 ```
-This will generate and fill the `APP_KEY` in the `.env` file. If you want to send emails from your environment, make sure to configure the `MAIL_*` variables. Otherwise, email sending will be replaced by log messages only in your console. Further configuration of other variables is outlined in the following sections.
-
+The first command installs required dependencies and the second will generate and fill the `APP_KEY` in the `.env` file. If you want to send emails from your environment, make sure to configure the `MAIL_*` variables. Otherwise, email sending will only be replaced by log messages in your console. Further configuration of other variables is outlined in the following sections.
 
 ### Development
 First, prepare the `docker-compose.yaml` file as mentioned earlier:
 ```bash
 cp docker-compose-development.yaml docker-compose.yaml
 ```
-Since development containers are usually slower than running directly on your local machine, I recommend commenting out the web and app containers in your docker-compose.yaml. This way, only the db and adminer containers will remain. These containers are used for setting up the PostgreSQL database, installing required packages, and running the Adminer application on port `8080`, which is a replacement for PHPMyAdmin for PostgreSQL databases. To build and start the containers, run the following command:
+Since development containers are usually slower than running directly on your local machine, I recommend commenting out the `web`, `app`, `app-scheduler-worker` and `frontend` containers in your docker-compose.yaml. This way, only the db and other side containers will be build. These containers are used for setting up the PostgreSQL database, installing required packages, and running the Adminer application on port `8080`, which is a replacement for PHPMyAdmin for PostgreSQL databases. To build and start the containers, run the following command:
 
 ```bash
 sudo docker compose up
@@ -50,17 +51,18 @@ However, I recommend running the first command at least the first time in case a
 
 
 #### Running with composer
-First, check your .env file, specifically the DB_HOST variable, which must be set to
+First, check your .env file, specifically the DB_HOST and DB_PORT variables, which must be set to
 ```bash
 DB_HOST=127.0.0.1
+DB_PORT=5434
 ```
 If you are developing locally and have commented out the app section in docker-compose.yaml, don’t forget to change the APP_URL value to
 ```bash
 APP_URL=http://localhost:8000
 ```
-For safety, clear the configuration cache
+Clear the configuration cache
 ```bash
-php artisan config:clear && php artisan cache:clear
+php artisan config:clear
 ```
 To verify the database connection, try running the migration command to populate the database structure
 ```bash
@@ -69,12 +71,12 @@ php artisan migrate
 
 If everything went well, Adminer will be available at http://localhost:8080. Log in using the credentials from the .env file. Make sure to select PostgreSQL as the connection type and set the host to db. Use the values from `DB_USERNAME`, `DB_PASSWORD`, and `DB_DATABASE` for the username, password, and database name. After logging in, you should see the tables created by the migration.
 
-For local development, you usually don’t need to work with real data. Therefore, seeders have been added to the application to populate the database with fake data for testing purposes. Note: These features are not available on the production server. To populate the database, run the following command:
+For local development, we usually don’t need to work with real data. Therefore, seeders have been added to the application to populate the database with fake data for testing purposes. Note: These features are not available on the production server. To populate the database, run the following command:
 
 ```bash
 php artisan db:seed
 ```
-During development, it’s common to need to empty and reseed the database. This can be easily done with the following command:
+During development, it’s common we sometimes need to empty and populate the database with a new data. This can be easily done with the following command:
 
 ```bash
 php artisan migrate:refresh && php artisan db:seed
@@ -89,6 +91,27 @@ If everything went well, the application will be available at http://localhost:8
 - password: admin
 
 And that’s it!
+
+#### Running frontend
+All frontend files are placed in `./frontend` folder. To run the frontend for development purpose, go to the frontend folder 
+```bash
+cd frontend
+```
+Create `.env` file with the following command
+```bash
+cp .env_template .env
+```
+Install `NextJs` following the official documentation - https://nextjs.org/docs/app/getting-started/installation and install required packages
+```bash
+npm install 
+```
+Finally, run the frontend with
+```bash
+npm run dev 
+```
+and the frontend will be available on http://localhost:3000.
+
+> **Remember!** Always change the git branche before making any changes in the repository. Pushing changes to the `main` branch is restricted. 
 
 ---
 
