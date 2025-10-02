@@ -158,7 +158,7 @@ export default function SectionChartsHistory(props: {
     }
 
     return () => {
-      root.dispose();
+      if (root) root.dispose();
     };
   }, [isDarkMode]);
 
