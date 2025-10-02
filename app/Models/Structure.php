@@ -5,18 +5,16 @@ namespace App\Models;
 use EloquentFilter\Filterable;
 use Exception;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class Structure extends Model
+class Structure extends BaseModel
 {
     /** @use HasFactory<\Database\Factories\SubstanceFactory> */
     use HasFactory, SoftDeletes;
     use Filterable;
-
-    protected $guarded = [];
 
     protected $with = ['identifiers'];
 
@@ -99,6 +97,10 @@ class Structure extends Model
 
     public function interactionsActive() : HasMany {
         return $this->hasMany(InteractionActive::class);
+    }
+
+    public function predictionStructure() : HasOne {
+        return $this->hasOne(\Modules\PredictionWorkers\Models\PredictionStructure::class, 'remote_id');
     }
 
     public function chargedChildren() : HasMany {

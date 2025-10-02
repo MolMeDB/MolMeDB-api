@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Casts\OnelineLogCasts;
 use App\Casts\UploadQueueLogCasts;
 use App\Enums\UploadQueueLogContextEnums;
 use App\Jobs\ProcessUploadQueueRecord;
@@ -18,6 +17,8 @@ class UploadQueue extends Model
 {
     use HasFactory;
     protected $guarded = [];
+
+    const DISK = 'remote-uploads';
 
     protected function casts() : array
     {
@@ -52,8 +53,6 @@ class UploadQueue extends Model
 
         return null;
     }
-
-    const DISK = 'private';
 
     public static function typeFolder($type) : string | null 
     {

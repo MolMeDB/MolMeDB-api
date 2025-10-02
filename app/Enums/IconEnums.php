@@ -28,6 +28,7 @@ enum IconEnums: string
     case PUBLICATIONS = 'heroicon-o-link';
     case QUESTION_MARK = 'heroicon-o-question-mark-circle';
     case PROTEIN = 'heroicon-o-cube';
+    case PREDICTION = 'heroicon-o-cloud';
     case RELOAD = 'heroicon-s-arrow-path';
     case RESTORE = 'heroicon-s-arrow-uturn-left';
     case ROLES = 'heroicon-o-tag';

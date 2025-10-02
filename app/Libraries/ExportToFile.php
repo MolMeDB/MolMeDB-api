@@ -23,7 +23,6 @@ class ExportToFile
     private $isHeaderWritten = false;
     protected static $storage;
 
-
     public function __construct(
         private string $context,
         public ?string $filename = null,

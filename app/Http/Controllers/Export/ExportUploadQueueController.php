@@ -17,12 +17,12 @@ class ExportUploadQueueController extends Controller
     {
         $file = $record->file;
 
-        if(!$file || !$file->existsOnDisk('private'))
+        if(!Storage::disk($file->storage)->exists($file->path))
         {
             abort(404, 'File not found');
         }
 
-        return Storage::disk('private')->download($file->path);
+        return Storage::disk($file->storage)->download($file->path);
     }
 
     /**

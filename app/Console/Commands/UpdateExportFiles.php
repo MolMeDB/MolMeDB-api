@@ -2,23 +2,16 @@
 
 namespace App\Console\Commands;
 
-use App\Libraries\ExportFileColumn;
 use App\Libraries\ExportFileHeader;
 use App\Libraries\ExportToFile;
-use App\Models\Category;
 use App\Models\Dataset;
 use App\Models\File;
 use App\Models\Identifier;
-use App\Models\InteractionActive;
-use App\Models\InteractionPassive;
 use App\Models\Membrane;
 use App\Models\Method;
 use App\Models\Publication;
-use Filament\Actions\Exports\Models\Export;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 
 class UpdateExportFiles extends Command
 {
@@ -35,14 +28,6 @@ class UpdateExportFiles extends Command
      * @var string
      */
     protected $description = 'Updates all files determined for the export.';
-
-    // const CSV_PASSIVE_INTERACTIONS_HEADER = [
-    //     ...self::STRUCTURE_INFO_HEADER,
-    //     'membrane',
-    //     'method',
-    //     'temperature',
-    //     'charge',
-    // ];
 
     private static function prepareIdentifierQuery($identifier = Identifier::TYPE_NAME)
     {
@@ -134,10 +119,12 @@ class UpdateExportFiles extends Command
             else
             {
                 $file = File::firstOrCreate([
+                    'storage' => 'public',
                     'path' => $result->getZipFilePath()
                 ], [
                     'type' => File::TYPE_EXPORT_INTERACTIONS_MEMBRANE,
-                    'name' => basename($result->getZipFilePath())
+                    'name' => basename($result->getZipFilePath()),
+                    'hash' => null
                 ]);
 
                 $membrane->files()->syncWithoutDetaching([ 
@@ -224,10 +211,12 @@ class UpdateExportFiles extends Command
             else
             {
                 $file = File::firstOrCreate([
-                    'path' => $result->getZipFilePath()
+                    'path' => $result->getZipFilePath(),
+                    'storage' => 'public',
                 ], [
                     'type' => File::TYPE_EXPORT_INTERACTIONS_METHOD,
-                    'name' => basename($result->getZipFilePath())
+                    'name' => basename($result->getZipFilePath()),
+                    'hash' => null
                 ]);
 
                 $method->files()->syncWithoutDetaching([ 
@@ -316,10 +305,12 @@ class UpdateExportFiles extends Command
             else
             {
                 $file = File::firstOrCreate([
-                    'path' => $result->getZipFilePath()
+                    'path' => $result->getZipFilePath(),
+                    'storage' => 'public',
                 ], [
                     'type' => File::TYPE_EXPORT_INTERACTIONS_PASSIVE_PUBLICATION,
-                    'name' => basename($result->getZipFilePath())
+                    'name' => basename($result->getZipFilePath()),
+                    'hash' => null
                 ]);
 
                 $publication->files()->syncWithoutDetaching([ 
@@ -395,10 +386,12 @@ class UpdateExportFiles extends Command
             else
             {
                 $file = File::firstOrCreate([
-                    'path' => $result->getZipFilePath()
+                    'path' => $result->getZipFilePath(),
+                    'storage' => 'public',
                 ], [
                     'type' => File::TYPE_EXPORT_INTERACTIONS_ACTIVE_PUBLICATION,
-                    'name' => basename($result->getZipFilePath())
+                    'name' => basename($result->getZipFilePath()),
+                    'hash' => null
                 ]);
 
                 $publication->files()->syncWithoutDetaching([ 
