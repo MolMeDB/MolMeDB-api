@@ -220,7 +220,7 @@ export default function SectionPieChart(props: {
     setIsLoaded(true);
 
     return () => {
-      root.dispose();
+      if (root) root.dispose();
     };
   }, [isDarkMode]);
 

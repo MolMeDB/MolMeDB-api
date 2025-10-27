@@ -228,7 +228,7 @@ export default function MembraneBar({ idKey }: { idKey: string }) {
     chart.appear(1000, 100);
 
     return () => {
-      root.dispose();
+      if (root) root.dispose();
     };
   }, [idKey]);
 

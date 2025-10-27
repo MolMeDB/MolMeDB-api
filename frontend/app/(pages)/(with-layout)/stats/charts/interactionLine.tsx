@@ -155,7 +155,7 @@ export default function InteractionLine(props: { data: ILineChartSetting }) {
     }
 
     return () => {
-      root.dispose();
+      if (root) root.dispose();
     };
   }, [isDarkMode]);
 

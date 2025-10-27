@@ -132,7 +132,7 @@ export default function DatabaseBar(props: { data: IBarChartSetting }) {
     chart.appear(1000, 100);
 
     return () => {
-      root.dispose();
+      if (root) root.dispose();
     };
   }, [isDarkMode]);
 
