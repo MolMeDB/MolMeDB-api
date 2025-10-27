@@ -186,7 +186,7 @@ class StructureResource extends Resource
                         }
 
                         return $query->whereHas('identifiers', function (Builder $query) use ($data) {
-                            $query->where('value', 'like', '%' . $data['value'] . '%');
+                            $query->where('value', 'ILIKE', '%' . $data['value'] . '%');
                         });
                     })->label('Identifier'),
             ]);

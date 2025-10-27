@@ -17,6 +17,7 @@ class UploadQueue extends Model
 {
     use HasFactory;
     protected $guarded = [];
+    protected $table = 'upload_queue';
 
     const DISK = 'remote-uploads';
 
