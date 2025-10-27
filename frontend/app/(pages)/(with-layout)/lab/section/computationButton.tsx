@@ -1,8 +1,21 @@
 "use client";
+import { addToast } from "@heroui/react";
 import { motion } from "framer-motion";
 import Image from "next/image";
+import { useEffect } from "react";
 
 export default function SectionComputationButtons() {
+  useEffect(() => {
+    addToast({
+      title: "Temporarily unavailable",
+      description:
+        "This page is still under development. Please check back later.",
+      color: "warning",
+      shouldShowTimeoutProgress: true,
+      timeout: 20000,
+    });
+  }, []);
+
   return (
     <>
       <div className="flex flex-col md:flex-row gap-8 md:gap-16">

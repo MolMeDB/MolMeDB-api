@@ -37,7 +37,10 @@ class PublicationFilter extends ModelFilter
             return $this->where('id', str_replace('id:', '', $name));
         }
 
-        return $this->whereRaw('LOWER(citation) LIKE ?', ['%' . $name. '%']);
+        return $this->whereRaw('LOWER(citation) LIKE ?', ['%' . $name. '%'])
+            ->orWhereRaw('LOWER(title) LIKE ?', ['%' . $name . '%'])
+            ->orWhereRaw('LOWER(doi) LIKE ?', ['%' . $name . '%'])
+            ->distinct();
     }
 
     public function setup()
