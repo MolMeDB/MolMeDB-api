@@ -17,7 +17,8 @@ return new class extends Migration
             $table->bigIncrements('id');
             $table->bigInteger('parent_id')->nullable();
             $table->foreign('parent_id')->references('id')->on('structures')->onDelete('restrict');
-            $table->string('identifier', 20)->nullable()->unique('structure_identifier_idx');
+            $table->addColumn('citext', 'identifier')->nullable()->unique('structure_identifier_idx');
+            // $table->string('identifier', 20)->nullable()->unique('structure_identifier_idx');
             $table->unique('identifier');
             $table->string('canonical_smiles', 4000)->nullable();
             $table->integer('charge')->nullable();
@@ -36,7 +37,8 @@ return new class extends Migration
             $table->bigIncrements('id');
             $table->bigInteger('structure_id');
             $table->foreign('structure_id')->references('id')->on('structures')->onDelete('cascade');
-            $table->string('value', 255)->index();
+            // $table->string('value', 255)->index();
+            $table->addColumn('citext', 'value')->index();
             $table->tinyInteger('type');
             $table->tinyInteger('state');
             $table->bigInteger('source_id')->nullable();
