@@ -99,6 +99,10 @@ class Structure extends BaseModel
         return $this->hasMany(InteractionActive::class);
     }
 
+    public function fluorescentProperties() : HasMany {
+        return $this->hasMany(FluorescentProperty::class);
+    }
+
     public function predictionStructure() : HasOne {
         return $this->hasOne(\Modules\PredictionWorkers\Models\PredictionStructure::class, 'remote_id');
     }
@@ -109,6 +113,13 @@ class Structure extends BaseModel
 
     public function links() : HasMany {
         return $this->hasMany(StructureLink::class);
+    }
+
+    public function isForceDeletable() : bool {
+        return $this->interactionsPassive()->withTrashed()->count() == 0
+            && $this->interactionsActive()->withTrashed()->count() == 0
+            && $this->fluorescentProperties()->withTrashed()->count() == 0
+            && $this->children()->withTrashed()->count() == 0;
     }
 
     public function isRestoreable() : bool {
@@ -181,5 +192,56 @@ class Structure extends BaseModel
             ->where('state', '!=', Identifier::STATE_INVALID)            
             ->sortByDesc('state')
             ->first()?->value;
+    }
+
+    public static function join_structures(self $structure_1, self $structure_2)
+    {
+        // Reassign all related data from structure_2 to structure_1
+        foreach($structure_2->identifiers as $identifier)
+        {
+            // Check if exists
+            if($structure_1->identifiers()
+                ->where('type', $identifier->type)
+                ->where('value', $identifier->value)
+                ->where('source_type', $identifier->source_type)
+                ->where('source_id', $identifier->source_id)
+                ->exists())
+                continue;
+
+            $identifier->structure_id = $structure_1->id;
+            $identifier->save();
+        }
+
+        foreach($structure_2->interactionsActive as $interaction)
+        {
+            $interaction->structure_id = $structure_1->id;
+            $interaction->save();
+        }
+
+        foreach($structure_2->interactionsPassive as $interaction)
+        {
+            $interaction->structure_id = $structure_1->id;
+            $interaction->save();
+        }
+
+        foreach($structure_2->fluorescentProperties as $property)
+        {
+            $property->structure_id = $structure_1->id;
+            $property->save();
+        }
+
+        foreach($structure_2->links as $link)
+        {
+            $link->structure_id = $structure_1->id;
+            $link->save();
+        }
+
+        // Create new structure_link
+        $structure_1->links()->create([
+            'identifier' => $structure_2->identifier
+        ]);
+
+        // Delete structure_2
+        $structure_2->delete();
     }
 }
