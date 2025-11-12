@@ -1,6 +1,7 @@
 <?php
 namespace Modules\PredictionWorkers\Traits;
 
+use App\Models\Filesystem;
 use Illuminate\Support\Facades\Storage;
 
 use function PHPUnit\Framework\isResource;
@@ -12,6 +13,7 @@ trait HasRemoteConformers
     // Cache results
     protected ?array $remoteConformersPaths = null;
     protected ?array $remoteCosmoPaths = null;
+    protected static ?string $disk = null;
 
     const CONFORMERS_FOLDER = '01-INPUT';
     const OPTIMIZATIONS_FOLDER = '02-OPTIMIZE';
@@ -26,6 +28,16 @@ trait HasRemoteConformers
         }
 
         return count($this->remoteConformersFilePaths());
+    }
+
+    public static function disk() : string | null
+    {
+        if(!self::$disk)
+        {
+            self::$disk = Filesystem::where('type', Filesystem::TYPE_PREDICTIONS_METACENTRUM)->first()?->systemName;
+        }
+
+        return self::$disk;
     }
 
     public function remoteConformersFilePaths()
@@ -222,7 +234,7 @@ trait HasRemoteConformers
         $base = $this->base_path . self::COSMO_OUTPUT_FOLDER . '/' . self::getCosmoFolderName($prediction) . '/';
 
         $src = $this->remote();
-        $dst = Storage::disk('remote-predictions');
+        $dst = Storage::disk(self::disk());
         $dst_folder = self::getLocalCosmoFolderPath($prediction);
 
         if(!$dst->exists($dst_folder))

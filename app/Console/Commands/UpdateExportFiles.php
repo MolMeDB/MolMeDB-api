@@ -6,6 +6,7 @@ use App\Libraries\ExportFileHeader;
 use App\Libraries\ExportToFile;
 use App\Models\Dataset;
 use App\Models\File;
+use App\Models\Filesystem;
 use App\Models\Identifier;
 use App\Models\Membrane;
 use App\Models\Method;
@@ -47,13 +48,27 @@ class UpdateExportFiles extends Command
     {
         $this->info('Updating statistics...');
 
+        $filesystem = Filesystem::where('type', Filesystem::TYPE_EXPORTS)->first();
+
+        if(!$filesystem || !$filesystem->isInitialized())
+        {
+            $this->error('Filesystem is not properly configured. Ending...');
+            return;
+        }
+
         $this->info('... 1) Updating membrane exports');
         $membranes = Membrane::cursor();
 
         foreach($membranes as $membrane)
         {
             $this->warn("\nProcessing membrane {$membrane->abbreviation}");
-            $export = new ExportToFile(ExportToFile::CONTEXT_MEMBRANE, null, $membrane->id);
+            $export = new ExportToFile(
+                ExportToFile::CONTEXT_MEMBRANE, 
+                null, 
+                $membrane->id, 
+                ExportToFile::TYPE_CSV, 
+                $filesystem
+            );
 
             $export->setHeader(ExportFileHeader::make()
                 ->structure()
@@ -119,7 +134,7 @@ class UpdateExportFiles extends Command
             else
             {
                 $file = File::firstOrCreate([
-                    'storage' => 'public',
+                    'storage' => $filesystem->systemName,
                     'path' => $result->getZipFilePath()
                 ], [
                     'type' => File::TYPE_EXPORT_INTERACTIONS_MEMBRANE,
@@ -137,15 +152,19 @@ class UpdateExportFiles extends Command
             $statebar->finish();
         }
 
-        
-
         $this->info('\n... 2) Updating method exports');
         $methods = Method::cursor();
 
         foreach($methods as $method)
         {
             $this->warn("\nProcessing method {$method->abbreviation}");
-            $export = new ExportToFile(ExportToFile::CONTEXT_METHOD, null, $method->id);
+            $export = new ExportToFile(
+                ExportToFile::CONTEXT_METHOD, 
+                null, 
+                $method->id, 
+                ExportToFile::TYPE_CSV, 
+                $filesystem
+            );
 
             $export->setHeader(ExportFileHeader::make()
                 ->structure()
@@ -212,7 +231,7 @@ class UpdateExportFiles extends Command
             {
                 $file = File::firstOrCreate([
                     'path' => $result->getZipFilePath(),
-                    'storage' => 'public',
+                    'storage' => $filesystem->systemName,
                 ], [
                     'type' => File::TYPE_EXPORT_INTERACTIONS_METHOD,
                     'name' => basename($result->getZipFilePath()),
@@ -238,7 +257,13 @@ class UpdateExportFiles extends Command
             $this->info("\nProcessing publication {$publication->id}");
 
             /// Process passive interactions
-            $export = new ExportToFile(ExportToFile::CONTEXT_PUBLICATION, null, $publication->id . '/passive');
+            $export = new ExportToFile(
+                ExportToFile::CONTEXT_PUBLICATION, 
+                null, 
+                $publication->id . '/passive',
+                ExportToFile::TYPE_CSV, 
+                $filesystem
+            );
 
             $export->setHeader(ExportFileHeader::make()
                 ->structure()
@@ -306,7 +331,7 @@ class UpdateExportFiles extends Command
             {
                 $file = File::firstOrCreate([
                     'path' => $result->getZipFilePath(),
-                    'storage' => 'public',
+                    'storage' => $filesystem->systemName,
                 ], [
                     'type' => File::TYPE_EXPORT_INTERACTIONS_PASSIVE_PUBLICATION,
                     'name' => basename($result->getZipFilePath()),
@@ -321,7 +346,14 @@ class UpdateExportFiles extends Command
             }
 
             /// Process active interactions
-            $export = new ExportToFile(ExportToFile::CONTEXT_PUBLICATION, null, $publication->id . '/active');
+            $export = new ExportToFile(
+                ExportToFile::CONTEXT_PUBLICATION, 
+                null, 
+                $publication->id . '/active',
+                ExportToFile::TYPE_CSV, 
+                $filesystem
+            );
+
 
             $export->setHeader(ExportFileHeader::make()
                 ->structure()
@@ -387,7 +419,7 @@ class UpdateExportFiles extends Command
             {
                 $file = File::firstOrCreate([
                     'path' => $result->getZipFilePath(),
-                    'storage' => 'public',
+                    'storage' => $filesystem->systemName,
                 ], [
                     'type' => File::TYPE_EXPORT_INTERACTIONS_ACTIVE_PUBLICATION,
                     'name' => basename($result->getZipFilePath()),

@@ -120,6 +120,13 @@ class File extends Model
 
             $file->user_id = Auth::user()?->id;
         });
+
+        static::updating(function ($file) {
+            if(!$file->hash)
+            {
+                $file->hash = File::hash($file->path, $file->storage);
+            }
+        });
     }
 
     public function existsOnDisk($disk = 'public') : bool

@@ -3,7 +3,6 @@ namespace Modules\PredictionWorkers\Models;
 
 use App\Models\File;
 use finfo;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\File as FacadesFile;
 
@@ -11,6 +10,8 @@ class PredictionFile extends PredictionBaseModel
 {
     protected $connection = 'predictions';
     protected $table = 'files';
+
+    const TYPE_MEMBARNE_COSMO = 1;
 
     protected static function booted()
     {

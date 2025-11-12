@@ -19,7 +19,7 @@ class UploadQueue extends Model
     protected $guarded = [];
     protected $table = 'upload_queue';
 
-    const DISK = 'remote-uploads';
+    protected static $disk = null;
 
     protected function casts() : array
     {
@@ -53,6 +53,16 @@ class UploadQueue extends Model
         }
 
         return null;
+    }
+
+    public static function disk() : string | null
+    {
+        if(!self::$disk)
+        {
+            self::$disk = Filesystem::where('type', Filesystem::TYPE_UPLOAD_STORAGE)->first()?->systemName;
+        }
+
+        return self::$disk;
     }
 
     public static function typeFolder($type) : string | null 
