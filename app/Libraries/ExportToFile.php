@@ -1,6 +1,7 @@
 <?php
 namespace App\Libraries;
 
+use App\Models\Filesystem;
 use Exception;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
@@ -8,7 +9,7 @@ use stdClass;
 
 class ExportToFile 
 {
-    const PREFIX = 'download/';
+    const PREFIX = '';
 
     const CONTEXT_MEMBRANE = 'membrane';
     const CONTEXT_METHOD = 'method';
@@ -27,9 +28,10 @@ class ExportToFile
         private string $context,
         public ?string $filename = null,
         private ?string $folder = null,
-        private string $filetype = self::TYPE_CSV
+        private string $filetype = self::TYPE_CSV,
+        private ?Filesystem $filesystem = null
     ) {
-        self::$storage = Storage::disk('public');
+        self::$storage = Storage::disk($filesystem->systemName);
         if(!$filename)
         {
             $this->filename = date('Y-m-d');

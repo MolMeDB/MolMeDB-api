@@ -113,14 +113,14 @@ class UploadQueueResource extends Resource
 
                         return "[Dataset:" . $get('dataset_id') . "]-" . File::getUniqueNameForSave($file, 
                             UploadQueue::typeFolder($get('type') ? intval($get('type')) : null),
-                            UploadQueue::DISK
+                            UploadQueue::disk()
                         );
                     })
                     ->hidden(fn (Get $get) => !$get('type') || $get('id'))
                     ->reactive()
                     ->rules([new FileUniqueByHash()])
                     ->preserveFilenames()
-                    ->disk(UploadQueue::DISK)
+                    ->disk(UploadQueue::disk())
                     ->directory(fn (Get $get) => UploadQueue::typeFolder($get('type') ? intval($get('type')) : null))
             ]);
     }

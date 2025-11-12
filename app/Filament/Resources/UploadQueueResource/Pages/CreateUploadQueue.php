@@ -37,7 +37,7 @@ class CreateUploadQueue extends CreateRecord
         $file->path = $data['path'];
         $file->name = basename($file->path);
         $file->type = $data['type'] == UploadQueue::TYPE_ACTIVE_DATASET ? File::TYPE_UPLOAD_ACTIVE : File::TYPE_UPLOAD_PASSIVE;
-        $file->storage = UploadQueue::DISK;
+        $file->storage = UploadQueue::disk();
         $file->hash = $meta['hash'];
         $file->mime = $meta['mime'];
 

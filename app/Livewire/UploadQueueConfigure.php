@@ -135,9 +135,9 @@ class UploadQueueConfigure extends Component
     private function reloadTableContent($updateColumnOptions = true)
     {
         $path = $this->record->file?->path;
-        if ($this->record->file?->existsOnDisk(UploadQueue::DISK)) 
+        if ($this->record->file?->existsOnDisk(UploadQueue::disk())) 
         {
-            $stream = Storage::disk(UploadQueue::DISK)->readStream($path);
+            $stream = Storage::disk(UploadQueue::disk())->readStream($path);
 
             if (!$stream) {
                 $this->errorMessages[] = 'Cannot read uploaded file. Please, try again later.';
@@ -263,9 +263,9 @@ class UploadQueueConfigure extends Component
         }
 
         $path = $this->record->file?->path;
-        if ($this->record->file?->existsOnDisk(UploadQueue::DISK)) 
+        if ($this->record->file?->existsOnDisk(UploadQueue::disk())) 
         {
-            $stream = Storage::disk(UploadQueue::DISK)->readStream($path);
+            $stream = Storage::disk(UploadQueue::disk())->readStream($path);
 
             if (!$stream) {
                 $this->errorMessages[] = 'Cannot read uploaded file. Please, try again later.';
