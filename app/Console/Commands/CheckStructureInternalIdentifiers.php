@@ -3,7 +3,6 @@
 namespace App\Console\Commands;
 
 use App\Libraries\Identifiers;
-use App\Models\Structure;
 use Illuminate\Console\Command;
 
 class CheckStructureInternalIdentifiers extends Command
@@ -20,7 +19,7 @@ class CheckStructureInternalIdentifiers extends Command
      *
      * @var string
      */
-    protected $description = 'Goes through all structures and checks for internal identifiers.';
+    protected $description = 'Goes through all structures and checks for internal identifier.';
 
     /**
      * Execute the console command.
