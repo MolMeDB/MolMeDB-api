@@ -63,7 +63,7 @@ class Rdkit extends IdentifiersWorker
 
         try
         {
-            self::$url_parameters['host'] = rtrim(env('RDKIT_HOST') ?? "", '/');
+            self::$url_parameters['host'] = config('services.rdkit.url');
             // Try to connect   
             self::try_connect();
         }
