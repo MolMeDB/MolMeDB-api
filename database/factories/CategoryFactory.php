@@ -20,7 +20,7 @@ class CategoryFactory extends Factory
         return [
             'order' => -1,
             'title' => fake()->text(6),
-            'type' => fake()->randomElement(Category::types()),
+            'type' => fake()->randomElement(array_keys(Category::types())),
         ];
     }
 }

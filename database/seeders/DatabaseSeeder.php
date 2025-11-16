@@ -2,16 +2,8 @@
 
 namespace Database\Seeders;
 
-use App\Enums\PermissionEnums;
-use App\Enums\RoleEnums;
 use App\Models\Author;
-use App\Models\Permission;
-use App\Models\Role;
-use App\Models\User;
-// use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
-
 
 class DatabaseSeeder extends Seeder
 {
@@ -28,7 +20,6 @@ class DatabaseSeeder extends Seeder
             MethodSeeder::class,
             CategorySeeder::class,
             StructureSeeder::class,
-            // SubstanceSeeder::class,
             IdentifierSeeder::class,
         ]);
 

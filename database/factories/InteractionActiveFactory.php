@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\Category;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -21,7 +22,6 @@ class InteractionActiveFactory extends Factory
             'structure_id' => \App\Models\Structure::all()->random()->id,
             'protein_id' => \App\Models\Protein::all()->random()->id,
             'publication_id' => \App\Models\Publication::all()->random()->id,
-            'type' => fake()->randomElement(array_keys(\App\Models\InteractionActive::enumType())),
             'temperature' => fake()->randomFloat(1, 25, 39),
             'ph' => fake()->randomFloat(1, 4, 9),
             'charge' => fake()->numberBetween(-2, 3),
@@ -34,6 +34,7 @@ class InteractionActiveFactory extends Factory
             'ki_accuracy' => fake()->randomFloat(1, 0, 0.9),
             'ic50' => fake()->randomFloat(1, 0.5, 8),
             'ic50_accuracy' => fake()->randomFloat(1, 0, 0.9),
+            'category_id' => \App\Models\Category::where('type', Category::TYPE_ACTIVE_INTERACTION)->get()->random()->id,
         ];
     }
 }

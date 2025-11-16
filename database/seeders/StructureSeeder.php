@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use Database\Factories\StructureFactory;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class StructureSeeder extends Seeder
