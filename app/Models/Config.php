@@ -26,7 +26,7 @@ class Config extends Model
 
     public static function set($key, $value)
     {
-        return static::updateOrCreate(
+        return (bool) static::updateOrCreate(
             ['key' => $key],
             ['value' => $value]
         );

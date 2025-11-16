@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Libraries\ExportFileHeader;
 use App\Libraries\ExportToFile;
+use App\Models\Config;
 use App\Models\Dataset;
 use App\Models\File;
 use App\Models\Filesystem;
@@ -11,6 +12,7 @@ use App\Models\Identifier;
 use App\Models\Membrane;
 use App\Models\Method;
 use App\Models\Publication;
+use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -21,7 +23,7 @@ class UpdateExportFiles extends Command
      *
      * @var string
      */
-    protected $signature = 'export:update-files';
+    protected $signature = 'export:update-files {--force}';
 
     /**
      * The console command description.
@@ -54,6 +56,19 @@ class UpdateExportFiles extends Command
         {
             $this->error('Filesystem is not properly configured. Ending...');
             return;
+        }
+
+        $last_update = $this->option('force') ? Carbon::parse(0) : Carbon::parse(Config::get('command:exports:update-all:last-run', 0));
+
+        if( $last_update->isCurrentWeek())
+        {
+            $this->warn('Last update was less than a week ago. Skipping...');
+            return Command::SUCCESS;
+        }
+
+        if(!$this->option('force'))
+        {
+            Config::set('command:exports:update-all:last-run', Carbon::now());
         }
 
         $this->info('... 1) Updating membrane exports');

@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Libraries\Identifiers;
+use App\Models\Config;
 use Illuminate\Console\Command;
 
 class CheckStructureInternalIdentifiers extends Command
@@ -12,7 +13,7 @@ class CheckStructureInternalIdentifiers extends Command
      *
      * @var string
      */
-    protected $signature = 'structures:check-internal-identifiers {startId=1}';
+    protected $signature = 'structures:check-internal-identifiers {startId=1} {--force}';
 
     /**
      * The console command description.
@@ -28,9 +29,16 @@ class CheckStructureInternalIdentifiers extends Command
     {
         $this->info('Checking structures identifiers...');
 
-        $startId = (int) $this->argument('startId');
+        $startId = $this->option('force') ? 1 : (int) $this->argument('startId');
 
         $total = \App\Models\Structure::where('id', '>=', $startId)->count();
+
+        if(!$total)
+        {
+            Config::set('cron:daily:check_structure_identifier:start_id', 1);
+            $this->info('###### REWIND ##### - All structures processed');
+            $total = \App\Models\Structure::where('id', '>=', $startId)->count();
+        }
 
         $this->warn('Total ' . $total . ' structures will be processed.');
 
@@ -43,6 +51,8 @@ class CheckStructureInternalIdentifiers extends Command
         {
             $percent = round(($i++ / $total) * 100,2);
             $this->info('# ' . $percent . '% - Processing structure ID: ' . $structure->id);
+
+            Config::set('cron:daily:check_structure_identifier:start_id', $structure->id);
 
             // At first, check parent identifier
             if($structure->parent)
