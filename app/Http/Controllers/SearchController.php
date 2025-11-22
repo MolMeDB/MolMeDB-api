@@ -16,6 +16,7 @@ use Illuminate\Http\Request;
 
 class SearchController extends Controller
 {
+
     public function structure(Request $request) {
         $per_page = 10; // Default value
         if($request->query('per_page') && is_numeric($request->query('per_page')))
@@ -28,6 +29,7 @@ class SearchController extends Controller
 
         return SearchStructureResource::collection($pubs);
     }
+
 
     public function membrane(Request $request) {
         $per_page = 10; // Default value
@@ -42,6 +44,7 @@ class SearchController extends Controller
         return SearchMembraneResource::collection($pubs);
     }
 
+
     public function method(Request $request) {
         $per_page = 10; // Default value
         if($request->query('per_page') && is_numeric($request->query('per_page')))
@@ -54,6 +57,7 @@ class SearchController extends Controller
 
         return SearchMethodResource::collection($pubs);
     }
+
 
     public function protein(Request $request) {
         $per_page = 10; // Default value
@@ -68,6 +72,7 @@ class SearchController extends Controller
         return SearchProteinResource::collection($pubs);
     }
 
+    
     public function dataset(Request $request) {
         $per_page = 10; // Default value
         if($request->query('per_page') && is_numeric($request->query('per_page')))

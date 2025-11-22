@@ -27,7 +27,17 @@ export default async function CompoundDetailPage(props: {
               <h1 className="text-2xl md:text-3xl font-bold">
                 {compound?.name ?? id}
               </h1>
-              {compound.identifier && <h2 className="text-lg">{id}</h2>}
+              <div className="flex flex-row gap-4 items-center">
+                {compound.identifier && <h2 className="text-lg">{id}</h2>}
+                {compound.parent_identifier && (
+                  <a
+                    href={`/mol/${compound.parent_identifier}`}
+                    className="text-sm px-3 py-1 rounded-full bg-gray-200 text-gray-800 hover:bg-gray-300 transition-colors duration-150"
+                  >
+                    Parent: {compound.parent_identifier}
+                  </a>
+                )}
+              </div>
             </div>
           </div>
         </div>

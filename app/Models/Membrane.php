@@ -2,22 +2,18 @@
 
 namespace App\Models;
 
-use Dflydev\DotAccessData\Data;
 use EloquentFilter\Filterable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class Membrane extends Model
+class Membrane extends BaseModel
 {
     /** @use HasFactory<\Database\Factories\MembraneFactory> */
     use HasFactory, SoftDeletes;
     use Filterable;
-
-    protected $guarded = [];
 
     protected static function boot()
     {
@@ -91,6 +87,13 @@ class Membrane extends Model
     {
         return $this->belongsToMany(File::class, 'model_has_files', 'model_id')
             ->wherePivot('model_type', self::class);
+    }
+
+    public function cosmoFile() : ?File
+    {
+        return $this->files()
+            ->where('type', File::TYPE_COSMO_MEMBRANE)
+            ->first();
     }
 
 

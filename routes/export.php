@@ -4,6 +4,7 @@ use App\Http\Controllers\Export;
 use App\Models\File;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
+use Modules\PredictionWorkers\Models\PredictionFile;
 
 Route::prefix('/export')->group(function() 
 { 
@@ -18,11 +19,33 @@ Route::prefix('/export')->group(function()
 
 Route::get('/download/public/{hash}', function (string $hash) {
     $file = File::where('hash', $hash)->first();
-    if(!$file || !Storage::disk('public')->exists($file->path))
+    if(!$file || !Storage::disk($file->storage)->exists($file->path))
     {
         abort(404);
     }
-    return response()->download(Storage::disk('public')->path($file->path), $file->downloadName());
+    return response()->download(Storage::disk($file->storage)->path($file->path), $file->downloadName());
 })->middleware('throttle:6,1')
     ->withoutMiddleware('auth')
     ->name('public.download');
+
+    
+Route::get('/download/predictionResult/{hash}', function (string $hash) {
+    $file = PredictionFile::where('hash', $hash)->first();
+
+    if (!$file || !Storage::disk($file->storage)->exists($file->path)) {
+        abort(404);
+    }
+
+    $disk = Storage::disk($file->storage);
+
+    return response()->streamDownload(function () use ($disk, $file) {
+        $stream = $disk->readStream($file->path);
+        fpassthru($stream);
+        if (is_resource($stream)) {
+            fclose($stream);
+        }
+    }, $file->downloadName());
+})
+    ->middleware('throttle:6,1')
+    ->withoutMiddleware('auth')
+    ->name('predictionResult.download');

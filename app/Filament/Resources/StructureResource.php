@@ -6,13 +6,13 @@ use App\Enums\IconEnums;
 use App\Filament\Resources\SharedRelationManagers;
 use App\Filament\Resources\StructureResource\Pages;
 use App\Filament\Resources\StructureResource\RelationManagers;
-use App\Libraries\Identifiers;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use App\Models\Structure;
+use Filament\Tables\Filters\Filter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
@@ -113,8 +113,11 @@ class StructureResource extends Resource
 
     public static function table(Table $table): Table
     {
-        return self::getDefaultTable($table)
+        $t = self::getDefaultTable($table);
+
+        return $t
             ->filters([
+                ...$t->getFilters(),
                 Tables\Filters\TernaryFilter::make('parent')
                     ->label('Show only parent structures?')
                     ->queries(
@@ -144,8 +147,7 @@ class StructureResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('name')
                     ->toggleable(isToggledHiddenByDefault: false)
-                    ->label('Name')
-                    ->searchable(),
+                    ->label('Name'),
                 Tables\Columns\TextColumn::make('canonical_smiles')
                     ->label('SMILES')
                     ->wrap()
@@ -168,6 +170,25 @@ class StructureResource extends Resource
                     ->dateTimeTooltip()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
+            ])
+            ->filters([
+                Filter::make('identifier')
+                    ->form([
+                        Forms\Components\TextInput::make('value')
+                            ->label('Identifier')
+                            ->hint('Minimum 3 characters')
+                            ->hintColor('warning')
+                            ->placeholder('Enter identifier value...'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        if(empty($data['value']) || strlen($data['value']) < 3) {
+                            return $query;
+                        }
+
+                        return $query->whereHas('identifiers', function (Builder $query) use ($data) {
+                            $query->where('value', 'ILIKE', '%' . $data['value'] . '%');
+                        });
+                    })->label('Identifier'),
             ]);
     }
 

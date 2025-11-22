@@ -1,34 +1,67 @@
 "use client";
 
 import IStructure, {
-  ISimmilarStructure,
+  ISimilarStructure,
 } from "@/lib/api/admin/interfaces/Structure";
 import DetailSection from "../components/section";
-import { Card, CardBody, CardHeader, Image } from "@heroui/react";
+import { addToast, Card, CardBody, CardHeader, Image } from "@heroui/react";
+import { useEffect, useState } from "react";
+import { getJson } from "@/lib/api/admin";
+
+type ResponseType = {
+  similar_structures: ISimilarStructure[];
+  related_structures: ISimilarStructure[];
+};
 
 export default function CompoundSimilarEntries(props: {
   compound: IStructure;
 }) {
-  const entries: ISimmilarStructure[] = [];
+  const [relatedEntries, setRelatedEntries] = useState<ISimilarStructure[]>([]);
+  const [similarEntries, setSimilarEntries] = useState<ISimilarStructure[]>([]);
+
+  useEffect(() => {
+    getJson(
+      "/api/structure/" + props.compound.identifier + "/similarities"
+    ).then((res) => {
+      if (res?.code === 200 && res.data) {
+        const data: ResponseType = res.data;
+        setRelatedEntries(data.related_structures);
+        setSimilarEntries(data.similar_structures);
+        return;
+      }
+
+      addToast({
+        title: "Error",
+        description: "Failed to load similarity data. Please, try again.",
+        color: "danger",
+        shouldShowTimeoutProgress: true,
+        timeout: 4500,
+      });
+    });
+  }, [props.compound.id]);
 
   return (
-    <DetailSection title="Similar entries" order={4}>
-      <div className="flex flex-row gap-4 overflow-x-scroll scroll whitespace-nowrap p-6 pb-12">
-        {entries.length ? (
-          entries.map((entry) => <Record compound={entry} />)
-        ) : (
-          <div className="h-24 w-full flex flex-col justify-center items-center">
-            <label className="text-xl font-bold text-foreground-400 select-none">
-              No similar entries found...
-            </label>
-          </div>
-        )}
+    <DetailSection title="Related entries" order={4}>
+      <div>
+        <div className="flex flex-row gap-4 overflow-x-scroll scroll whitespace-nowrap p-6 pb-12">
+          {relatedEntries.length ? (
+            relatedEntries.map((entry) => (
+              <Record key={entry.identifier} compound={entry} />
+            ))
+          ) : (
+            <div className="h-24 w-full flex flex-col justify-center items-center">
+              <label className="text-xl font-bold text-foreground-400 select-none">
+                No related entries found...
+              </label>
+            </div>
+          )}
+        </div>
       </div>
     </DetailSection>
   );
 }
 
-function Record(props: { compound: ISimmilarStructure }) {
+function Record(props: { compound: ISimilarStructure }) {
   return (
     <a href={`/mol/${props.compound.identifier}`}>
       <Card className="p-4 min-w-64 max-w-64 h-[350px] cursor-pointer">
@@ -48,7 +81,7 @@ function Record(props: { compound: ISimmilarStructure }) {
             <div className="flex flex-row items-center border-b-1 border-foreground/30">
               <div className="w-1/2">Similarity</div>
               <div className="w-1/2 text-right">
-                {props.compound.similarity.tanimoto}
+                {props.compound.similarity?.tanimoto ?? "N/A"}
               </div>
             </div>
             <div className="flex flex-row items-center border-b-1 border-foreground/30">
@@ -66,13 +99,13 @@ function Record(props: { compound: ISimmilarStructure }) {
             <div className="flex flex-row items-center border-b-1 border-foreground/30">
               <div className="w-1/2"># passive int.</div>
               <div className="w-1/2 text-right">
-                {props.compound.total.interactions_passive ?? "N/A"}
+                {props.compound.total?.interactions_passive ?? "N/A"}
               </div>
             </div>
             <div className="flex flex-row items-center border-b-1 border-foreground/30">
               <div className="w-1/2"># active int.</div>
               <div className="w-1/2 text-right">
-                {props.compound.total.interactions_active ?? "N/A"}
+                {props.compound.total?.interactions_active ?? "N/A"}
               </div>
             </div>
           </div>

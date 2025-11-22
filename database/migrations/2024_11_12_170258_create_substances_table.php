@@ -32,6 +32,8 @@ return new class extends Migration
             $table->softDeletesDatetime();
         });
 
+        DB::statement('ALTER TABLE structures ALTER COLUMN identifier TYPE CITEXT;');
+
         Schema::create('identifiers', function (Blueprint $table) {
             $table->bigIncrements('id');
             $table->bigInteger('structure_id');
@@ -45,6 +47,8 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
         });
+
+        DB::statement('ALTER TABLE identifiers ALTER COLUMN value TYPE CITEXT;');
 
         Schema::create('files', function (Blueprint $table) {
             $table->id();

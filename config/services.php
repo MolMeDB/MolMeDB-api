@@ -35,4 +35,8 @@ return [
         ],
     ],
     'cdk_depict_url' => env('CDK_DEPICT_URL'),
+
+    'rdkit' => [
+        'url' => rtrim(env('RDKIT_HOST') ?? "", '/')
+    ],
 ];

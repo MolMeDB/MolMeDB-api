@@ -5,11 +5,13 @@ namespace App\Enums;
 enum IconEnums: string
 {
     case ACCESS = 'heroicon-o-key';
+    case ACTIVITY = 'heroicon-o-arrow-uturn-left';
     case ADD = 'heroicon-o-plus';
     case AUTHORS = 'heroicon-o-identification';
     case CATEGORIES = 'heroicon-o-squares-2x2';
     case CHARGED_MOL = 'heroicon-o-plus-circle';
     case CHECK = 'heroicon-o-check';
+    case COMMAND_LINE = 'heroicon-o-command-line';
     case DATASET = 'heroicon-o-archive-box';
     case DELETE = 'heroicon-o-trash';
     case DOWNLOAD = 'heroicon-s-arrow-down-tray';
@@ -28,15 +30,18 @@ enum IconEnums: string
     case PUBLICATIONS = 'heroicon-o-link';
     case QUESTION_MARK = 'heroicon-o-question-mark-circle';
     case PROTEIN = 'heroicon-o-cube';
+    case PREDICTION = 'heroicon-o-cloud';
     case RELOAD = 'heroicon-s-arrow-path';
     case RESTORE = 'heroicon-s-arrow-uturn-left';
     case ROLES = 'heroicon-o-tag';
     case SETTINGS = 'heroicon-o-cog-8-tooth';
+    case SERVER = 'heroicon-o-server';
     case STATE_ACTIVE = 'heroicon-s-eye';
     case STATE_NEW = 'heroicon-o-lock-open';
     case STATE_VALIDATED = 'heroicon-o-lock-closed';
     case STATE_INVALID = 'heroicon-o-exclamation-triangle';
     case STOP = 'heroicon-o-x-mark';
+    case STORAGE = 'heroicon-o-folder';
     case STRUCTURE = 'heroicon-o-cube-transparent';
     case UPLOAD = 'heroicon-s-cloud-arrow-up';
     case UPLOAD_QUEUE = 'heroicon-o-document-arrow-up';

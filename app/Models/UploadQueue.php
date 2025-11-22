@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Casts\OnelineLogCasts;
 use App\Casts\UploadQueueLogCasts;
 use App\Enums\UploadQueueLogContextEnums;
 use App\Jobs\ProcessUploadQueueRecord;
@@ -18,6 +17,9 @@ class UploadQueue extends Model
 {
     use HasFactory;
     protected $guarded = [];
+    protected $table = 'upload_queue';
+
+    protected static $disk = null;
 
     protected function casts() : array
     {
@@ -53,7 +55,15 @@ class UploadQueue extends Model
         return null;
     }
 
-    const DISK = 'private';
+    public static function disk() : string | null
+    {
+        if(!self::$disk)
+        {
+            self::$disk = Filesystem::where('type', Filesystem::TYPE_UPLOAD_STORAGE)->first()?->systemName;
+        }
+
+        return self::$disk;
+    }
 
     public static function typeFolder($type) : string | null 
     {
