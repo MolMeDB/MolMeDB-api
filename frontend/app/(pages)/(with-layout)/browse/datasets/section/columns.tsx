@@ -6,9 +6,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-  Tooltip,
 } from "@heroui/react";
-import { EyeIcon } from "./table";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import Link from "next/link";
 
