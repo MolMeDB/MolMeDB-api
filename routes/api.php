@@ -99,9 +99,6 @@ Route::prefix('/api')->group(function()
             Route::get('/{identifier}/similarities', 'similarities');
         });
     
-    // Accept any suffix (including slashes) after /api/rdf/ and forward it to
-    // RdfController::simple_rdf as `$rdf_suffix`. Use a `where` rule to allow
-    // slashes in the parameter (match `.*`). Example: `/api/rdf/substance/123`.
     Route::get('rdf/{rdf_suffix}', [RdfController::class, 'simple_rdf'])
         ->where('rdf_suffix', '.*');
 });
