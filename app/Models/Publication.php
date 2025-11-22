@@ -119,7 +119,8 @@ class Publication extends Model
     public function files() : BelongsToMany
     {
         return $this->belongsToMany(File::class, 'model_has_files', 'model_id')
-            ->wherePivot('model_type', self::class);
+            ->wherePivot('model_type', self::class)
+            ->orderBy('created_at', 'desc');
     }
     
     public function interactionsPassive() : HasMany
