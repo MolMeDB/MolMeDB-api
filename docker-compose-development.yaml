@@ -109,6 +109,29 @@ services:
     networks:
       - molmedb-dev-network
 
+  db-predictions:
+    build: ./database/extensions/bingo
+    platform: linux/amd64
+    privileged: true
+    container_name: molmedb-dev-predictions-db
+    env_file: ./.env
+    environment:
+      POSTGRES_DB: ${DB_PREDICTIONS_DATABASE}
+      POSTGRES_USER: ${DB_PREDICTIONS_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PREDICTIONS_PASSWORD}
+    ports:
+      - "5434:5432"
+    shm_size: '8gb'
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "${DB_PREDICTIONS_USERNAME}", "-d", "${DB_PREDICTIONS_DATABASE}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - molmedb-predictions-db:/var/lib/postgresql/data
+    networks:
+      - molmedb-dev-network
+
   adminer:
     image: adminer
     container_name: molmedb-dev-adminer
@@ -147,10 +170,17 @@ services:
       retries: 5
       start_period: 10s
   
+  cdkdepict:
+    image: simolecule/cdkdepict:latest
+    container_name: cdkdepict
+    ports:
+      - "1661:8080"
+    restart: unless-stopped
 
 volumes:
   molmedb-dev-storage-production:
   molmedb-db:
+  molmedb-predictions-db:
   molmedb-redis:
 
 networks:
