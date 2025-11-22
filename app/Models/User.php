@@ -11,7 +11,6 @@ use Filament\Models\Contracts\HasName;
 use Filament\Panel;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -47,6 +46,14 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser, Has
         'password',
         'remember_token',
     ];
+
+    protected $connection;
+
+    public function __construct(array $attributes = [])
+    {
+        parent::__construct($attributes);
+        $this->connection = config('database.default');
+    }
 
     public function canAccessPanel(Panel $panel): bool
     {
@@ -111,6 +118,11 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser, Has
     public function name() : ?string
     {
         return $this->name;
+    }
+
+    public function getPrettyNameAttribute() : ?string
+    {
+        return $this->name . " ($this->email)";
     }
 
     public function logs() : MorphMany

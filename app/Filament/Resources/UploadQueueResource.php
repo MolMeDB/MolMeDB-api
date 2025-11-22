@@ -106,16 +106,21 @@ class UploadQueueResource extends Resource
                     ->maxSize(1024 * 1024 * 20) // 20 MB
                     ->columnSpanFull()
                     ->getUploadedFileNameForStorageUsing(function (TemporaryUploadedFile $file, Get $get) : string { 
-                        return File::getUniqueNameForSave($file, 
+                        session()->put('upload_meta', [
+                            'hash' => md5_file($file->getRealPath()),
+                            'mime' => $file->getMimeType()
+                        ]);
+
+                        return "[Dataset:" . $get('dataset_id') . "]-" . File::getUniqueNameForSave($file, 
                             UploadQueue::typeFolder($get('type') ? intval($get('type')) : null),
-                            UploadQueue::DISK
+                            UploadQueue::disk()
                         );
                     })
                     ->hidden(fn (Get $get) => !$get('type') || $get('id'))
                     ->reactive()
                     ->rules([new FileUniqueByHash()])
                     ->preserveFilenames()
-                    ->disk(UploadQueue::DISK)
+                    ->disk(UploadQueue::disk())
                     ->directory(fn (Get $get) => UploadQueue::typeFolder($get('type') ? intval($get('type')) : null))
             ]);
     }

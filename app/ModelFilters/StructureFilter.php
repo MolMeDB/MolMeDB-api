@@ -10,7 +10,7 @@ class StructureFilter extends ModelFilter
     {
         return $this->join('identifiers as i', 'i.structure_id', '=', 'structures.id')
             ->whereRaw('LOWER(i.value) LIKE ?', ['%' . strtolower($name) . '%'])
-            ->select('structures.*');
+            ->selectRaw('DISTINCT ON (structures.id) structures.*, i.value as matched_identifier');
     }
 
     public function setup()

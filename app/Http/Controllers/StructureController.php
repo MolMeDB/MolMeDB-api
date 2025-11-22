@@ -79,6 +79,28 @@ class StructureController extends Controller
         return StructureResource::make($structure);
     }
 
+
+    public function similarities(string $identifier)
+    {
+        $structure = Structure::where('identifier',$identifier)->first();
+
+        if(!$structure?->id)
+        {
+            return response()->json([
+                'message' => 'Structure not found'
+            ], 404);
+        }
+
+        $related = $structure->parent ? [$structure->parent] : $structure->children;
+
+        $similar = []; // TODO
+
+        return response()->json([
+            'related_structures' => StructureResource::collection(collect($related)),
+            'similar_structures' => StructureResource::collection(collect($similar))
+        ]);
+    }
+
     public function formSelectMembranes(string $identifier)
     {
         $structure = Structure::where('identifier', $identifier)

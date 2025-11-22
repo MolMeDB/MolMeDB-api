@@ -2,6 +2,7 @@ import IUser from "./User";
 
 export default interface IStructure {
   id: number;
+  parent_identifier?: string;
   identifier: string;
   identifiers: IIdentifier[];
   name?: string;
@@ -45,7 +46,7 @@ export type IIdentifierSource =
   | { type: "user"; data: IUser }
   | { type: "identifier"; data: IIdentifier };
 
-export interface ISimmilarStructure extends IStructure {
+export interface ISimilarStructure extends IStructure {
   similarity: {
     tanimoto: number;
     cosine: number;

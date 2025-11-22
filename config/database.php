@@ -17,6 +17,7 @@ return [
     */
 
     'default' => env('DB_CONNECTION', 'sqlite'),
+    'default_predictions' => env('DB_PREDICTIONS_CONNECTION', 'sqlite'),
 
     /*
     |--------------------------------------------------------------------------
@@ -91,6 +92,21 @@ return [
             'username' => env('DB_USERNAME', 'root'),
             'password' => env('DB_PASSWORD', ''),
             'charset' => env('DB_CHARSET', 'utf8'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => 'prefer',
+        ],
+
+        'predictions' => [
+            'driver' => 'pgsql',
+            'url' => env('DB_PREDICTIONS_URL'),
+            'host' => env('DB_PREDICTIONS_HOST', '127.0.0.1'),
+            'port' => env('DB_PREDICTIONS_PORT', '5432'),
+            'database' => env('DB_PREDICTIONS_DATABASE', 'laravel'),
+            'username' => env('DB_PREDICTIONS_USERNAME', 'root'),
+            'password' => env('DB_PREDICTIONS_PASSWORD', ''),
+            'charset' => env('DB_PREDICTIONS_CHARSET', 'utf8'),
             'prefix' => '',
             'prefix_indexes' => true,
             'search_path' => 'public',

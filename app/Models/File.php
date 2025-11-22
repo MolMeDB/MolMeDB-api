@@ -92,34 +92,40 @@ class File extends Model
 
             if($otherFilesCount == 0)
             {
-                if (Storage::disk('public')->exists($file->path)) {
-                    Storage::disk('public')->delete($file->path);
-                }
-                else if (Storage::exists($file->path)) {
-                    Storage::delete($file->path);
+                if (Storage::disk($file->storage ?? "public")->exists($file->path)) {
+                    Storage::disk($file->storage ?? "public")->delete($file->path);
                 }
             }
         });
 
         static::saving(function ($file) {
-            $realPath = null;
-            if(Storage::disk('public')->exists($file->path))
+            if(!$file->mime)
             {
-                $realPath = Storage::disk('public')->path($file->path);
-            }
-            else if (Storage::disk('private')->exists($file->path)) {
-                $realPath = Storage::disk('private')->path($file->path);
-            }
-            else
-            {
-                throw new Exception('File does not exist.');
+                $realPath = null;
+                if(Storage::disk($file->storage)->exists($file->path))
+                {
+                    $realPath = Storage::disk($file->storage)->path($file->path);
+                }
+                else
+                {
+                    throw new Exception('File does not exist.');
+                }
+                $file->mime = FacadesFile::mimeType($realPath);
             }
 
-            $file->hash = File::hash($realPath);
+            if(!$file->hash)
+            {
+                $file->hash = File::hash($file->path, $file->storage);
+            }
+
             $file->user_id = Auth::user()?->id;
-            $file->mime = FacadesFile::mimeType($realPath);
-            // $file->setAttribute('name', $file->name ?? basename($file->path));
-            // $file->name ??= basename($file->path);
+        });
+
+        static::updating(function ($file) {
+            if(!$file->hash)
+            {
+                $file->hash = File::hash($file->path, $file->storage);
+            }
         });
     }
 
@@ -142,9 +148,28 @@ class File extends Model
         return $name . '.' . $extension;
     }
 
-    public static function hash($path)
+    public static function hash($path, $disk = 'public') : string
     {
-        return md5_file($path);
+        if(!Storage::disk($disk)->exists($path))
+        {
+            throw new Exception('File does not exist.');
+        }
+
+        if($disk == 'public' || 
+            $disk == 'private')
+        {
+            return md5_file(Storage::disk($disk)->path($path));
+        }
+
+        $stream = Storage::disk($disk)->readStream($path);
+
+        $ctx = hash_init('md5');
+        while (!feof($stream)) {
+            hash_update($ctx, fread($stream, 8192));
+        }
+        fclose($stream);
+
+        return hash_final($ctx);
     }
 
     public static function enumTypes(?FileRestrictionType $restriction = null) : array

@@ -7,7 +7,6 @@ use App\Filament\Resources\MethodResource;
 use App\ValueObjects\MethodParameters;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
-use phpDocumentor\Reflection\DocBlock\Tags\MethodParameter;
 
 class EditMethod extends EditRecord
 {

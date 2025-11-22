@@ -2,12 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Models\Category;
-use App\Models\Identifier;
-use App\Models\InteractionActive;
-use App\Models\Structure;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Date;
 use Modules\Rdkit\Rdkit;
 
 class UnifyStrucureRecords extends Command
@@ -41,6 +36,8 @@ class UnifyStrucureRecords extends Command
 
         $rdkit = new Rdkit();
 
+        $rdkit->connect();
+
         if(!$rdkit->is_connected())
         {
             $this->error('Rdkit is not connected. Stopping...');
@@ -56,6 +53,13 @@ class UnifyStrucureRecords extends Command
         {
             $percent = round(($i++ / $total) * 100,2);
             $this->info('# ' . $percent . '% - Processing structure ID: ' . $structure->id);
+
+            if($structure->isForceDeletable())
+            {
+                $this->warn('Structure has no data. Deleting...');
+                $structure->forceDelete();
+                continue;
+            }
 
             if(!$structure->canonical_smiles)
             {
@@ -107,7 +111,18 @@ class UnifyStrucureRecords extends Command
                 if($representant?->id !== $structure->id)
                 {
                     $this->error('... Found duplicity. Structure has the same SMILES as molecule ID:'. $representant->id);
-                    return;
+
+                    if ($this->confirm('Do you want to join them?', true)) {
+                        $this->call('structures:join-records', [
+                            'id1' => $representant->id,
+                            'id2' => $structure->id,
+                        ]);
+                        continue;
+                    }
+                    else
+                    {
+                        return;
+                    }
                 }
 
                 $this->info('.... OK - structure is self-representative.');

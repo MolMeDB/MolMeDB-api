@@ -2,7 +2,6 @@ import SimpleSiteHeader from "@/components/_core/layout/SimpleSiteHeader";
 import SiteFooter from "@/components/_core/layout/SiteFooter";
 import SiteContent from "@/components/_core/layout/SiteContent";
 import { MdOutlineComputer } from "react-icons/md";
-import Image from "next/image";
 import SectionComputationButtons from "./section/computationButton";
 import SectionUpload from "./section/upload";
 

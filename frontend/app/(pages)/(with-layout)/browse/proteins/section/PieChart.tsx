@@ -76,7 +76,6 @@ export default function SectionPieChart(props: {
     const darkModeMedia = window.matchMedia("(prefers-color-scheme: dark)");
     setIsDarkMode(darkModeMedia.matches);
 
-    // poslouchání změny
     const handler = (e: any) => {
       setIsDarkMode(e.matches);
     };
@@ -203,7 +202,7 @@ export default function SectionPieChart(props: {
     for (let i = 0; ; i++) {
       const childrenForLevel = currentChildren;
       const selected = childrenForLevel.find(
-        (c) => c.model_id.toString() === levels[i]
+        (c) => c?.model_id.toString() === levels[i]
       );
 
       selects.push(
@@ -219,7 +218,7 @@ export default function SectionPieChart(props: {
           onSelectionChange={(e) => {
             const value = Array.from(e)[0].toString();
             const selectedOption = childrenForLevel.find(
-              (c) => c.model_id.toString() === value
+              (c) => c?.model_id.toString() === value
             );
 
             if (selectedOption?.isFinal) {
