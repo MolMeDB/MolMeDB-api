@@ -130,7 +130,6 @@ export default function SectionPieChart(props: {
 
         if (!model_id) return;
         else {
-          console.log("ITEM", item);
           // Check, if has parent
           const parentItem = item.get("parent") as any;
           const parent = parentItem?.dataContext as PieChartItem;

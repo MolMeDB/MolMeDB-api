@@ -59,6 +59,7 @@ Route::prefix('/api')->group(function()
         ->group(function() { 
            Route::get('/categories', 'categories'); 
            Route::get('/{protein}', 'show');
+           Route::get('/{protein}/download/interactions', 'downloadInteractions');
            Route::get('/{protein}/stats', 'stats');
         });
 

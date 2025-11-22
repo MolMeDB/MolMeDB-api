@@ -61,6 +61,57 @@ export default function SectionDetail(props: { proteinId: string }) {
     );
   }, [props.proteinId]);
 
+  // return (
+  //     <div ref={detailSectionRef} className="min-h-64 w-full">
+  //       {isLoading ? (
+  //         <div className="flex-1 flex justify-center items-center">
+  //           <Spinner label="Loading..." variant="wave" size="lg" />
+  //         </div>
+  //       ) : (
+  //         <div className="flex flex-col gap-4">
+  //           <div className="flex justify-between items-center gap-16">
+  //             <h1 className="text-2xl font-bold text-secondary dark:text-primary-600">
+  //               {data?.uniprot_id}
+  //             </h1>
+  //             {data ? (
+  //               <Button
+  //                 color="primary"
+  //                 size="md"
+  //                 variant="flat"
+  //                 startContent={<MdCloudDownload />}
+  //                 onPress={onOpen}
+  //               >
+  //                 Measurements
+  //               </Button>
+  //             ) : null}
+  //           </div>
+  //           <div
+  //             className="html-content-block"
+  //             dangerouslySetInnerHTML={{
+  //               __html: data?.description || "",
+  //             }}
+  //           />
+  //         </div>
+  //       )}
+  //       {data ? (
+  //         <Modal
+  //           scrollBehavior="inside"
+  //           isOpen={isOpen}
+  //           onOpenChange={onOpenChange}
+  //           size="xl"
+  //         >
+  //           <ModalContent>
+  //             {(onClose) => (
+  //               <>
+  //                 <MethodModalContent onClose={onClose} data={data} />
+  //               </>
+  //             )}
+  //           </ModalContent>
+  //         </Modal>
+  //       ) : null}
+  //     </div>
+  //   );
+
   return (
     <div ref={detailSectionRef} className="min-h-64 w-full">
       {isLoading ? (
@@ -120,7 +171,12 @@ export default function SectionDetail(props: { proteinId: string }) {
         </div>
       )}
       {data ? (
-        <Modal isOpen={isOpen} onOpenChange={onOpenChange} size="3xl">
+        <Modal
+          scrollBehavior="inside"
+          isOpen={isOpen}
+          onOpenChange={onOpenChange}
+          size="xl"
+        >
           <ModalContent>
             {(onClose) => (
               <>
