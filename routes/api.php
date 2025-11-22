@@ -6,6 +6,7 @@ use App\Http\Controllers\MembraneController;
 use App\Http\Controllers\MethodController;
 use App\Http\Controllers\ProteinController;
 use App\Http\Controllers\PublicationController;
+use App\Http\Controllers\RdfController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\StatsController;
 use App\Http\Controllers\StructureController;
@@ -97,4 +98,10 @@ Route::prefix('/api')->group(function()
             Route::get('/{identifier}/form/select/methods', 'formSelectMethods');
             Route::get('/{identifier}/similarities', 'similarities');
         });
+    
+    // Accept any suffix (including slashes) after /api/rdf/ and forward it to
+    // RdfController::simple_rdf as `$rdf_suffix`. Use a `where` rule to allow
+    // slashes in the parameter (match `.*`). Example: `/api/rdf/substance/123`.
+    Route::get('rdf/{rdf_suffix}', [RdfController::class, 'simple_rdf'])
+        ->where('rdf_suffix', '.*');
 });
