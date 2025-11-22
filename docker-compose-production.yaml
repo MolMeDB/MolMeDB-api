@@ -164,6 +164,8 @@ services:
     ports:
       - "9696:80"
     restart: unless-stopped
+    networks:
+      - molmedb-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost/test"]
       interval: 120s
@@ -174,6 +176,8 @@ services:
   cdkdepict:
     image: simolecule/cdkdepict:latest
     container_name: cdkdepict
+    networks:
+      - molmedb-network
     ports:
       - "1661:8080"
     restart: unless-stopped    
