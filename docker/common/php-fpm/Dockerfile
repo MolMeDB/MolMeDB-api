@@ -86,7 +86,7 @@ COPY --from=builder /usr/local/bin/docker-php-ext-* /usr/local/bin/
 # security in a live environment.
 # -----------------------------------------------------------
 RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
-RUN echo "extension=pdo_pgsql.so" >> "$PHP_INI_DIR/php.ini"
+# RUN echo "extension=pdo_pgsql.so" >> "$PHP_INI_DIR/php.ini"
 
 # Enable PHP-FPM status page by modifying zz-docker.conf with sed
 RUN sed -i '/\[www\]/a pm.status_path = /status' /usr/local/etc/php-fpm.d/zz-docker.conf

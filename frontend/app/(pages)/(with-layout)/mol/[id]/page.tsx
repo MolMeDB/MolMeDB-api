@@ -17,6 +17,31 @@ export default async function CompoundDetailPage(props: {
   const id = (await props.params).id;
   const compound: IStructure = (await getViewData(`/structure/${id}`))?.data
     ?.data;
+
+  if (!compound) {
+    return (
+      <>
+        <SimpleSiteHeader>
+          <div className="h-full w-full flex flex-col justify-end">
+            <div className="flex flex-row items-center justify-start gap-6 lg:gap-8">
+              <SiMoleculer className="text-3xl xl:text-4xl" />
+              <div className="flex flex-col justify-center gap-2 lg:gap-1">
+                <h1 className="text-2xl md:text-3xl font-bold">Not found</h1>
+                <div className="flex flex-row gap-4 items-center">
+                  Cannot find compound with id {id}
+                </div>
+              </div>
+            </div>
+          </div>
+        </SimpleSiteHeader>
+        <SiteContent>
+          <div className="min-h-screen flex flex-col gap-16 pb-16"></div>
+        </SiteContent>
+        <SiteFooter />
+      </>
+    );
+  }
+
   return (
     <>
       <SimpleSiteHeader>

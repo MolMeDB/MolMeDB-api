@@ -78,7 +78,7 @@ services:
   #   environment:
   #     #if you???re using Windows, you may need to uncomment the next line - Sol from @Kobe E
   #     # - WATCHPACK_POLLING=true
-  #     - NEXT_PUBLIC_BACKEND_URL=http://web:80 # Do not change
+  #     - NEXT_BACKEND_URL=http://web:80 # Do not change
   #   ports:
   #     - 3000:3000
   #   depends_on:

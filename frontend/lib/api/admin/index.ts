@@ -4,7 +4,7 @@ import { DEFAULT_COOKIES_CONFIG } from "../cookies";
 import { selectedValuesToSearchParamsString } from "@/utils/searchParams";
 import HttpJsonResponse from "./interfaces/http/jsonResponse";
 
-const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL as string;
+const baseUrl = process.env.NEXT_BACKEND_URL as string;
 const XSRF_KEY = process.env.COOKIES_BACKEND_XSRF_KEY as string;
 const SESSION_KEY = process.env.COOKIES_BACKEND_SESSION_KEY as string;
 
