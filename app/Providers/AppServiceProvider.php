@@ -76,6 +76,10 @@ class AppServiceProvider extends ServiceProvider
                     'password' => $filesystem->sshCredential->type == SshCredential::AUTH_TYPE_PASSWORD ? $filesystem->sshCredential->password : null,
                     'privateKey' => $filesystem->sshCredential->type == SshCredential::AUTH_TYPE_KEY ? $filesystem->sshCredential->private_key : null,
                     'passphrase' => $filesystem->sshCredential->type == SshCredential::AUTH_TYPE_KEY ? $filesystem->sshCredential->passphrase : null,
+                    'visibility' => 'public',
+                    'directoryPerm' => '0755',
+                    'permPublic' => '0644',
+                    'permPrivate' => '0644',
                     'root' => $filesystem->root_path,
                     'timeout' => 30,
                 ]);

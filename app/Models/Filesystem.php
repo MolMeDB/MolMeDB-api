@@ -29,7 +29,8 @@ class Filesystem extends BaseModel
     const TYPE_STRUCTURE_STORAGE = 5;
     const TYPE_PREDICTIONS_STORAGE = 6;
     const TYPE_RDF_STORAGE = 7;
-
+    const TYPE_DB_FULL_BACKUP = 8;
+    const TYPE_DB_PUBLIC_BACKUP = 9;
 
     public static $types = [
         self::TYPE_PUBLIC => 'Public',
@@ -40,7 +41,9 @@ class Filesystem extends BaseModel
         self::TYPE_UPLOAD_STORAGE => 'Uploaded files storage',
         self::TYPE_STRUCTURE_STORAGE => 'Structures (sdf) storage',
         self::TYPE_PREDICTIONS_STORAGE => 'Prediction results storage',
-        self::TYPE_RDF_STORAGE => 'RDF related-files storage'
+        self::TYPE_RDF_STORAGE => 'RDF related-files storage',
+        self::TYPE_DB_FULL_BACKUP => 'Database full backups',
+        self::TYPE_DB_PUBLIC_BACKUP => 'Database public backups (restricted)',
     ];
 
     public static function drivers(): array
@@ -67,6 +70,20 @@ class Filesystem extends BaseModel
     public function scope() : BelongsTo
     {
         return $this->belongsTo(self::class, 'scope_id');
+    }
+
+    public function isDiskConnected() : bool 
+    {
+        try
+        {
+            $storage_disk = Storage::disk($this->systemName);
+            $storage_disk->makeDirectory('');
+            return $storage_disk?->exists('') ?? false;
+        }
+        catch(Exception $e)
+        {
+            return false;
+        }
     }
 
     public function isConfigured() : bool 
