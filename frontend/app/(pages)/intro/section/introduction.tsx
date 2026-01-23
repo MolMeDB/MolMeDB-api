@@ -1,5 +1,5 @@
 "use client";
-import { Button } from "@heroui/react";
+import { Button, Link } from "@heroui/react";
 import Image from "next/image";
 
 export default function IntroductionSection() {
@@ -52,8 +52,10 @@ export default function IntroductionSection() {
               />
             </div>
             <h1 className="text-lg md:text-xl font-bold text-white lg:max-w-xl">
-              MolMeDB is an open chemical database on the behaviour of (small)
-              molecules on biological membranes.
+              {/* MolMeDB is an open chemical database on the behaviour of (small)
+              molecules on biological membranes. */}
+              MolMeDB is an open chemical database that focuses on
+              ligand-membrane and membrane protein-ligand interactions.
             </h1>
           </div>
         </div>
@@ -61,18 +63,36 @@ export default function IntroductionSection() {
         {/* 2. řádek, 1. sloupec: Nadpis + text */}
         <div className="row-start-2 col-start-1 flex flex-col justify-center text-foreground gap-6">
           <h1 className="text-2xl md:text-3xl font-bold leading-tight">
-            We study behavior of <br /> molecules on membranes...
+            We explore how ligands interact with biological membranes...
           </h1>
           <p className="text-lg lg:mt-4 lg:max-w-xl text-left text-semibold sm:text-justify lg:text-left">
-            Understanding how molecules interact with membranes is essential for
+            {/* Understanding how molecules interact with membranes is essential for
             evaluating their biological activity, bioavailability, and
             pharmacokinetics. These interactions can be expressed by
             partitioning, permeability, or positioning, and can be obtained from
             experimental measurements, molecular simulations, or computational
-            prediction methods.
+            prediction methods. */}
+            Understanding these interactions is key to evaluating molecular
+            activity, bioavailability, and pharmacokinetics. Ligand-membrane
+            interactions can be described through{" "}
+            <strong>partitioning, permeability, and positioning</strong>, which
+            define how compounds cross or embed within lipid bilayers. At
+            MolMeDB, these data are collected from{" "}
+            <strong>
+              experimental studies, molecular simulations, and computational
+              prediction methods
+            </strong>
+            , offering an integrated resource for researchers.
           </p>
           <div className="mt-4 flex flex-row justify-end lg:justify-start">
-            <Button radius="full" variant="flat" color="warning" size="lg">
+            <Button
+              as={Link}
+              radius="full"
+              variant="flat"
+              color="warning"
+              size="lg"
+              href="/browse/membranes"
+            >
               Discover
             </Button>
           </div>
@@ -106,16 +126,32 @@ export default function IntroductionSection() {
         <div className="row-start-3 col-2 flex flex-row lg:justify-end">
           <div className="flex flex-col justify-center gap-6">
             <h1 className="text-3xl font-bold leading-tight">
-              …and molecule interactions with transporter proteins
+              {/* …and molecule interactions with transporter proteins */}
+              ...and ligands interact with membrane proteins
             </h1>
             <p className="text-lg lg:mt-4 w-full lg:max-w-xl text-left text-semibold text-left sm:text-justify lg:text-left">
-              However, membranes themselves are only part of the story. Membrane
+              {/* However, membranes themselves are only part of the story. Membrane
               proteins—including transporters, ion channels, receptors, and
               other proteins—actively regulate cellular uptake, efflux, and
               signalling. Understanding both passive and protein-mediated
               transport is essential for predicting drug efficacy, toxicity, and
               selectivity. The MolMeDB combines these aspects to facilitate a
-              deeper understanding of molecular behaviour in organisms.
+              deeper understanding of molecular behaviour in organisms. */}
+              Not only membranes play an essential role, but also membrane
+              proteins.{" "}
+              <strong>
+                Membrane proteins - such as transporters, ion channels, and
+                receptors - actively control uptake, efflux, and cellular
+                signalling.
+              </strong>{" "}
+              Together with passive diffusion, these protein-mediated processes
+              shape the behavior of molecules in living systems. Understanding
+              both pathways is crucial for predicting the efficacy, safety, and
+              selectivity of drugs.{" "}
+              <strong>MolMeDB combines these aspects</strong> by integrating
+              data on small molecules, membranes and membrane proteins,
+              providing a comprehensive resource for exploring molecular
+              behavior in biological contexts.
             </p>
             <div className="row-start-3 col-1 w-full lg:hidden h-full flex items-start justify-end">
               <Image
@@ -129,7 +165,14 @@ export default function IntroductionSection() {
               />
             </div>
             <div className="flex flex-row justify-end lg:mt-4 w-full lg:max-w-xl">
-              <Button radius="full" variant="flat" color="warning" size="lg">
+              <Button
+                as={Link}
+                radius="full"
+                variant="flat"
+                color="warning"
+                size="lg"
+                href="/browse/proteins"
+              >
                 Discover
               </Button>
             </div>
