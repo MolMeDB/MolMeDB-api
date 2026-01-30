@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  Avatar,
+  AvatarIcon,
   Button,
   Dropdown,
   DropdownItem,
@@ -19,14 +21,17 @@ import {
 import SiteLogoLink from "./SiteLogoLink";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { FaMagnifyingGlass } from "react-icons/fa6";
+import { FaMagnifyingGlass, FaUser } from "react-icons/fa6";
 import SearchEngine from "../providers/searchEngine";
 import { MdOutlineLayers, MdPeopleOutline } from "react-icons/md";
 import { BsBoxes } from "react-icons/bs";
+import { FaUserAlt } from "react-icons/fa";
+import { UserSession } from "@/lib/api/admin/interfaces/User";
+import SiteMenuUser from "./SiteMenuUser";
 // import { UserSession } from "@/lib/api/admin/interfaces/user";
 
 export function SiteMenu(props: {
-  // user?: UserSession;
+  user?: UserSession;
   hideLogoOnTop?: boolean;
   hideMenu?: boolean;
   isLogoClickable?: boolean;
@@ -69,7 +74,7 @@ export function SiteMenu(props: {
             aria-label={isMenuOpen ? "Close menu" : "Open menu"}
           />
         )}
-        <h1 className="sr-only">Pokusnice</h1>
+        <h1 className="sr-only">MolMeDB</h1>
         {(!props.hideLogoOnTop || isScrolled || isMenuOpen) && (
           <SiteLogoLink
             isScrolled={isScrolled || isMenuOpen}
@@ -170,6 +175,25 @@ export function SiteMenu(props: {
             onClose={() => setIsVisibleSE(false)}
           />
         </div>
+        {props.user?.id ? (
+          <SiteMenuUser user={props.user} />
+        ) : (
+          <div>
+            <Button
+              as={Link}
+              size="md"
+              startContent={<FaUserAlt size={16} />}
+              variant="solid"
+              color="primary"
+              href="/login"
+              className={`
+              rounded-full
+            `}
+            >
+              Login
+            </Button>
+          </div>
+        )}
         {/* <Input
           classNames={{
             base: "max-w-full sm:max-w-[10rem] h-10",
@@ -336,34 +360,38 @@ const MenuLink = ({ href = "#", title = "" }) => {
   );
 };
 
-// const UserDetailButton = (props: { user?: UserSession; toMenu?: boolean }) => (
-//   <div
-//     className={`flex flex-row items-center gap-4 no-wrap ${
-//       props.toMenu && "pt-6 pb-4"
-//     }`}
-//   >
-//     <Avatar
-//       isBordered={!props.toMenu}
-//       className="transition-transform"
-//       color="secondary"
-//       size={props.toMenu ? "md" : "sm"}
-//     />
-//     <div className="max-w-40 flex flex-col justify-center cursor-pointer">
-//       {props.user ? (
-//         <label
-//           className={`text-sm font-bold cursor-pointer whitespace-nowrap text-purple-400 ${
-//             props.toMenu && "text-black/70"
-//           }`}
-//         >{`${props.user?.first_name} ${props.user?.last_name}`}</label>
-//       ) : (
-//         <label className="text-sm font-bold cursor-pointer">Přihlásit se</label>
-//       )}
-//       <label className="text-xs line-clamp-1 wrap-break-word leading-[1] cursor-pointer">
-//         {props.user?.school_name ?? ""}
-//       </label>
-//     </div>
-//   </div>
-// );
+export const UserDetailButton = (props: {
+  user?: UserSession;
+  toMenu?: boolean;
+}) => (
+  <div
+    className={`flex flex-row items-center gap-4 no-wrap ${
+      props.toMenu && "pt-6 pb-4"
+    }`}
+  >
+    <Avatar
+      isBordered={!props.toMenu}
+      className="transition-transform"
+      color="secondary"
+      size={props.toMenu ? "md" : "sm"}
+    />
+    <div className="max-w-40 flex flex-col justify-center cursor-pointer">
+      {props.user ? (
+        <label
+          className={`text-sm font-bold cursor-pointer whitespace-nowrap  ${
+            props.toMenu && "text-black/70"
+          }`}
+        >
+          {" "}
+          {props.user?.name ??
+            `${props.user?.first_name} ${props.user?.last_name}`}
+        </label>
+      ) : (
+        <label className="text-sm font-bold cursor-pointer">Log in</label>
+      )}
+    </div>
+  </div>
+);
 
 // const SearchIcon = ({
 //   size = 24,

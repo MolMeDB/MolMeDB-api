@@ -9,13 +9,14 @@ use App\Http\Controllers\PublicationController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\StatsController;
 use App\Http\Controllers\StructureController;
+use App\Http\Resources\UserResource;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 require __DIR__.'/../modules/References/EuropePMC/Routes/api.php';
 
 Route::middleware(['auth:sanctum'])->get('/api/user', function (Request $request) {
-    return $request->user();
+    return UserResource::make($request->user());
 });
 
 Route::prefix('/api')->group(function() 
