@@ -1,71 +1,39 @@
 import { SiteMenu } from "@/components/_core/layout/SiteMenu";
-import LoginForm from "./(components)/LoginForm";
 import { Metadata } from "next";
 import Image from "next/image";
 import SiteFooter from "@/components/_core/layout/SiteFooter";
 import SimpleSiteHeader from "@/components/_core/layout/SimpleSiteHeader";
-import Link from "next/link";
 import { UserSession } from "@/lib/api/admin/interfaces/User";
 import { Cookie } from "@/lib/api/cookies";
 import LoginInformTable from "./(components)/LoginInformTable";
-import SiteNotifications from "@/components/_core/layout/SiteNotifications";
+import SignUpForm from "./(components)/SignUpForm";
 
 export const metadata: Metadata = {
-  title: "Login | MolMeDB",
+  title: "Create new account | MolMeDB",
   description: "",
 };
 
-type PageProps = {
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
-};
-
-export default async function LoginPage({ searchParams }: PageProps) {
+export default async function LoginPage() {
   const user: UserSession | undefined =
     (await Cookie.getUserData()) as UserSession;
 
-  const getParams = await searchParams;
-
-  const isVerified = getParams?.verified === "1";
-  const verifiedEmail = getParams?.email as string | undefined;
-
   return (
     <>
-      {isVerified && verifiedEmail && (
-        <SiteNotifications
-          notifications={[
-            {
-              title: "Email verified!",
-              type: "success",
-              message: (
-                <label>
-                  Your email address <strong>{verifiedEmail}</strong> is
-                  verified. Now, you can log in.
-                </label>
-              ),
-            },
-          ]}
-        />
-      )}
       <SiteMenu isLogoClickable />
       <SimpleSiteHeader>
         <></>
       </SimpleSiteHeader>
-      <Main user={user} defaultEmail={verifiedEmail} />
+      <Main user={user} />
       <SiteFooter />
     </>
   );
 }
 
-function Main(props: { user?: UserSession; defaultEmail?: string }) {
+function Main(props: { user?: UserSession }) {
   return (
     <main className="p-8 lg:p-20 mt-12 max-h-screen max-w-screen-lg w-full mx-auto flex-1 flex flex-col justify-center items-center">
       <div className="max-h-[800px] max-w-[1200px] shadow-2xl rounded-xl bg-white dark:bg-background-dark flex flex-col lg:flex-row">
         <div className="h-full lg:w-full p-8 lg:p-4 lg:py-16 rounded-xl flex flex-col justify-between items-center gap-4">
-          <div className="w-full flex flex-start -mt-10">
-            <Link href="/" className="text-sm text-primary hover:underline">
-              &larr; Home
-            </Link>
-          </div>
           {props.user?.id ? (
             <LoginInformTable user={props.user} />
           ) : (
@@ -88,13 +56,15 @@ function Main(props: { user?: UserSession; defaultEmail?: string }) {
                 sizes="100vw"
                 className="w-5/6 sm:w-4/6 md:w-1/2 hidden dark:block"
               />
-              <h2 className="font-semibold text-3xl">Welcome back</h2>
+              <h2 className="font-semibold text-3xl">Create new account</h2>
               <div className="flex flex-col justify-center items-center text-sm text-foreground/70">
-                <p>Glad to see you again!</p>
-                <p>Login to your account below</p>
+                <p className="text-center">
+                  Enter your details below to create your account <br /> and get
+                  started.
+                </p>
               </div>
               <div className="flex flex-col items-center gap-2 w-full h-1/2 lg:h-[60%]">
-                <LoginForm defaultEmail={props.defaultEmail} />
+                <SignUpForm />
               </div>
             </>
           )}

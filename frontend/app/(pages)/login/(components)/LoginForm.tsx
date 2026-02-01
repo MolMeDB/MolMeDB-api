@@ -4,11 +4,11 @@ import { Alert, Button, Input } from "@heroui/react";
 import submitLogin from "../(actions)/submitLogin";
 import { useActionState, useState } from "react";
 
-export default function LoginForm() {
+export default function LoginForm(props: { defaultEmail?: string }) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [actionState, action, isPending] = useActionState(submitLogin, null);
 
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(props.defaultEmail || "");
   const [password, setPassword] = useState("");
 
   return (
@@ -32,6 +32,7 @@ export default function LoginForm() {
           type="email"
           label="Email"
           name="email"
+          autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           autoFocus
@@ -47,6 +48,7 @@ export default function LoginForm() {
           }}
           label="Password"
           name="password"
+          autoComplete="password"
         />
         <div className="flex justify-between mb-4">
           <div className="flex items-center gap-2">

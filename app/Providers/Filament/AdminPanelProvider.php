@@ -34,8 +34,9 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('')
+            ->registration(false)
             ->login(Login::class)
-            ->registration(Registration::class)
+            // ->registration(Registration::class) # Disable registration on admin panel
             ->passwordReset(requestAction: PasswordReset::class)
             ->emailVerification(EmailVerification::class)
             ->emailVerificationRoutePrefix('email')
