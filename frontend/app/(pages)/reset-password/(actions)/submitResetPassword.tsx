@@ -5,45 +5,36 @@ import { get, post } from "@/lib/api/admin";
 import ApiResponse from "@/lib/api/response";
 import { Cookie } from "@/lib/api/cookies";
 
-export default async function submitSignUp(
+export default async function submitResetPassword(
   _previousState: any,
   formData: FormData,
 ) {
   const rawFormData = {
     email: formData.get("email"),
-    password: formData.get("password"),
-    password_confirmation: formData.get("password_confirmation"),
-    affiliation: formData.get("affiliation"),
-    name: formData.get("name"),
   };
 
   let redirectTo = null;
 
-  if (rawFormData.password !== rawFormData.password_confirmation) {
-    // Sleep 2sec
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    return {
-      status: 400,
-      message: "Passwords do not match.",
-      data: {},
-    } as ApiResponse;
-  }
-
   try {
-    const result2 = await post("/register", rawFormData);
+    const result2 = await post("/forgot-password", rawFormData);
 
-    if (result2.status == 201 || result2.status == 204) {
+    if (result2.status == 200) {
       return {
-        status: 201,
+        status: 200,
         message:
-          "Registration successful. Please, check your email to verify your account.",
+          "Your password reset link has been sent to your email address.",
         data: {},
       } as ApiResponse;
     }
 
-    if (result2.status != 200 && result2.status != 422) {
+    if (result2.status == 422) {
       console.error(result2);
-      throw new Error("Invalid server response. Please, try again.");
+      return {
+        status: 422,
+        message:
+          "Cannot send reset password link. Please, check if the email is correct or try again later.",
+        data: {},
+      } as ApiResponse;
     }
 
     var data = await result2.json();
@@ -79,7 +70,7 @@ export default async function submitSignUp(
     console.error(error);
     return {
       status: 500,
-      message: "Invalid server response. Please, try again.",
+      message: "Server error, please try again later.",
       data: {},
     } as ApiResponse;
   }

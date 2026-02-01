@@ -76,7 +76,7 @@ export default async function submitLogin(
     console.error(error);
     return {
       status: 500,
-      message: "Neplatná odpověď serveru. Zkuste to znovu.",
+      message: "Invalid server response. Please, try again.",
       data: {},
     } as ApiResponse;
   }

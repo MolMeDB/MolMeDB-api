@@ -63,7 +63,7 @@ export default function LoginForm(props: { defaultEmail?: string }) {
             </label>
           </div>
           <a
-            href="#"
+            href="/reset-password"
             className="text-sm text-primary hover:underline dark:text-primary"
           >
             Forgotten password?
