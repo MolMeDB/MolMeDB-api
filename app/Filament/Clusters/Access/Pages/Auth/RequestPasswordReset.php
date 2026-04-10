@@ -2,10 +2,9 @@
 
 namespace App\Filament\Clusters\Access\Pages\Auth;
 
-use App\Filament\Clusters\Access;
-use Filament\Pages\Auth\PasswordReset\RequestPasswordReset as BaseRequestPasswordReset; 
+use App\Filament\Clusters\Access; 
 
-class RequestPasswordReset extends BaseRequestPasswordReset
+class RequestPasswordReset extends \Filament\Auth\Pages\PasswordReset\RequestPasswordReset
 {
     protected static ?string $cluster = Access::class;
 }

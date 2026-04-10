@@ -2,11 +2,14 @@
 
 namespace App\Filament\Resources\SharedRelationManagers;
 
+use Filament\Schemas\Schema;
+use Filament\Tables\Filters\TrashedFilter;
+use Filament\Actions\ViewAction;
+use Filament\Actions\EditAction;
 use App\Enums\IconEnums;
-use App\Filament\Resources\MethodResource;
+use App\Filament\Resources\Methods\MethodResource;
 use App\Models\Method;
 use App\Models\Publication;
-use Filament\Forms\Form;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -14,11 +17,11 @@ use Filament\Tables\Table;
 class MethodsRelationManager extends RelationManager
 {
     protected static string $relationship = 'methods';
-    protected static ?string $icon = IconEnums::METHOD->value;
+    protected static string | \BackedEnum | null $icon = IconEnums::METHOD->value;
 
-    public function form(Form $form): Form
+    public function form(Schema $schema): Schema
     {
-        return MethodResource::form($form);
+        return MethodResource::form($schema);
     }
 
     public function table(Table $table): Table
@@ -29,12 +32,12 @@ class MethodsRelationManager extends RelationManager
             ->description($this->getTableDescriptions())
             ->query(null)
             ->filters([
-                Tables\Filters\TrashedFilter::make()
+                TrashedFilter::make()
                     ->default($isParentTrashed ? 1 : null),
             ])
-            ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make()
+            ->recordActions([
+                ViewAction::make(),
+                EditAction::make()
                     ->url(fn (Method $record) => MethodResource::getUrl('edit', ['record' => $record]))
                     ->icon(IconEnums::NEWTAB->value)
                     ->openUrlInNewTab()

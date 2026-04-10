@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\RoleFactory;
 use App\Enums\PermissionEnums;
 use App\Enums\RoleEnums;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -11,15 +12,15 @@ use Spatie\Permission\Models\Role as SpatieRole;
 
 class Role extends SpatieRole
 {
-    /** @use HasFactory<\Database\Factories\RoleFactory> */
+    /** @use HasFactory<RoleFactory> */
     use HasFactory;
 
     protected $guarded = [];
 
     /**
      * Returns all assigned permissions
-     * 
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
+     *
+     * @return BelongsToMany
      */
     public function permissions() : BelongsToMany
     {

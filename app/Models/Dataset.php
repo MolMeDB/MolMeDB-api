@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\DatasetFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,7 +15,7 @@ use Spatie\Activitylog\Models\Activity;
 
 class Dataset extends Model
 {
-    /** @use HasFactory<\Database\Factories\DatasetFactory> */
+    /** @use HasFactory<DatasetFactory> */
     use HasFactory, SoftDeletes;
 
     protected $guarded = [];

@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use Database\Factories\ConfigFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Config extends Model
 {
-    /** @use HasFactory<\Database\Factories\ConfigFactory> */
+    /** @use HasFactory<ConfigFactory> */
     use HasFactory;
 
     protected $primaryKey = 'key';

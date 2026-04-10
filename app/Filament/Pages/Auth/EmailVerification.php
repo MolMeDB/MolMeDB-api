@@ -2,11 +2,11 @@
 
 namespace App\Filament\Pages\Auth;
 
+use Filament\Auth\Pages\EmailVerification\EmailVerificationPrompt;
 use App\Notifications\EmailVerification as NotificationsEmailVerification;
 use Exception;
 use Filament\Facades\Filament;
 use Filament\Notifications\Auth\VerifyEmail;
-use Filament\Pages\Auth\EmailVerification\EmailVerificationPrompt;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 
 class EmailVerification extends EmailVerificationPrompt

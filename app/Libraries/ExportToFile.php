@@ -1,6 +1,8 @@
 <?php
 namespace App\Libraries;
 
+use Throwable;
+use ZipArchive;
 use App\Models\Filesystem;
 use Exception;
 use Illuminate\Database\Eloquent\Model;
@@ -90,7 +92,7 @@ class ExportToFile
 
         if($this->fileHandler === false)
         {
-            throw new \Exception('Could not open file: ' . $this->fullFilePath);
+            throw new Exception('Could not open file: ' . $this->fullFilePath);
         }
 
         return $this;
@@ -168,7 +170,7 @@ class ExportToFile
                     // Nepodařilo se zavřít soubor, log nebo další akce
                     trigger_error('Failed to close the file.', E_USER_WARNING);
                 }
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 // Ošetření neočekávané chyby
                 trigger_error('Error closing file: ' . $e->getMessage(), E_USER_WARNING);
             }
@@ -239,8 +241,8 @@ class ExportToFile
         // $filename = $filename ?? $this->filename;
         $target = $this->getZipFilePath();
         try {
-            $zip = new \ZipArchive();
-            if ($zip->open(self::$storage->path($target), \ZipArchive::CREATE | \ZipArchive::OVERWRITE) === true) {
+            $zip = new ZipArchive();
+            if ($zip->open(self::$storage->path($target), ZipArchive::CREATE | ZipArchive::OVERWRITE) === true) {
                 if (!$zip->addFile(self::$storage->path($this->fullFilePath), basename($this->fullFilePath))) {
                     trigger_error('Failed to add file to zip.', E_USER_WARNING);
                 }
@@ -248,7 +250,7 @@ class ExportToFile
             } else {
                 trigger_error('Failed to create zip archive.', E_USER_WARNING);
             }
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             trigger_error('Error creating zip: ' . $e->getMessage(), E_USER_WARNING);
         }
 
@@ -281,7 +283,7 @@ class ExportToFile
                 continue;
             }
 
-            $zipExisting = new \ZipArchive();
+            $zipExisting = new ZipArchive();
             if($zipExisting->open($zip) === true)
             {
                 $lastContent = $zipExisting->getFromIndex(0);
@@ -305,7 +307,7 @@ class ExportToFile
         {
             try {
                 self::$storage->delete($this->fullFilePath);
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 trigger_error('Error deleting file: ' . $e->getMessage(), E_USER_WARNING);
             }
         }

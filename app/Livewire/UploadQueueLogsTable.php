@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use Filament\Tables\Contracts\HasTable;
 use App\Enums\UploadQUeueLogContextEnums;
 use App\Models\UploadQueue;
 use App\Models\User;
@@ -17,12 +18,12 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 
-class UploadQueueLogsTable extends TableWidget implements Tables\Contracts\HasTable, HasForms
+class UploadQueueLogsTable extends TableWidget implements HasTable, HasForms
 {
     use InteractsWithTable;
     use InteractsWithForms;
 
-    public ?\App\Models\UploadQueue $record = null;
+    public ?UploadQueue $record = null;
     protected int | string | array $columnSpan = 2;
 
 
@@ -38,7 +39,7 @@ class UploadQueueLogsTable extends TableWidget implements Tables\Contracts\HasTa
         return $records;
     }
 
-    public function getTableRecordKey(Model $record): string
+    public function getTableRecordKey(Model|array $record): string
     {
         return $record->message;
     }
@@ -80,10 +81,10 @@ class UploadQueueLogsTable extends TableWidget implements Tables\Contracts\HasTa
             ->filters([
                 // ...
             ])
-            ->actions([
+            ->recordActions([
                 // ...
             ])
-            ->bulkActions([
+            ->toolbarActions([
                 // ...
             ]);
     }

@@ -170,7 +170,7 @@ class Identifier extends Model
         self::SERVER_MOLMEDB
     );
 
-    
+
     /**
      * Enum active states
      */

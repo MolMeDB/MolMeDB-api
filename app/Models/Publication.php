@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\PublicationFactory;
 use EloquentFilter\Filterable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -13,7 +14,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
 
 class Publication extends Model
 {
-    /** @use HasFactory<\Database\Factories\PublicationFactory> */
+    /** @use HasFactory<PublicationFactory> */
     use HasFactory, SoftDeletes, LogsActivity;
     use Filterable;
 

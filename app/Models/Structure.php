@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use Modules\PredictionWorkers\Models\PredictionStructure;
+use Database\Factories\SubstanceFactory;
 use EloquentFilter\Filterable;
 use Exception;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -12,7 +14,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Structure extends BaseModel
 {
-    /** @use HasFactory<\Database\Factories\SubstanceFactory> */
+    /** @use HasFactory<SubstanceFactory> */
     use HasFactory, SoftDeletes;
     use Filterable;
 
@@ -104,7 +106,7 @@ class Structure extends BaseModel
     }
 
     public function predictionStructure() : HasOne {
-        return $this->hasOne(\Modules\PredictionWorkers\Models\PredictionStructure::class, 'remote_id');
+        return $this->hasOne(PredictionStructure::class, 'remote_id');
     }
 
     public function chargedChildren() : HasMany {

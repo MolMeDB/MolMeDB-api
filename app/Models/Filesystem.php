@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Throwable;
 use Exception;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Config;
@@ -139,7 +140,7 @@ class Filesystem extends BaseModel
             $disk->delete($testFile);
 
             return $exists;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             throw $e;
             return false;
         }

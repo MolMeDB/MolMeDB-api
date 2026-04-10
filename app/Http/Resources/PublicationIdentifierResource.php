@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use Modules\References\EuropePMC\Enums\Sources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Modules\References\EuropePMC\EuropePMC;
@@ -17,7 +18,7 @@ class PublicationIdentifierResource extends JsonResource
     {
         return [
             'source' => $this->when($this->identifier, $this->identifier_source),
-            'source_name' => $this->when($this->identifier, \Modules\References\EuropePMC\Enums\Sources::tryFrom($this->identifier_source)?->definition()),
+            'source_name' => $this->when($this->identifier, Sources::tryFrom($this->identifier_source)?->definition()),
             'value' => $this->identifier,
         ];
     }

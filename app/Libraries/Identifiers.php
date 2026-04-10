@@ -10,7 +10,7 @@ class Identifiers
 	CONST PREFIX = 'MM';
 	CONST min_len = 7;
 	CONST PATTERN = '/^[M]{2}[0-9]{5,}(?:\.[0-9]+)?$/i';
-	
+
 	/**
 	 * Generates new identifier
 	 * 
@@ -37,7 +37,7 @@ class Identifiers
 				return $structure->identifier;
 			}
 
-			$maxSuffix = \App\Models\Structure::whereRaw("split_part(identifier, '.', 1) = ?", [$structure->parent->identifier])
+			$maxSuffix = Structure::whereRaw("split_part(identifier, '.', 1) = ?", [$structure->parent->identifier])
 				->selectRaw("
 					MAX(
 						CASE
@@ -76,7 +76,7 @@ class Identifiers
 			}
 		}
 
-		$max = \App\Models\Structure::where('identifier', 'like', self::PREFIX.'%')
+		$max = Structure::where('identifier', 'like', self::PREFIX.'%')
 			->selectRaw("MAX( (substring(split_part(identifier, '.', 1) from '[0-9]+$') )::int ) as max_number")
 			->value('max_number');
 
@@ -103,14 +103,14 @@ class Identifiers
 		// Get string value
 		$id = strval($id);
 		$id_len = strlen($id);
-		
+
 		$zero_count = self::min_len - strlen(self::PREFIX) - $id_len;
-		
+
 		for($i = 0; $i < $zero_count; $i++)
 		{
 			$id = '0' . $id;
 		}
-			
+
 		return self::PREFIX . $id;
 	}
 

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Structure;
 use App\Libraries\Identifiers;
 use App\Models\Config;
 use Illuminate\Console\Command;
@@ -31,18 +32,18 @@ class CheckStructureInternalIdentifiers extends Command
 
         $startId = $this->option('force') ? 1 : (int) $this->argument('startId');
 
-        $total = \App\Models\Structure::where('id', '>=', $startId)->count();
+        $total = Structure::where('id', '>=', $startId)->count();
 
         if(!$total)
         {
             Config::set('cron:daily:check_structure_identifier:start_id', 1);
             $this->info('###### REWIND ##### - All structures processed');
-            $total = \App\Models\Structure::where('id', '>=', $startId)->count();
+            $total = Structure::where('id', '>=', $startId)->count();
         }
 
         $this->warn('Total ' . $total . ' structures will be processed.');
 
-        $structures = \App\Models\Structure::where('id', '>=', $startId)
+        $structures = Structure::where('id', '>=', $startId)
             ->orderBy('id')
             ->cursor();
 

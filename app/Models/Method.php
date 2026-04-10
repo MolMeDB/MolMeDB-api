@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\MethodFactory;
 use App\Casts\MethodParametersCasts;
 use EloquentFilter\Filterable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -14,7 +15,7 @@ use JsonSerializable;
 
 class Method extends Model
 {
-    /** @use HasFactory<\Database\Factories\MethodFactory> */
+    /** @use HasFactory<MethodFactory> */
     use HasFactory, SoftDeletes;
     use Filterable;
 

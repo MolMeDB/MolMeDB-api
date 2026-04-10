@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\User;
 use App\Models\Identifier;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -39,11 +40,11 @@ class IdentifierResource extends JsonResource
             return null;
 
         return match(get_class($source)) {
-            \App\Models\Identifier::class => [
+            Identifier::class => [
                 'type' => 'identifier', 
                 'data' => IdentifierResource::make($source)->withoutSource()
             ],
-            \App\Models\User::class => [
+            User::class => [
                 'type' => 'user',
                 'data' => UserResource::make($source),
             ],

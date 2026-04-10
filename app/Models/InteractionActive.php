@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\InteractionActiveFactory;
 use EloquentFilter\Filterable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -11,7 +12,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class InteractionActive extends Model
 {
     protected $table = 'interactions_active';
-    /** @use HasFactory<\Database\Factories\InteractionActiveFactory> */
+    /** @use HasFactory<InteractionActiveFactory> */
     use HasFactory, SoftDeletes;
     use Filterable;
 

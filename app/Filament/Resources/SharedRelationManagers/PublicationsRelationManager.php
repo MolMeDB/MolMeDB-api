@@ -2,16 +2,22 @@
 
 namespace App\Filament\Resources\SharedRelationManagers;
 
+use Filament\Schemas\Schema;
+use Filament\Forms\Components\Hidden;
+use Filament\Actions\CreateAction;
+use Filament\Actions\AttachAction;
+use Filament\Actions\ViewAction;
+use Filament\Actions\EditAction;
+use Filament\Actions\DetachAction;
+use Filament\Actions\BulkActionGroup;
 use App\Enums\IconEnums;
-use App\Filament\Resources\PublicationResource;
+use App\Filament\Resources\Publications\PublicationResource;
 use App\Models\Dataset;
 use App\Models\Membrane;
 use App\Models\Method;
 use Filament\Forms;
-use Filament\Forms\Form;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
-use Filament\Tables\Actions\AttachAction;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
 
@@ -19,7 +25,7 @@ class PublicationsRelationManager extends RelationManager
 {
     protected static string $relationship = 'publications';
     protected static ?string $title = 'References';
-    protected static ?string $icon = IconEnums::PUBLICATIONS->value;
+    protected static string | \BackedEnum | null $icon = IconEnums::PUBLICATIONS->value;
 
     public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
@@ -37,14 +43,14 @@ class PublicationsRelationManager extends RelationManager
         };
     }
 
-    public function form(Form $form): Form
+    public function form(Schema $schema): Schema
     {
-        return PublicationResource::form($form)
-            ->schema([
-                ...$form->getComponents(),
-                Forms\Components\Hidden::make('model_type')
+        return PublicationResource::form($schema)
+            ->components([
+                ...$schema->getComponents(),
+                Hidden::make('model_type')
                     ->default($this->ownerRecord::class),
-                Forms\Components\Hidden::make('model_id')
+                Hidden::make('model_id')
                     ->default($this->ownerRecord->id),
             ]);
     }
@@ -55,31 +61,31 @@ class PublicationsRelationManager extends RelationManager
             ->description($this->getDescription())
             ->query(null)
             ->headerActions([
-                Tables\Actions\CreateAction::make()
+                CreateAction::make()
                     ->label('Add new publication')
                     ->icon(IconEnums::ADD->value),
-                Tables\Actions\AttachAction::make()
+                AttachAction::make()
                     ->label('Attach existing')
                     ->recordSelectSearchColumns(['citation', 'pmid'])
                     ->recordTitle(fn (Model $record) => $record->getSelectTitle())
-                    ->form(function (AttachAction $action) 
+                    ->schema(function (AttachAction $action) 
                     {
                        return [
                             $action->getRecordSelect(),
-                            Forms\Components\Hidden::make('model_type')
+                            Hidden::make('model_type')
                                 ->default($this->ownerRecord::class),
                        ];})
             ])
-            ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make()
+            ->recordActions([
+                ViewAction::make(),
+                EditAction::make()
                     ->url(fn (Model $record) => PublicationResource::getUrl('edit', ['record' => $record]))
                     ->openUrlInNewTab(),
-                Tables\Actions\DetachAction::make()
+                DetachAction::make()
                     ->label('Detach')
             ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
+            ->toolbarActions([
+                BulkActionGroup::make([
                 ]),
             ]);
     }

@@ -2,9 +2,13 @@
 
 namespace App\Filament\Resources\SharedRelationManagers;
 
+use Filament\Tables\Filters\TrashedFilter;
+use Filament\Actions\Action;
+use Filament\Actions\EditAction;
+use Filament\Actions\RestoreAction;
 use App\Enums\IconEnums;
-use App\Filament\Resources\InteractionActiveResource;
-use App\Filament\Resources\StructureResource;
+use App\Filament\Resources\InteractionActives\InteractionActiveResource;
+use App\Filament\Resources\Structures\StructureResource;
 use App\Models\Category;
 use App\Models\Dataset;
 use App\Models\InteractionActive;
@@ -27,7 +31,7 @@ class InteractionsActiveRelationManager extends RelationManager
 {
     protected static string $relationship = 'interactionsActive';
     protected static ?string $title = 'A. interactions';
-    protected static ?string $icon = IconEnums::INTERACTIONS->value;
+    protected static string | \BackedEnum | null $icon = IconEnums::INTERACTIONS->value;
 
     private function getTableDescriptions() : string
     {
@@ -63,20 +67,20 @@ class InteractionsActiveRelationManager extends RelationManager
             ->description($this->getTableDescriptions())
             ->query(null)
             ->filters([
-                Tables\Filters\TrashedFilter::make()
+                TrashedFilter::make()
                     ->default($isParentTrashed ? 1 : null),
             ])
-            ->actions([
+            ->recordActions([
                 ...($this->ownerRecord::class === Structure::class ? [] : [
-                Tables\Actions\Action::make('compound_detail')
+                Action::make('compound_detail')
                     ->label('Structure')
                     ->icon(IconEnums::VIEW->value)
                     ->url(fn ($record) => StructureResource::getUrl('edit', ['record' => $record->structure])),
                 ]),
-                Tables\Actions\EditAction::make()
+                EditAction::make()
                     ->color('warning')
                     ->url(fn ($record) => InteractionActiveResource::getUrl('edit', ['record' => $record])),
-                Tables\Actions\RestoreAction::make()
+                RestoreAction::make()
                     ->disabled(fn(InteractionActive $record) => !$record->isRestoreable())
             ]);
     }

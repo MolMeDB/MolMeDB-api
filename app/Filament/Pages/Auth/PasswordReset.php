@@ -2,12 +2,12 @@
 
 namespace App\Filament\Pages\Auth;
 
+use Filament\Auth\Pages\PasswordReset\RequestPasswordReset;
 use App\Notifications\ResetPasswordNotification;
 use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
 use Exception;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
-use Filament\Pages\Auth\PasswordReset\RequestPasswordReset;
 use Illuminate\Contracts\Auth\CanResetPassword;
 use Illuminate\Support\Facades\Password;
 

@@ -40,8 +40,8 @@ class AppServiceProvider extends ServiceProvider
 
     public function registerDynamicServices() : void
     {
-        /** @var \App\Models\Filesystem[] $filesystems */
-        $filesystems = \App\Models\Filesystem::orderBy('scope_id', 'desc')->get();
+        /** @var Filesystem[] $filesystems */
+        $filesystems = Filesystem::orderBy('scope_id', 'desc')->get();
 
         $invalid = [];
 
