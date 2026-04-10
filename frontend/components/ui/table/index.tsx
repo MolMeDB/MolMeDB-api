@@ -41,6 +41,7 @@ export default function UiTable<TData>(props: {
   defaultRowsPerPage?: number;
   hasSearch?: boolean;
   searchPlaceholder?: string;
+  loadingText?: string;
 }) {
   const [hideEmptyCols, setHideEmptyCols] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -66,11 +67,11 @@ export default function UiTable<TData>(props: {
             query,
             per_page: rowsPerPage,
             sortBy: props.columns.find(
-              (c) => c.key.toString() === sortBy.column.toString()
+              (c) => c.key.toString() === sortBy.column.toString(),
             )?.sortKey,
             sortByDirection: sortBy.direction === "ascending" ? "asc" : "desc",
           },
-          signal
+          signal,
         );
 
         if (response?.code === 200 && response.data) {
@@ -159,7 +160,7 @@ export default function UiTable<TData>(props: {
               <div className="w-1/2">
                 <Input
                   className="w-full"
-                  placeholder="Search publication..."
+                  placeholder={props.searchPlaceholder ?? "Search..."}
                   startContent={<MdSearch />}
                   value={query}
                   onValueChange={onSearchChange}
@@ -248,8 +249,9 @@ export default function UiTable<TData>(props: {
         items={items}
         isLoading={isLoading}
         loadingContent={
-          <div className="flex flex-row justify-center items-center bg-background/70 dark:bg-background-dark-2/70 w-full h-full z-30">
+          <div className="flex flex-col gap-2 justify-center items-center bg-background/70 dark:bg-background-dark-2/70 w-full h-full z-30">
             <Spinner size="lg" variant="wave" color="warning" />
+            {props.loadingText && <div>{props.loadingText}</div>}
           </div>
         }
         emptyContent={"Start by selecting the membranes and methods."}

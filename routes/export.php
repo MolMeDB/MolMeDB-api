@@ -19,14 +19,42 @@ Route::prefix('/export')->group(function()
 
 Route::get('/download/public/{hash}', function (string $hash) {
     $file = File::where('hash', $hash)->first();
-    if(!$file || !Storage::disk($file->storage)->exists($file->path))
-    {
+    if (!$file || !Storage::disk($file->storage)->exists($file->path)) {
         abort(404);
     }
-    return response()->download(Storage::disk($file->storage)->path($file->path), $file->downloadName());
+
+    $disk = Storage::disk($file->storage);
+
+    return response()->streamDownload(
+        function () use ($disk, $file) {
+            echo $disk->get($file->path);
+        },
+        $file->downloadName()
+    );
 })->middleware('throttle:6,1')
     ->withoutMiddleware('auth')
     ->name('public.download');
+
+
+Route::get('/download/prediction/{hash}', function (string $hash) {
+
+    $file = PredictionFile::where('hash', $hash)->first();
+
+    if (!$file || !Storage::disk($file->storage)->exists($file->path)) {
+        abort(404);
+    }
+
+    $disk = Storage::disk($file->storage);
+
+    return response()->streamDownload(
+        function () use ($disk, $file) {
+            echo $disk->get($file->path);
+        },
+        $file->downloadName()
+    );
+})->middleware('throttle:6,1')
+    ->withoutMiddleware('auth')
+    ->name('public.download-prediction');
 
     
 Route::get('/download/predictionResult/{hash}', function (string $hash) {

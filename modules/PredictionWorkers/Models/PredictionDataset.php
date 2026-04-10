@@ -3,16 +3,24 @@
 namespace Modules\PredictionWorkers\Models;
 
 use App\Models\User;
+use EloquentFilter\Filterable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class PredictionDataset extends PredictionBaseModel
 {
+    use Filterable;
+
     protected $connection = 'predictions';
     protected $table = 'datasets';
 
     protected $guarded = [];
+
+    protected $casts = [
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+    ];
 
     public function predictions() : BelongsToMany
     {

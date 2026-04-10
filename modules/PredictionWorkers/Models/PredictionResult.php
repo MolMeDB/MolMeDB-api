@@ -4,6 +4,7 @@ namespace Modules\PredictionWorkers\Models;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Modules\PredictionWorkers\Services\CosmoXmlParser;
 
 class PredictionResult extends PredictionBaseModel
 {
@@ -18,5 +19,17 @@ class PredictionResult extends PredictionBaseModel
     public function file(): BelongsTo
     {
         return $this->belongsTo(PredictionFile::class, 'file_id');
+    }
+
+    public function loadParsedResults()
+    {
+        $parser = new CosmoXmlParser();
+
+        if(!$this->file)
+        {
+            return null;
+        }
+
+        return $parser->parse($this->file);
     }
 }

@@ -2,11 +2,14 @@
 
 namespace Modules\PredictionWorkers\Models;
 
+use EloquentFilter\Filterable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Prediction extends PredictionBaseModel
 {
+    use Filterable;
+
     const PRIORITY_LOW = 1;
     const PRIORITY_MEDIUM = 2;
     const PRIORITY_HIGH = 3;
@@ -17,7 +20,7 @@ class Prediction extends PredictionBaseModel
     const STATE_ERROR = 2;
     const STATE_REMOVE = 3;
     const STATE_RUNNING = 4;
-    const STATE_FINISHED = 4;
+    const STATE_FINISHED = 5;
 
     /** COSMO STEPS */
     const STEP_PENDING = 0;

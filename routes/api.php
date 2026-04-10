@@ -4,6 +4,7 @@ use App\Http\Controllers\InteractionActiveController;
 use App\Http\Controllers\InteractionPassiveController;
 use App\Http\Controllers\MembraneController;
 use App\Http\Controllers\MethodController;
+use App\Http\Controllers\PredictionsController;
 use App\Http\Controllers\ProteinController;
 use App\Http\Controllers\PublicationController;
 use App\Http\Controllers\SearchController;
@@ -82,6 +83,17 @@ Route::prefix('/api')->group(function()
             Route::get('/datasets', 'dataset');
         });
 
+    Route::prefix('predictions')
+        ->controller(PredictionsController::class)
+        ->middleware('auth')
+        ->group(function() {
+            Route::get('/datasets', 'index_datasets');
+            Route::get('/datasets/{record}', 'index');
+            Route::get('/datasets/{record}/records', 'records');
+            Route::get('/datasets/{record}/structures', 'structures');
+            Route::get('/byStructure/{record}', 'predictionsByStructure');
+        });
+
     Route::prefix('stats')
         ->controller(StatsController::class)
         ->group(function() {
@@ -94,8 +106,11 @@ Route::prefix('/api')->group(function()
         ->group(function () {
             Route::get('/{identifier}', 'show');
             Route::get('mol/3d/{identifier}', 'mol3D');
+            Route::get('mol/canonize_smiles/{smiles}', 'molCanonizeSmiles')
+                ->middleware('auth', 'throttle:35,1');
             Route::get('/{identifier}/form/select/membranes', 'formSelectMembranes');
             Route::get('/{identifier}/form/select/methods', 'formSelectMethods');
             Route::get('/{identifier}/similarities', 'similarities');
         });
-});
+})
+->middleware('throttle:100,1');

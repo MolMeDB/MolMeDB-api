@@ -6,11 +6,11 @@ import HttpJsonResponse from "../admin/interfaces/http/jsonResponse";
 
 const DOMAIN = process.env.FRONTEND_URL as string;
 const XSRF_KEY = process.env.COOKIES_BACKEND_XSRF_KEY as string;
-const SESSION_KEY = process.env.COOKIES_BACKEND_SESSION_KEY as string;
+const FE_SESSION_KEY = process.env.COOKIES_FRONTEND_SESSION_KEY as string;
 
 export async function getApiRequestHeaders(path: string): Promise<RequestInit> {
   const cookiesStore = await cookies();
-  const SESSION = cookiesStore.get(SESSION_KEY)?.value as string;
+  const SESSION = cookiesStore.get(FE_SESSION_KEY)?.value as string;
   const XSRF_TOKEN = cookiesStore.get(XSRF_KEY)?.value as string;
 
   return {
@@ -19,7 +19,7 @@ export async function getApiRequestHeaders(path: string): Promise<RequestInit> {
       "Content-Type": "application/json",
       Accept: "application/json",
       Referer: process.env.FRONTEND_URL as string,
-      Cookie: `${XSRF_KEY}=${XSRF_TOKEN}; ${SESSION_KEY}=${SESSION}`,
+      Cookie: `${XSRF_KEY}=${XSRF_TOKEN}; ${FE_SESSION_KEY}=${SESSION}`,
       "Forward-To": path,
     },
   };
@@ -27,7 +27,7 @@ export async function getApiRequestHeaders(path: string): Promise<RequestInit> {
 
 export async function getViewData(
   path: string,
-  params = {}
+  params = {},
 ): Promise<HttpJsonResponse | null> {
   // Add params
   const queryString = new URLSearchParams(params).toString();

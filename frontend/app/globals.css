@@ -53,3 +53,23 @@
         @apply border-l-4 dark:border-warning/70 border-orange-600/60 pl-4 text-gray-900 dark:text-gray-300 mb-4;
     }
 }
+
+
+.cont_error_active .cont_error h1 {
+  left: 0 !important;
+}
+
+.cont_error_active .cont_error p {
+  left: 0 !important;
+}
+
+.cont_error_active .cont_aura_1 {
+  right: -170px;
+  transform: rotate(20deg);
+  animation: aura1;
+}
+
+.cont_error_active .cont_aura_2 {
+  transform: rotate(-20deg);
+  animation: aura2;
+}

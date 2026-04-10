@@ -2,16 +2,21 @@ import SimpleSiteHeader from "@/components/_core/layout/SimpleSiteHeader";
 import SiteFooter from "@/components/_core/layout/SiteFooter";
 import SiteContent from "@/components/_core/layout/SiteContent";
 import { MdOutlineComputer } from "react-icons/md";
-import SectionComputationButtons from "./section/computationButton";
-import SectionUpload from "./section/upload";
 import { UserSession } from "@/lib/api/admin/interfaces/User";
 import { Cookie } from "@/lib/api/cookies";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import MyJobsTable from "./section/myJobsTable";
 
-export default async function LabPage() {
+export default async function LabNewCalculationPage() {
   const user: UserSession | undefined =
     (await Cookie.getUserData()) as UserSession;
 
   const isLoggedIn = user && user.id ? true : false;
+
+  if (!isLoggedIn) {
+    return redirect("/lab");
+  }
 
   return (
     <>
@@ -20,16 +25,23 @@ export default async function LabPage() {
           <div className="flex flex-row items-center justify-start gap-6 lg:gap-8">
             <MdOutlineComputer className="text-3xl xl:text-4xl" />
             <div className="flex flex-col justify-center lg:gap-1">
-              <h1 className="text-2xl md:text-3xl font-bold">Laboratory</h1>
+              <h1 className="text-2xl md:text-3xl font-bold">
+                Laboratory - My jobs
+              </h1>
+              <div className="flex flex-row gap-2 items-center">
+                <Link href="/lab" className="text-sm underline">
+                  Laboratory
+                </Link>
+                {" >> "}
+                <div className="text-sm text-white/70">Predictions</div>
+              </div>
             </div>
           </div>
         </div>
       </SimpleSiteHeader>
       <div className="min-h-screen pb-16">
-        <SiteContent classNameChildren="flex flex-col gap-16 ">
-          <SectionComputationButtons isLoggedIn={isLoggedIn} />
-          <div className="h-1 w-full bg-gradient-to-r from-transparent via-zinc-100 to-transparent my-8" />
-          <SectionUpload />
+        <SiteContent classNameChildren="flex flex-col gap-16 min-h-screen">
+          <MyJobsTable />
         </SiteContent>
       </div>
       <SiteFooter />

@@ -15,7 +15,7 @@ export default function DetailProperty(props: {
     <div
       className={cn(
         "flex flex-row justify-start items-center gap-4",
-        props.className
+        props.className,
       )}
     >
       <div className="text-zinc-400">
@@ -41,7 +41,7 @@ export default function DetailProperty(props: {
           props.icon
         )}
       </div>
-      <div className="flex flex-col gap-0 justify-center">
+      <div className="flex flex-col gap-0 justify-center w-full">
         <div className="font-bold">{props.title}</div>
         <div>{props.value}</div>
       </div>

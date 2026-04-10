@@ -101,6 +101,23 @@ class StructureController extends Controller
         ]);
     }
 
+    public function molCanonizeSmiles(string $smiles)
+    {
+        $rdkit = new Rdkit();
+
+        if(!$rdkit->is_connected())
+        {
+            return response()->json([
+                'message' => 'Rdkit disconnected'
+            ], 503);
+        }
+
+        return response()->json([
+            'request_smiles' => $smiles,
+            'canonized_smiles' => $rdkit->canonize_smiles($smiles)
+        ]);
+    }
+
     public function formSelectMembranes(string $identifier)
     {
         $structure = Structure::where('identifier', $identifier)
