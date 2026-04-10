@@ -11,7 +11,6 @@ use App\Filament\Resources\Methods\MethodResource;
 use App\Models\Method;
 use App\Models\Publication;
 use Filament\Resources\RelationManagers\RelationManager;
-use Filament\Tables;
 use Filament\Tables\Table;
 
 class MethodsRelationManager extends RelationManager

@@ -6,7 +6,6 @@ use Filament\Schemas\Schema;
 use Filament\Schemas\Components\Grid;
 use Filament\Forms\Components\TextInput;
 use Filament\Actions\Action;
-use Filament\Forms\Components\Placeholder;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Actions\EditAction;
 use Filament\Actions\BulkActionGroup;
@@ -17,10 +16,9 @@ use App\Filament\Resources\PredictionStructures\Pages\EditPredictionStructure;
 use App\Enums\IconEnums;
 use App\Filament\Resources\PredictionDatasets\RelationManagers\PredictionsRelationManager;
 use App\Filament\Resources\Predictions\RelationManagers\PredictionDatasetsRelationManager;
-use App\Filament\Resources\PredictionStructureResource\Pages;
-use Filament\Forms;
+use App\Filament\Resources\Structures\StructureResource;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
-use Filament\Tables;
 use Filament\Tables\Table;
 use Modules\PredictionWorkers\Models\PredictionStructure;
 
@@ -46,9 +44,9 @@ class PredictionStructureResource extends Resource
                                 ->openUrlInNewTab()
                             )
                             ->disabled(),
-                        Placeholder::make('canonical_smiles')
+                        TextEntry::make('canonical_smiles')
                             ->label('SMILES')
-                            ->content(fn (PredictionStructure $record) => $record->canonical_smiles),
+                            ->state(fn (PredictionStructure $record) => $record->canonical_smiles),
                     ])
             ]);
     }

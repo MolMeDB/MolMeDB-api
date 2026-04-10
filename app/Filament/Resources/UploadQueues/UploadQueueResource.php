@@ -4,7 +4,6 @@ namespace App\Filament\Resources\UploadQueues;
 
 use App\Filament\Resources\Datasets\DatasetResource;
 use Filament\Schemas\Schema;
-use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Actions\Action;
@@ -18,14 +17,12 @@ use App\Filament\Resources\UploadQueues\Pages\ListUploadQueues;
 use App\Filament\Resources\UploadQueues\Pages\CreateUploadQueue;
 use App\Filament\Resources\UploadQueues\Pages\EditUploadQueue;
 use App\Enums\IconEnums;
-use App\Filament\Resources\UploadQueueResource\Pages;
 use App\Models\Dataset;
 use App\Models\File;
 use App\Models\UploadQueue;
 use App\Rules\FileUniqueByHash;
-use Filament\Forms\Components;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
-use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
@@ -43,13 +40,13 @@ class UploadQueueResource extends Resource
         return $schema
             ->columns(1)
             ->components([
-                Placeholder::make('file.name')
-                    ->content(fn (UploadQueue | null $record) => $record?->file->name)
+                TextEntry::make('file.name')
+                    ->formatStateUsing(fn (UploadQueue | null $record) => $record?->file->name)
                     ->hiddenOn('create')
-                    ->label('File'),
-                Placeholder::make('state')
-                    ->content(fn (UploadQueue | null $record) => $record ? UploadQueue::enumState($record->state) : null)
-                    ->label('State')
+                    ->state('File'),
+                TextEntry::make('state')
+                    ->formatStateUsing(fn (UploadQueue | null $record) => $record ? UploadQueue::enumState($record->state) : null)
+                    ->state('State')
                     ->hiddenOn('create'),
                 Select::make('type')
                     ->label('Type')

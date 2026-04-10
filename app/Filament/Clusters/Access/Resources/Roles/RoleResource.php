@@ -15,13 +15,9 @@ use App\Filament\Clusters\Access\Resources\Roles\Pages\CreateRole;
 use App\Filament\Clusters\Access\Resources\Roles\Pages\EditRole;
 use App\Enums\IconEnums;
 use App\Enums\RoleEnums;
-use App\Filament\Clusters\Access\Resources\RoleResource\Pages;
-use App\Filament\Clusters\Access\Resources\RoleResource\RelationManagers;
 use App\Filament\Clusters\Settings\SettingsCluster;
 use App\Models\Role;
-use Filament\Forms;
 use Filament\Resources\Resource;
-use Filament\Tables;
 use Filament\Tables\Table;
 
 class RoleResource extends Resource

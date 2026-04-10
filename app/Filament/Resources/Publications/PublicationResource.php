@@ -10,7 +10,6 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Forms\Components\TextInput;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\Placeholder;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Actions\ViewAction;
@@ -27,13 +26,10 @@ use App\Filament\Resources\Publications\Pages\ListPublications;
 use App\Filament\Resources\Publications\Pages\CreatePublication;
 use App\Filament\Resources\Publications\Pages\EditPublication;
 use App\Enums\IconEnums;
-use App\Filament\Resources\PublicationResource\Pages;
 use App\Filament\Resources\Publications\RelationManagers\AuthorRelationManager;
-use App\Filament\Resources\SharedRelationManagers;
 use App\Models\Publication;
-use Filament\Forms;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
-use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
@@ -58,6 +54,7 @@ class PublicationResource extends Resource
         return $schema
             ->components([
                 Fieldset::make('Citation')
+                    ->columnSpanFull()
                     ->schema([
                         Select::make('citation')
                             ->searchable()
@@ -126,6 +123,7 @@ class PublicationResource extends Resource
                     ])
                     ->columns(1),
                 Fieldset::make('Publication details')
+                    ->columnSpanFull()
                     ->schema([
                         TextInput::make('identifier')
                             ->label('Identifier')
@@ -285,11 +283,11 @@ class PublicationResource extends Resource
                             ->minDate('1800-01-01')
                             ->maxDate(date('Y-m-d'))
                             ->label('Date of publication'),
-                        Placeholder::make('validated_at')
+                        TextEntry::make('validated_at')
                             ->label('Last validation at')
                             ->columnSpanFull()
                             ->hiddenOn('create')
-                            ->content(fn (?Publication $record): ?string => $record?->validated_at?->isoFormat('LLLL') ?? "Never"),
+                            ->state(fn (?Publication $record): ?string => $record?->validated_at?->isoFormat('LLLL') ?? "Never"),
                     ])
                     ->columns(2)
             ]);

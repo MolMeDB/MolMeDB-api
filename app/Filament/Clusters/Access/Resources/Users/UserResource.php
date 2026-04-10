@@ -13,14 +13,9 @@ use App\Filament\Clusters\Access\Resources\Users\RelationManagers\LogsRelationMa
 use App\Filament\Clusters\Access\Resources\Users\Pages\ListUsers;
 use App\Filament\Clusters\Access\Resources\Users\Pages\EditUser;
 use App\Enums\IconEnums;
-use App\Filament\Clusters\Access\Resources\UserResource\Pages;
-use App\Filament\Clusters\Access\Resources\UserResource\RelationManagers;
 use App\Filament\Clusters\Settings\SettingsCluster;
 use App\Models\User;
-use Filament\Forms;
-use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Resources\Resource;
-use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;

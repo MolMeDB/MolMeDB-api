@@ -25,14 +25,10 @@ use App\Filament\Resources\Methods\Pages\ListMethods;
 use App\Filament\Resources\Methods\Pages\CreateMethod;
 use App\Filament\Resources\Methods\Pages\EditMethod;
 use App\Enums\IconEnums;
-use App\Filament\Resources\MethodResource\Pages;
-use App\Filament\Resources\SharedRelationManagers;
 use App\Models\Category;
 use App\Models\Method;
 use CodeWithDennis\FilamentSelectTree\SelectTree;
-use Filament\Forms;
 use Filament\Resources\Resource;
-use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
@@ -50,25 +46,8 @@ class MethodResource extends Resource
     {
         return $schema
             ->components([
-                Section::make('Assignment')
-                    ->schema([
-                        Select::make('type')
-                            ->label('Special type')
-                            ->disabled()
-                            ->options(Method::types())
-                            ->columnSpanFull(),
-                        SelectTree::make('categories')
-                            ->relationship('categories', 'title', 'parent_id', modifyQueryUsing: fn (Builder $query) => $query->where('type', Category::TYPE_METHOD))
-                            ->required()
-                            ->pivotData(['model_type' => Method::class])
-                            ->withCount()
-                            ->parentNullValue(-1)
-                            ->defaultOpenLevel(2)
-                            ->clearable(false)
-                            ->placeholder('Please, select method category')
-                            ->columnSpanFull(),
-                    ]),
                 Section::make('Description')
+                    ->columnSpanFull()
                     ->schema([
                         TextInput::make('name')
                             ->hint('Maximum 150 characters.')
@@ -86,6 +65,24 @@ class MethodResource extends Resource
                             ->fileAttachmentsDirectory(self::$model::folder().'attachments')
                             ->fileAttachmentsDisk('public')
                             ->fileAttachmentsVisibility('public')
+                            ->columnSpanFull(),
+                    ]),
+                Section::make('Assignment')
+                    ->schema([
+                        Select::make('type')
+                            ->label('Special type')
+                            ->disabled()
+                            ->options(Method::types())
+                            ->columnSpanFull(),
+                        SelectTree::make('categories')
+                            ->relationship('categories', 'title', 'parent_id', modifyQueryUsing: fn (Builder $query) => $query->where('type', Category::TYPE_METHOD))
+                            ->required()
+                            ->pivotData(['model_type' => Method::class])
+                            ->withCount()
+                            ->parentNullValue(-1)
+                            ->defaultOpenLevel(2)
+                            ->clearable(false)
+                            ->placeholder('Please, select method category')
                             ->columnSpanFull(),
                     ]),
                 Section::make('Configuration')

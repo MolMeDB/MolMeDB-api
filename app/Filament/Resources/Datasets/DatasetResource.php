@@ -23,19 +23,13 @@ use App\Filament\Resources\Datasets\Pages\ListDatasets;
 use App\Filament\Resources\Datasets\Pages\CreateDataset;
 use App\Filament\Resources\Datasets\Pages\EditDataset;
 use App\Enums\IconEnums;
-use App\Enums\PermissionEnums;
-use App\Filament\Resources\DatasetResource\Pages;
-use App\Filament\Resources\SharedRelationManagers;
-use App\Models\Category;
+use App\Filament\Resources\Membranes\MembraneResource;
+use App\Filament\Resources\Methods\MethodResource;
 use App\Models\Dataset;
 use App\Models\Membrane;
 use App\Models\Method;
 use App\Models\User;
-use Filament\Forms;
-use Filament\Forms\Components;
-use Filament\Forms\Components\Component;
 use Filament\Resources\Resource;
-use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
@@ -52,6 +46,7 @@ class DatasetResource extends Resource
             ->components([
                 Section::make('Basic assignment')
                 ->columns(2)
+                ->columnSpanFull()
                 ->schema([
                     Select::make('type')
                         ->options(fn(?Dataset $record) => $record?->id ? Dataset::enumType() : Dataset::enumTypesSelectable())
@@ -82,6 +77,7 @@ class DatasetResource extends Resource
                 ]),
                 Section::make('Description')
                 ->columns(1)
+                ->columnSpanFull()
                 ->schema([
                     TextInput::make('name')
                         ->columnSpanFull()

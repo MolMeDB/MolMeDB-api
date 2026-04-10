@@ -85,7 +85,8 @@ class SshCredentialResource extends Resource
                         ->nullable()
                         ->hint('The passphrase for the private key, if required.'),
                 ])
-                ->columns(2),
+                ->columns(2)
+                ->columnSpanFull(),
             ];
     }
 

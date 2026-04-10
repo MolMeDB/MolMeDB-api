@@ -47,6 +47,7 @@ class InteractionActiveResource extends Resource
         return $schema
             ->components([
                 Section::make('Basic assignment')
+                    ->columnSpanFull()
                     ->schema([
                         Select::make('dataset_id')
                             ->relationship('dataset', 'name')

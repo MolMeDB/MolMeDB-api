@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\Predictions;
 
 use Filament\Schemas\Schema;
-use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
 use Filament\Tables\Columns\TextColumn;
@@ -13,12 +12,10 @@ use App\Filament\Resources\Predictions\Pages\ListPredictions;
 use App\Filament\Resources\Predictions\Pages\CreatePrediction;
 use App\Filament\Resources\Predictions\Pages\EditPrediction;
 use App\Enums\IconEnums;
-use App\Filament\Resources\PredictionResource\Pages;
 use App\Filament\Resources\Predictions\RelationManagers\PredictionDatasetsRelationManager;
 use App\Filament\Resources\Predictions\RelationManagers\PredictionResultsRelationManager;
-use Filament\Forms;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
-use Filament\Tables;
 use Filament\Tables\Table;
 use Modules\PredictionWorkers\Models\Prediction;
 
@@ -33,22 +30,22 @@ class PredictionResource extends Resource
     {
         return $schema
             ->components([
-                Placeholder::make('id')
+                TextEntry::make('id')
                     ->label('ID')
                     ->hiddenOn('create')
-                    ->content(fn (Prediction $record) => $record->id),
-                Placeholder::make('structure_id')
+                    ->state(fn (Prediction $record) => $record->id),
+                TextEntry::make('structure_id')
                     ->label('Structure canonical smiles')
                     ->hiddenOn('create')
-                    ->content(fn (Prediction $record) => $record->predictionStructure->canonical_smiles),
-                Placeholder::make('step')
+                    ->state(fn (Prediction $record) => $record->predictionStructure->canonical_smiles),
+                TextEntry::make('step')
                     ->label('Current step')
                     ->hiddenOn('create')
-                    ->content(fn (Prediction $record) => $record->enumStep($record->step)),
-                Placeholder::make('state')
+                    ->state(fn (Prediction $record) => $record->enumStep($record->step)),
+                TextEntry::make('state')
                     ->label('Step state')
                     ->hiddenOn('create')
-                    ->content(fn (Prediction $record) => $record->enumState($record->state)),
+                    ->state(fn (Prediction $record) => $record->enumState($record->state)),
                 TextInput::make('temperature')
                     ->label('Temperature')
                     ->suffix('°C')

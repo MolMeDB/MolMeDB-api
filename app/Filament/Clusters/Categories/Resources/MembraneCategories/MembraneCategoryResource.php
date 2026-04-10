@@ -5,7 +5,6 @@ namespace App\Filament\Clusters\Categories\Resources\MembraneCategories;
 use Filament\Schemas\Schema;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Hidden;
-use Filament\Actions\DeleteAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Actions\BulkActionGroup;
 use App\Filament\Clusters\Categories\Resources\MembraneCategories\RelationManagers\MembranesRelationManager;
@@ -14,20 +13,12 @@ use App\Filament\Clusters\Categories\Resources\MembraneCategories\Pages\CreateMe
 use App\Filament\Clusters\Categories\Resources\MembraneCategories\Pages\EditMembraneCategory;
 use App\Enums\IconEnums;
 use App\Filament\Clusters\Categories\CategoriesCluster;
-use App\Filament\Clusters\Categories\Resources\MembraneCategoryResource\Pages;
 use App\Filament\Clusters\Categories\Resources\MembraneCategories\Pages\MembraneCategoryTree;
-use App\Filament\Clusters\Categories\Resources\MembraneCategoryResource\RelationManagers;
 use App\Models\Category;
-use App\Models\MembraneCategory;
-use Filament\Forms;
-use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
-use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class MembraneCategoryResource extends Resource
 {

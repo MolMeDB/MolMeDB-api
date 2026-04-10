@@ -11,7 +11,6 @@ use App\Filament\Resources\Membranes\MembraneResource;
 use App\Models\Membrane;
 use App\Models\Publication;
 use Filament\Resources\RelationManagers\RelationManager;
-use Filament\Tables;
 use Filament\Tables\Table;
 
 class MembranesRelationManager extends RelationManager

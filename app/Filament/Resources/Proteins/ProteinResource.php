@@ -14,16 +14,12 @@ use App\Filament\Resources\Proteins\Pages\ListProteins;
 use App\Filament\Resources\Proteins\Pages\CreateProtein;
 use App\Filament\Resources\Proteins\Pages\EditProtein;
 use App\Enums\IconEnums;
-use App\Filament\Resources\ProteinResource\Pages;
 use App\Filament\Resources\Proteins\RelationManagers\IdentifiersRelationManager;
-use App\Filament\Resources\SharedRelationManagers;
 use App\Models\Category;
 use App\Models\Protein;
 use CodeWithDennis\FilamentSelectTree\SelectTree;
 use Filament\Resources\Resource;
-use Filament\Tables;
 use Filament\Tables\Table;
-use Filament\Forms\Components;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 

@@ -8,12 +8,9 @@ use Filament\Actions\BulkActionGroup;
 use App\Filament\Clusters\Access\Resources\Permissions\RelationManagers\RolesRelationManager;
 use App\Filament\Clusters\Access\Resources\Permissions\Pages\ListPermissions;
 use App\Enums\IconEnums;
-use App\Filament\Clusters\Access\Resources\PermissionResource\Pages;
-use App\Filament\Clusters\Access\Resources\PermissionResource\RelationManagers;
 use App\Filament\Clusters\Settings\SettingsCluster;
 use App\Models\Permission;
 use Filament\Resources\Resource;
-use Filament\Tables;
 use Filament\Tables\Table;
 
 class PermissionResource extends Resource

@@ -24,14 +24,10 @@ use App\Filament\Resources\Membranes\Pages\ListMembranes;
 use App\Filament\Resources\Membranes\Pages\CreateMembrane;
 use App\Filament\Resources\Membranes\Pages\EditMembrane;
 use App\Enums\IconEnums;
-use App\Filament\Resources\MembraneResource\Pages;
-use App\Filament\Resources\SharedRelationManagers;
 use App\Models\Category;
 use App\Models\Membrane;
 use CodeWithDennis\FilamentSelectTree\SelectTree;
-use Filament\Forms;
 use Filament\Resources\Resource;
-use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
@@ -47,6 +43,25 @@ class MembraneResource extends Resource
     {
         return $schema
             ->components([
+                Fieldset::make('Description')
+                    ->columnSpanFull()
+                    ->schema([
+                        TextInput::make('name')
+                            ->hint('Maximum 150 characters.')
+                            ->maxLength(150)
+                            ->required(),
+                        TextInput::make('abbreviation')
+                            ->hint('Maximum 15 characters.')
+                            ->maxLength(15)
+                            ->minLength(2)
+                            ->rule('regex:/^[a-zA-Z0-9-_]+$/') 
+                            ->required(),
+                        RichEditor::make('description')
+                          ->fileAttachmentsDirectory(self::$model::folder().'attachments')
+                          ->fileAttachmentsDisk('public')
+                          ->fileAttachmentsVisibility('public')
+                          ->columnSpanFull(),
+                    ]),
                 Fieldset::make('Assignment')
                     ->schema([
                         Select::make('type')
@@ -67,24 +82,6 @@ class MembraneResource extends Resource
                             ->placeholder('Please, select membrane category')
                             ->columnSpanFull(),
                     ]),
-                Fieldset::make('Description')
-                    ->schema([
-                        TextInput::make('name')
-                            ->hint('Maximum 150 characters.')
-                            ->maxLength(150)
-                            ->required(),
-                        TextInput::make('abbreviation')
-                            ->hint('Maximum 15 characters.')
-                            ->maxLength(15)
-                            ->minLength(2)
-                            ->rule('regex:/^[a-zA-Z0-9-_]+$/') 
-                            ->required(),
-                        RichEditor::make('description')
-                          ->fileAttachmentsDirectory(self::$model::folder().'attachments')
-                          ->fileAttachmentsDisk('public')
-                          ->fileAttachmentsVisibility('public')
-                          ->columnSpanFull(),
-                    ])
             ]);
     }
 

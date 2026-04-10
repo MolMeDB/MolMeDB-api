@@ -5,7 +5,6 @@ namespace App\Filament\Clusters\Categories\Resources\ProteinCategories;
 use Filament\Schemas\Schema;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Hidden;
-use Filament\Actions\DeleteAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Actions\BulkActionGroup;
 use App\Filament\Clusters\Categories\Resources\ProteinCategories\RelationManagers\ProteinsRelationManager;
@@ -15,13 +14,8 @@ use App\Filament\Clusters\Categories\Resources\ProteinCategories\Pages\EditProte
 use App\Filament\Clusters\Categories\Resources\ProteinCategories\Pages\ProteinCategoryTree;
 use App\Enums\IconEnums;
 use App\Filament\Clusters\Categories\CategoriesCluster;
-use App\Filament\Clusters\Categories\Resources\ProteinCategoryResource\Pages;
-use App\Filament\Clusters\Categories\Resources\ProteinCategoryResource\RelationManagers;
 use App\Models\Category;
-use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
-use Filament\Tables;
-use Filament\Forms;
 use Filament\Tables\Table;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Builder;
@@ -36,7 +30,7 @@ class ProteinCategoryResource extends Resource
 
     protected static ?string $cluster = CategoriesCluster::class;
 
-     public static function getEloquentQuery(): Builder
+    public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()->where('type', Category::TYPE_PROTEIN);
     }

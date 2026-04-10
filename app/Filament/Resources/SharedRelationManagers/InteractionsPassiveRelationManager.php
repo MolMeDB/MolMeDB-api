@@ -15,10 +15,7 @@ use App\Models\Membrane;
 use App\Models\Method;
 use App\Models\Publication;
 use App\Models\Structure;
-use Filament\Forms;
-use Filament\Forms\Form;
 use Filament\Resources\RelationManagers\RelationManager;
-use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
 

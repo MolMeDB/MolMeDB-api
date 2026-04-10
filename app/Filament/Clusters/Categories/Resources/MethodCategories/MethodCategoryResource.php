@@ -5,7 +5,6 @@ namespace App\Filament\Clusters\Categories\Resources\MethodCategories;
 use Filament\Schemas\Schema;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Hidden;
-use Filament\Actions\DeleteAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Actions\BulkActionGroup;
 use App\Filament\Clusters\Categories\Resources\MethodCategories\RelationManagers\MethodsRelationManager;
@@ -15,20 +14,11 @@ use App\Filament\Clusters\Categories\Resources\MethodCategories\Pages\EditMethod
 use App\Filament\Clusters\Categories\Resources\MethodCategories\Pages\MethodCategoryTree;
 use App\Enums\IconEnums;
 use App\Filament\Clusters\Categories\CategoriesCluster;
-use App\Filament\Clusters\Categories\Resources\MethodCategoryResource\Pages;
-use App\Filament\Clusters\Categories\Resources\MethodCategoryResource\RelationManagers;
 use App\Models\Category;
-use App\Models\Method;
-use App\Models\MethodCategory;
-use Filament\Forms;
-use Filament\Notifications\Notification;
-use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Resources\Resource;
-use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class MethodCategoryResource extends Resource
 {

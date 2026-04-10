@@ -5,7 +5,6 @@ namespace App\Filament\Resources\Structures;
 use Filament\Schemas\Schema;
 use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Placeholder;
 use Filament\Schemas\Components\Grid;
 use Filament\Forms\Components\Textarea;
 use Filament\Tables\Filters\TernaryFilter;
@@ -21,14 +20,10 @@ use App\Filament\Resources\Structures\Pages\ListStructures;
 use App\Filament\Resources\Structures\Pages\CreateStructure;
 use App\Filament\Resources\Structures\Pages\EditStructure;
 use App\Enums\IconEnums;
-use App\Filament\Resources\SharedRelationManagers;
-use App\Filament\Resources\StructureResource\Pages;
-use App\Filament\Resources\StructureResource\RelationManagers;
-use Filament\Forms;
 use Filament\Resources\Resource;
-use Filament\Tables;
 use Filament\Tables\Table;
 use App\Models\Structure;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Tables\Filters\Filter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -68,11 +63,12 @@ class StructureResource extends Resource
                             // ->endsWith()
                             ->columnSpanFull(),
                             ]),
-                        Placeholder::make('structure')
+                        TextEntry::make('structure')
                             ->label('2D structure')
                             ->hiddenOn('create')
-                            ->content(fn (?Structure $record) => $record?->canonical_smiles ? new HtmlString('<img src="' . $cdk->get2dStructureUrl($record?->canonical_smiles) . '" style="max-width: 100%; max-height: 100%;">') : null),
+                            ->state(fn (?Structure $record) => $record?->canonical_smiles ? new HtmlString('<img src="' . $cdk->get2dStructureUrl($record?->canonical_smiles) . '" style="max-width: 100%; max-height: 100%;">') : null),
                 Section::make('Computed properties (readonly)')
+                    ->columnSpanFull()
                     ->columns(2)
                     ->schema([
                         TextInput::make('molecular_weight')

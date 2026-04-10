@@ -5,7 +5,6 @@ namespace App\Filament\Clusters\Categories\Resources\InteractionActiveCategories
 use Filament\Schemas\Schema;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Hidden;
-use Filament\Actions\DeleteAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Actions\BulkActionGroup;
 use App\Filament\Resources\SharedRelationManagers\InteractionsActiveRelationManager;
@@ -15,18 +14,11 @@ use App\Filament\Clusters\Categories\Resources\InteractionActiveCategories\Pages
 use App\Filament\Clusters\Categories\Resources\InteractionActiveCategories\Pages\InteractionActiveCategoryTree;
 use App\Enums\IconEnums;
 use App\Filament\Clusters\Categories\CategoriesCluster;
-use App\Filament\Clusters\Categories\Resources\InteractionActiveCategoryResource\Pages;
-use App\Filament\Resources\SharedRelationManagers;
 use App\Models\Category;
-use App\Models\InteractionActiveCategory;
-use Filament\Forms;
 use Filament\Resources\Resource;
-use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Contracts\Support\Htmlable;
-use Illuminate\Support\Facades\Notification;
 
 class InteractionActiveCategoryResource extends Resource
 {

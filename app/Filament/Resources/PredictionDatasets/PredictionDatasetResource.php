@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\PredictionDatasets;
 
 use Filament\Schemas\Schema;
-use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
 use Illuminate\Database\Eloquent\Builder;
@@ -17,13 +16,10 @@ use App\Filament\Resources\PredictionDatasets\Pages\ListPredictionDatasets;
 use App\Filament\Resources\PredictionDatasets\Pages\CreatePredictionDataset;
 use App\Filament\Resources\PredictionDatasets\Pages\EditPredictionDataset;
 use App\Enums\IconEnums;
-use App\Filament\Resources\PredictionDatasetResource\Pages;
-use App\Filament\Resources\PredictionDatasetResource\RelationManagers;
 use App\Filament\Resources\PredictionDatasets\RelationManagers\PredictionsRelationManager;
 use App\Filament\Resources\PredictionDatasets\RelationManagers\StructuresRelationManager;
-use Filament\Forms;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
-use Filament\Tables;
 use Filament\Tables\Table;
 use Modules\PredictionWorkers\Models\Prediction;
 use Modules\PredictionWorkers\Models\PredictionDataset;
@@ -39,14 +35,14 @@ class PredictionDatasetResource extends Resource
     {
         return $schema
             ->components([
-                Placeholder::make('id')
+                TextEntry::make('id')
                     ->label('ID')
                     ->hiddenOn('create')
-                    ->content(fn (PredictionDataset $record) => $record->id),
-                Placeholder::make('user.name')
+                    ->state(fn (PredictionDataset $record) => $record->id),
+                TextEntry::make('user.name')
                     ->label('Owner')
                     ->hiddenOn('create')
-                    ->content(fn (PredictionDataset $record) => $record->user?->prettyName),
+                    ->state(fn (PredictionDataset $record) => $record->user?->prettyName),
                 TextInput::make('temperature')
                     ->label('Temperature')
                     ->suffix('°C')
@@ -104,7 +100,7 @@ class PredictionDatasetResource extends Resource
                     ->getStateUsing(fn (PredictionDataset $record) => $record->user?->getFilamentAvatarUrl())
                     ->circular()
                     ->sortable()
-                    ->size(35)
+                    ->imageSize(35)
                     ->tooltip(function (PredictionDataset $record) {
                         return $record->user?->name;
                     }),
