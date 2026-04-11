@@ -2,108 +2,110 @@
 
 namespace App\Filament\Resources\Datasets;
 
-use Filament\Schemas\Schema;
-use Filament\Schemas\Components\Section;
-use Filament\Forms\Components\Select;
-use Filament\Actions\Action;
-use Filament\Schemas\Components\Utilities\Get;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Textarea;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\SelectFilter;
-use Filament\Tables\Filters\TrashedFilter;
-use Filament\Actions\EditAction;
-use Filament\Actions\RestoreAction;
-use Filament\Actions\BulkActionGroup;
-use App\Filament\Resources\SharedRelationManagers\PublicationsRelationManager;
-use App\Filament\Resources\SharedRelationManagers\IdentifiersRelationManager;
-use App\Filament\Resources\SharedRelationManagers\InteractionsPassiveRelationManager;
-use App\Filament\Resources\SharedRelationManagers\InteractionsActiveRelationManager;
-use App\Filament\Resources\Datasets\Pages\ListDatasets;
+use App\Enums\IconEnums;
+use App\Enums\PermissionEnums;
 use App\Filament\Resources\Datasets\Pages\CreateDataset;
 use App\Filament\Resources\Datasets\Pages\EditDataset;
-use App\Enums\IconEnums;
+use App\Filament\Resources\Datasets\Pages\ListDatasets;
 use App\Filament\Resources\Membranes\MembraneResource;
 use App\Filament\Resources\Methods\MethodResource;
+use App\Filament\Resources\SharedRelationManagers\IdentifiersRelationManager;
+use App\Filament\Resources\SharedRelationManagers\InteractionsActiveRelationManager;
+use App\Filament\Resources\SharedRelationManagers\InteractionsPassiveRelationManager;
+use App\Filament\Resources\SharedRelationManagers\PublicationsRelationManager;
 use App\Models\Dataset;
 use App\Models\Membrane;
 use App\Models\Method;
 use App\Models\User;
+use Filament\Actions\Action;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\EditAction;
+use Filament\Actions\RestoreAction;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Schema;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\Auth;
 
 class DatasetResource extends Resource
 {
     protected static ?string $model = Dataset::class;
-    protected static string | \BackedEnum | null $navigationIcon = IconEnums::DATASET->value;
-    protected static string | \UnitEnum | null $navigationGroup = 'Interactions management';
+
+    protected static string|\BackedEnum|null $navigationIcon = IconEnums::DATASET->value;
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Interactions management';
 
     public static function form(Schema $schema): Schema
-    {   
+    {
         return $schema
             ->components([
                 Section::make('Basic assignment')
-                ->columns(2)
-                ->columnSpanFull()
-                ->schema([
-                    Select::make('type')
-                        ->options(fn(?Dataset $record) => $record?->id ? Dataset::enumType() : Dataset::enumTypesSelectable())
-                        ->required()
-                        ->disabledOn('edit'),
-                    Select::make('dataset_group_id')
-                        ->relationship('group', 'name'),
-                    Select::make('method_id')
-                        ->options(fn(?Dataset $record) => Method::selectOptionsGrouped($record?->trashed()))
-                        ->hidden(fn (?Dataset $record) => $record && $record->type == Dataset::TYPE_ACTIVE)
-                        ->suffixAction(Action::make('show_method')
-                            ->icon(IconEnums::VIEW->value)
-                            ->url(fn (Get $get) => $get('method_id') ? MethodResource::getUrl('edit', ['record' => Method::withTrashed()->find($get('method_id'))]) : null)
-                            ->openUrlInNewTab()
-                        )
-                        ->reactive()
-                        ->required(),
-                    Select::make('membrane_id')
-                        ->options(fn(?Dataset $record) => Membrane::selectOptionsGrouped($record?->trashed()))
-                        ->hidden(fn (?Dataset $record) => $record && $record->type == Dataset::TYPE_ACTIVE)
-                        ->suffixAction(Action::make('show_membrane')
-                            ->icon(IconEnums::VIEW->value)
-                            ->url(fn (Get $get) => $get('membrane_id') ? MembraneResource::getUrl('edit', ['record' => Membrane::withTrashed()->find($get('membrane_id'))]) : null)
-                            ->openUrlInNewTab()
-                        )
-                        ->reactive()
-                        ->required(),  
-                ]),
+                    ->columns(2)
+                    ->columnSpanFull()
+                    ->schema([
+                        Select::make('type')
+                            ->options(fn (?Dataset $record) => $record?->id ? Dataset::enumType() : Dataset::enumTypesSelectable())
+                            ->required()
+                            ->disabledOn('edit'),
+                        Select::make('dataset_group_id')
+                            ->relationship('group', 'name'),
+                        Select::make('method_id')
+                            ->options(fn (?Dataset $record) => Method::selectOptionsGrouped($record?->trashed()))
+                            ->hidden(fn (?Dataset $record) => $record && $record->type == Dataset::TYPE_ACTIVE)
+                            ->suffixAction(Action::make('show_method')
+                                ->icon(IconEnums::VIEW->value)
+                                ->url(fn (Get $get) => $get('method_id') ? MethodResource::getUrl('edit', ['record' => Method::withTrashed()->find($get('method_id'))]) : null)
+                                ->openUrlInNewTab()
+                            )
+                            ->reactive()
+                            ->required(),
+                        Select::make('membrane_id')
+                            ->options(fn (?Dataset $record) => Membrane::selectOptionsGrouped($record?->trashed()))
+                            ->hidden(fn (?Dataset $record) => $record && $record->type == Dataset::TYPE_ACTIVE)
+                            ->suffixAction(Action::make('show_membrane')
+                                ->icon(IconEnums::VIEW->value)
+                                ->url(fn (Get $get) => $get('membrane_id') ? MembraneResource::getUrl('edit', ['record' => Membrane::withTrashed()->find($get('membrane_id'))]) : null)
+                                ->openUrlInNewTab()
+                            )
+                            ->reactive()
+                            ->required(),
+                    ]),
                 Section::make('Description')
-                ->columns(1)
-                ->columnSpanFull()
-                ->schema([
-                    TextInput::make('name')
-                        ->columnSpanFull()
-                        ->maxLength(255)
-                        ->hint('Maximum 255 characters.')
-                        ->required(),
-                    Textarea::make('comment')
-                        ->columnSpanFull(),  
-                ])
+                    ->columns(1)
+                    ->columnSpanFull()
+                    ->schema([
+                        TextInput::make('name')
+                            ->columnSpanFull()
+                            ->maxLength(255)
+                            ->hint('Maximum 255 characters.')
+                            ->required(),
+                        Textarea::make('comment')
+                            ->columnSpanFull(),
+                    ]),
             ]);
     }
 
     public static function table(Table $table): Table
     {
-        // dd(Dataset::find(38)->author?->name);
-
         return $table
-            ->query(fn () => Dataset::query()->with(['activityLogs.causer']))
+            ->query(fn () => static::getEloquentQuery()->with(['createdBy']))
             ->columns([
                 TextColumn::make('id')
                     ->sortable()
-                    ->color(fn(Dataset $record) => $record->trashed() ? 'danger' : null)
-                    ->tooltip(fn(Dataset $record) => $record->trashed() ? 'Deleted record' : null)
+                    ->color(fn (Dataset $record) => $record->trashed() ? 'danger' : null)
+                    ->tooltip(fn (Dataset $record) => $record->trashed() ? 'Deleted record' : null)
                     ->toggleable(isToggledHiddenByDefault: false),
                 TextColumn::make('type')
-                    ->formatStateUsing(fn (string $state) : string => $state ? Dataset::enumType($state) : "Unknown")
+                    ->formatStateUsing(fn (string $state): string => $state ? Dataset::enumType($state) : 'Unknown')
                     ->badge()
                     ->color(fn ($state) => match ($state) {
                         Dataset::TYPE_ACTIVE => 'success',
@@ -159,7 +161,7 @@ class DatasetResource extends Resource
                 //         Dataset::TYPE_PASSIVE => $record->interactionsPassive()->withTrashed()->count(),
                 //         default => "N/A"
                 //     })
-                
+
             ])
             ->filters([
                 SelectFilter::make('type')
@@ -177,23 +179,19 @@ class DatasetResource extends Resource
                     ->searchable()
                     ->preload(),
                 SelectFilter::make('author')
-                ->label('Author')
-                // ->options(User::permission(PermissionEnums::DATASET_EDIT->value)->pluck('name', 'id')->toArray())
-                ->options(User::pluck('name', 'id')->toArray())
-                ->modifyQueryUsing(function ($query, $state) {
-                    if (array_key_exists('value', $state) && is_numeric($state['value'])) {
-                        $query->whereHas('activityLogs', function ($q) use ($state) {
-                            $q->where('causer_id', $state)
-                                ->where('causer_type', User::class);
-                        });
-                    }
-                }),
-                TrashedFilter::make()
+                    ->label('Author')
+                    ->options(User::pluck('name', 'id')->toArray())
+                    ->modifyQueryUsing(function ($query, $state) {
+                        if (array_key_exists('value', $state) && is_numeric($state['value'])) {
+                            $query->where('created_by', $state['value']);
+                        }
+                    }),
+                TrashedFilter::make(),
             ])
             ->recordActions([
                 EditAction::make(),
                 RestoreAction::make()
-                    ->disabled(fn(Dataset $record) => !$record->isRestoreable()),
+                    ->disabled(fn (Dataset $record) => ! $record->isRestoreable()),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
@@ -205,10 +203,22 @@ class DatasetResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()
+        $query = parent::getEloquentQuery()
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);
+
+        $user = Auth::user();
+
+        if (
+            $user
+            && $user->hasPermissionTo(PermissionEnums::DATASET_VIEW_OWN)
+            && ! $user->hasPermissionTo(PermissionEnums::DATASET_VIEW)
+        ) {
+            $query->where('created_by', $user->id);
+        }
+
+        return $query;
     }
 
     public static function getRelations(): array
@@ -217,7 +227,7 @@ class DatasetResource extends Resource
             PublicationsRelationManager::class,
             IdentifiersRelationManager::class,
             InteractionsPassiveRelationManager::class,
-            InteractionsActiveRelationManager::class
+            InteractionsActiveRelationManager::class,
         ];
     }
 

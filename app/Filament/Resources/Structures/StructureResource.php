@@ -2,32 +2,34 @@
 
 namespace App\Filament\Resources\Structures;
 
-use Filament\Schemas\Schema;
-use Filament\Schemas\Components\Section;
-use Filament\Forms\Components\TextInput;
-use Filament\Schemas\Components\Grid;
-use Filament\Forms\Components\Textarea;
-use Filament\Tables\Filters\TernaryFilter;
-use Filament\Actions\EditAction;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
-use Filament\Tables\Columns\TextColumn;
+use App\Enums\IconEnums;
+use App\Enums\PermissionEnums;
 use App\Filament\Resources\SharedRelationManagers\IdentifiersRelationManager;
-use App\Filament\Resources\Structures\RelationManagers\ChargesRelationManager;
-use App\Filament\Resources\SharedRelationManagers\InteractionsPassiveRelationManager;
 use App\Filament\Resources\SharedRelationManagers\InteractionsActiveRelationManager;
-use App\Filament\Resources\Structures\Pages\ListStructures;
+use App\Filament\Resources\SharedRelationManagers\InteractionsPassiveRelationManager;
 use App\Filament\Resources\Structures\Pages\CreateStructure;
 use App\Filament\Resources\Structures\Pages\EditStructure;
-use App\Enums\IconEnums;
-use Filament\Resources\Resource;
-use Filament\Tables\Table;
+use App\Filament\Resources\Structures\Pages\ListStructures;
+use App\Filament\Resources\Structures\RelationManagers\ChargesRelationManager;
 use App\Models\Structure;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Resources\Resource;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\TernaryFilter;
+use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\HtmlString;
 use Modules\CdkDepict\CdkDepict;
 
@@ -35,13 +37,13 @@ class StructureResource extends Resource
 {
     protected static ?string $model = Structure::class;
 
-    protected static string | \BackedEnum | null $navigationIcon = IconEnums::STRUCTURE->value;
-    protected static string | \UnitEnum | null $navigationGroup = 'Data management';
+    protected static string|\BackedEnum|null $navigationIcon = IconEnums::STRUCTURE->value;
 
+    protected static string|\UnitEnum|null $navigationGroup = 'Data management';
 
     public static function form(Schema $schema): Schema
     {
-        $cdk = new CdkDepict();
+        $cdk = new CdkDepict;
 
         return $schema
             ->components([
@@ -62,11 +64,11 @@ class StructureResource extends Resource
                             ])
                             // ->endsWith()
                             ->columnSpanFull(),
-                            ]),
-                        TextEntry::make('structure')
-                            ->label('2D structure')
-                            ->hiddenOn('create')
-                            ->state(fn (?Structure $record) => $record?->canonical_smiles ? new HtmlString('<img src="' . $cdk->get2dStructureUrl($record?->canonical_smiles) . '" style="max-width: 100%; max-height: 100%;">') : null),
+                    ]),
+                TextEntry::make('structure')
+                    ->label('2D structure')
+                    ->hiddenOn('create')
+                    ->state(fn (?Structure $record) => $record?->canonical_smiles ? new HtmlString('<img src="'.$cdk->get2dStructureUrl($record?->canonical_smiles).'" style="max-width: 100%; max-height: 100%;">') : null),
                 Section::make('Computed properties (readonly)')
                     ->columnSpanFull()
                     ->columns(2)
@@ -120,7 +122,7 @@ class StructureResource extends Resource
                             ->hint('3D structure of the molecule.')
                             ->disabledOn('edit')
                             ->columnSpanFull(),
-                    ])
+                    ]),
             ]);
     }
 
@@ -136,7 +138,7 @@ class StructureResource extends Resource
                     ->queries(
                         true: fn ($query) => $query->whereNull('parent_id'),
                         false: fn ($query) => $query
-                    )
+                    ),
             ])
             ->recordActions([
                 EditAction::make(),
@@ -194,12 +196,12 @@ class StructureResource extends Resource
                             ->placeholder('Enter identifier value...'),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
-                        if(empty($data['value']) || strlen($data['value']) < 3) {
+                        if (empty($data['value']) || strlen($data['value']) < 3) {
                             return $query;
                         }
 
                         return $query->whereHas('identifiers', function (Builder $query) use ($data) {
-                            $query->where('value', 'ILIKE', '%' . $data['value'] . '%');
+                            $query->where('value', 'ILIKE', '%'.$data['value'].'%');
                         });
                     })->label('Identifier'),
             ]);
@@ -207,10 +209,26 @@ class StructureResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()
+        $query = parent::getEloquentQuery()
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);
+
+        $user = Auth::user();
+
+        if (! $user) {
+            return $query;
+        }
+
+        if ($user->hasPermissionTo(PermissionEnums::STRUCTURE_VIEW)) {
+            return $query;
+        }
+
+        if ($user->hasPermissionTo(PermissionEnums::STRUCTURE_VIEW_OWN)) {
+            return $query->where('user_id', $user->id);
+        }
+
+        return $query;
     }
 
     public static function getRelations(): array

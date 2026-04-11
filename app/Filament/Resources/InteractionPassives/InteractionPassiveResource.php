@@ -2,43 +2,49 @@
 
 namespace App\Filament\Resources\InteractionPassives;
 
-use Filament\Schemas\Schema;
-use Filament\Schemas\Components\Section;
-use Filament\Forms\Components\Select;
-use Filament\Schemas\Components\Utilities\Get;
-use Filament\Actions\Action;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\TextInput;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\TrashedFilter;
-use Filament\Actions\EditAction;
-use Filament\Actions\RestoreAction;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
-use App\Filament\Resources\InteractionPassives\Pages\ListInteractionPassives;
+use App\Enums\IconEnums;
+use App\Enums\PermissionEnums;
 use App\Filament\Resources\InteractionPassives\Pages\CreateInteractionPassive;
 use App\Filament\Resources\InteractionPassives\Pages\EditInteractionPassive;
-use App\Enums\IconEnums;
+use App\Filament\Resources\InteractionPassives\Pages\ListInteractionPassives;
 use App\Filament\Resources\Publications\PublicationResource;
 use App\Filament\Resources\Structures\StructureResource;
 use App\Models\Dataset;
 use App\Models\InteractionPassive;
 use App\Models\Publication;
 use App\Models\Structure;
+use Filament\Actions\Action;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
+use Filament\Actions\RestoreAction;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Schema;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 
 class InteractionPassiveResource extends Resource
 {
     protected static ?string $model = InteractionPassive::class;
-    protected static string | \BackedEnum | null $navigationIcon = IconEnums::INTERACTIONS->value;
-    protected static ?string $label = "Passive interaction";
-    protected static ?string $navigationLabel = "Passive";
-    protected static string | \UnitEnum | null $navigationGroup = 'Interactions management';
+
+    protected static string|\BackedEnum|null $navigationIcon = IconEnums::INTERACTIONS->value;
+
+    protected static ?string $label = 'Passive interaction';
+
+    protected static ?string $navigationLabel = 'Passive';
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Interactions management';
 
     public static function form(Schema $schema): Schema
     {
@@ -49,7 +55,7 @@ class InteractionPassiveResource extends Resource
                     ->schema([
                         Select::make('dataset_id')
                             ->relationship('dataset', 'name', fn ($query, $record) => $record->trashed() ? $query->withTrashed() : $query)
-                            ->getOptionLabelFromRecordUsing(fn(Dataset $record) => "$record->name" . (
+                            ->getOptionLabelFromRecordUsing(fn (Dataset $record) => "$record->name".(
                                 $record->trashed() ? ' (DELETED)' : ''
                             ))
                             ->label('Assigned to dataset')
@@ -59,7 +65,7 @@ class InteractionPassiveResource extends Resource
                         Select::make('structure_id')
                             ->relationship('structure', 'identifier', fn ($query, $record) => $record->trashed() ? $query->withTrashed() : $query)
                             ->searchable()
-                            ->getOptionLabelFromRecordUsing(fn(Structure $record) => "$record->identifier" . (
+                            ->getOptionLabelFromRecordUsing(fn (Structure $record) => "$record->identifier".(
                                 $record->trashed() ? ' (DELETED)' : ''
                             ))
                             ->label('Substance structure')
@@ -73,9 +79,9 @@ class InteractionPassiveResource extends Resource
                         Select::make('publication_id')
                             ->relationship('publication', 'citation', fn ($query, $record) => $record->trashed() ? $query->withTrashed() : $query)
                             ->label('Primary reference')
-                            ->getOptionLabelFromRecordUsing(fn(Publication $record) => (
+                            ->getOptionLabelFromRecordUsing(fn (Publication $record) => (
                                 $record->trashed() ? ' (DELETED) ' : ''
-                            ) . $record->citation)
+                            ).$record->citation)
                             ->searchable()
                             ->suffixAction(fn (Get $get) => Action::make('edit_publication')
                                 ->url(fn () => PublicationResource::getUrl('edit', ['record' => Publication::withTrashed()->find($get('publication_id'))]))
@@ -147,7 +153,7 @@ class InteractionPassiveResource extends Resource
                             ->numeric()
                             ->prefix('+/-')
                             ->label('LogPerm accuracy'),
-                    ])
+                    ]),
             ]);
     }
 
@@ -167,19 +173,19 @@ class InteractionPassiveResource extends Resource
                     ->sortable()
                     ->label('Prim. reference')
                     ->tooltip(fn (Model $record) => $record->publication?->citation)
-                    ->formatStateUsing(fn (Model $record) : string => Str::limit($record->publication?->getSelectTitle(), 30))
+                    ->formatStateUsing(fn (Model $record): string => Str::limit($record->publication?->getSelectTitle(), 30))
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('dataset.name')
                     ->sortable()
                     ->label('Dataset')
                     ->tooltip(fn (Model $record) => $record->dataset?->name)
-                    ->formatStateUsing(fn (Model $record) : string => Str::limit($record->dataset?->name, 30)),
-                    // ->toggleable(isToggledHiddenByDefault: true),
+                    ->formatStateUsing(fn (Model $record): string => Str::limit($record->dataset?->name, 30)),
+                // ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('note')
                     ->wrap()
                     ->searchable()
                     ->tooltip(fn (Model $record) => $record->note)
-                    ->formatStateUsing(fn (Model $record) : string => Str::limit($record->note, 60))
+                    ->formatStateUsing(fn (Model $record): string => Str::limit($record->note, 60))
                     ->toggleable(),
                 TextColumn::make('temperature')
                     ->numeric()
@@ -200,35 +206,35 @@ class InteractionPassiveResource extends Resource
                     ->sortable()
                     ->alignCenter()
                     ->tooltip(fn (Model $record) => $record->x_min_accuracy ? "+/- $record->x_min_accuracy" : null)
-                    ->color(fn(Model $record) => $record->x_min_accuracy ? 'warning' : null)
+                    ->color(fn (Model $record) => $record->x_min_accuracy ? 'warning' : null)
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('gpen')
                     ->label('Gpen')
                     ->sortable()
                     ->alignCenter()
                     ->tooltip(fn (Model $record) => $record->gpen_accuracy ? "+/- $record->gpen_accuracy" : null)
-                    ->color(fn(Model $record) => $record->gpen_accuracy ? 'warning' : null)
+                    ->color(fn (Model $record) => $record->gpen_accuracy ? 'warning' : null)
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('gwat')
                     ->label('Gwat')
                     ->sortable()
                     ->alignCenter()
                     ->tooltip(fn (Model $record) => $record->gwat_accuracy ? "+/- $record->gwat_accuracy" : null)
-                    ->color(fn(Model $record) => $record->gwat_accuracy ? 'warning' : null)
+                    ->color(fn (Model $record) => $record->gwat_accuracy ? 'warning' : null)
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('logk')
                     ->label('LogK')
                     ->sortable()
                     ->alignCenter()
                     ->tooltip(fn (Model $record) => $record->logk_accuracy ? "+/- $record->logk_accuracy" : null)
-                    ->color(fn(Model $record) => $record->logk_accuracy ? 'warning' : null)
+                    ->color(fn (Model $record) => $record->logk_accuracy ? 'warning' : null)
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('logperm')
                     ->label('LogPerm')
                     ->sortable()
                     ->alignCenter()
                     ->tooltip(fn (Model $record) => $record->logperm_accuracy ? "+/- $record->logperm_accuracy" : null)
-                    ->color(fn(Model $record) => $record->logperm_accuracy ? 'warning' : null)
+                    ->color(fn (Model $record) => $record->logperm_accuracy ? 'warning' : null)
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('created_at')
                     ->since()
@@ -242,7 +248,7 @@ class InteractionPassiveResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                TrashedFilter::make()
+                TrashedFilter::make(),
             ])
             ->headerActions([
                 // Tables\Actions\CreateAction::make(),
@@ -254,7 +260,7 @@ class InteractionPassiveResource extends Resource
                     ->url(fn ($record) => StructureResource::getUrl('edit', ['record' => $record->structure])),
                 EditAction::make()
                     ->color('warning'),
-                RestoreAction::make()
+                RestoreAction::make(),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
@@ -272,17 +278,35 @@ class InteractionPassiveResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()
+        $query = parent::getEloquentQuery()
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);
+
+        $user = Auth::user();
+
+        if (! $user) {
+            return $query;
+        }
+
+        if ($user->hasPermissionTo(PermissionEnums::DATASET_VIEW)) {
+            return $query;
+        }
+
+        if ($user->hasPermissionTo(PermissionEnums::DATASET_VIEW_OWN)) {
+            return $query->whereHas('dataset', function (Builder $datasetQuery) use ($user): void {
+                $datasetQuery->where('created_by', $user->id);
+            });
+        }
+
+        return $query;
     }
 
     public static function getPages(): array
     {
         return [
             'index' => ListInteractionPassives::route('/'),
-            'create' => CreateInteractionPassive::route('/create'),
+            // 'create' => CreateInteractionPassive::route('/create'),
             'edit' => EditInteractionPassive::route('/{record}/edit'),
         ];
     }

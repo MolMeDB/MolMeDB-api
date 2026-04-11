@@ -20,7 +20,7 @@ class UserAdminSeeder extends Seeder
         $admin = User::factory()->create([
             'name' => 'Administrator',
             'email' => 'admin@molmedb.cz',
-            'password' => Hash::make('admin')
+            'password' => Hash::make('admin'),
         ]);
 
         // Create default roles
@@ -31,7 +31,7 @@ class UserAdminSeeder extends Seeder
             RoleEnums::VIEWER->value,
         ];
 
-        foreach($default_roles as $default_role) {
+        foreach ($default_roles as $default_role) {
             Role::create(['name' => $default_role, 'guard_name' => 'web']);
         }
 
@@ -41,10 +41,12 @@ class UserAdminSeeder extends Seeder
         // Get all permission from PermissionEnum
         $permissions = PermissionEnums::cases();
 
-        foreach($permissions as $permission) {
-            $p = Permission::create(['name' => $permission->value, 'description' => $permission->description(), 'guard_name' => 'web']);
-            // Assign to admin role
-            $p->assignRole($admin_role);
+        foreach ($permissions as $permission) {
+            if (Permission::where('name', $permission->value)->where('guard_name', 'web')->doesntExist()) {
+                $p = Permission::create(['name' => $permission->value, 'description' => $permission->description(), 'guard_name' => 'web']);
+                // Assign to admin role
+                $p->assignRole($admin_role);
+            }
         }
     }
 }

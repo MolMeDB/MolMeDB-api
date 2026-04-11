@@ -2,38 +2,38 @@
 
 namespace App\Filament\Resources\Publications;
 
-use Filament\Schemas\Schema;
-use Filament\Schemas\Components\Fieldset;
-use Filament\Forms\Components\Select;
-use Filament\Schemas\Components\Utilities\Set;
-use Filament\Schemas\Components\Utilities\Get;
-use Filament\Forms\Components\TextInput;
-use Filament\Actions\Action;
-use Filament\Forms\Components\DatePicker;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\TrashedFilter;
-use Filament\Actions\ViewAction;
-use Filament\Actions\EditAction;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
-use App\Filament\Resources\SharedRelationManagers\DatasetsRelationManager;
-use App\Filament\Resources\SharedRelationManagers\InteractionsActiveRelationManager;
-use App\Filament\Resources\SharedRelationManagers\InteractionsPassiveRelationManager;
-use App\Filament\Resources\SharedRelationManagers\MethodsRelationManager;
-use App\Filament\Resources\SharedRelationManagers\MembranesRelationManager;
-use App\Filament\Resources\SharedRelationManagers\FileRelationManager;
-use App\Filament\Resources\Publications\Pages\ListPublications;
+use App\Enums\IconEnums;
 use App\Filament\Resources\Publications\Pages\CreatePublication;
 use App\Filament\Resources\Publications\Pages\EditPublication;
-use App\Enums\IconEnums;
+use App\Filament\Resources\Publications\Pages\ListPublications;
 use App\Filament\Resources\Publications\RelationManagers\AuthorRelationManager;
+use App\Filament\Resources\SharedRelationManagers\DatasetsRelationManager;
+use App\Filament\Resources\SharedRelationManagers\FileRelationManager;
+use App\Filament\Resources\SharedRelationManagers\InteractionsActiveRelationManager;
+use App\Filament\Resources\SharedRelationManagers\InteractionsPassiveRelationManager;
+use App\Filament\Resources\SharedRelationManagers\MembranesRelationManager;
+use App\Filament\Resources\SharedRelationManagers\MethodsRelationManager;
 use App\Models\Publication;
+use Filament\Actions\Action;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Fieldset;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
+use Filament\Schemas\Schema;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
-use Filament\Notifications\Notification;
 use Modules\References\CrossRef\CrossRef;
 use Modules\References\EuropePMC\Enums\Query\SortBy;
 use Modules\References\EuropePMC\Enums\Query\SortOrder;
@@ -44,13 +44,15 @@ class PublicationResource extends Resource
 {
     protected static ?string $model = Publication::class;
 
-    protected static string | \BackedEnum | null $navigationIcon = IconEnums::PUBLICATIONS->value;
-    protected static string | \UnitEnum | null $navigationGroup = 'Data management';
+    protected static string|\BackedEnum|null $navigationIcon = IconEnums::PUBLICATIONS->value;
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Data management';
 
     public static function form(Schema $schema): Schema
     {
-        $europePMC = new EuropePMC();
-        $crossRef = new CrossRef();
+        $europePMC = new EuropePMC;
+        $crossRef = new CrossRef;
+
         return $schema
             ->components([
                 Fieldset::make('Citation')
@@ -60,27 +62,25 @@ class PublicationResource extends Resource
                             ->searchable()
                             ->reactive()
                             ->required()
+                            ->getOptionLabelUsing(fn (?string $value): ?string => $value)
                             ->getSearchResultsUsing(function (string $query) use ($europePMC) {
                                 $result = $europePMC->search($query, SortBy::SCORE, SortOrder::DESC, 1, 10);
                                 $options = [
-                                    $query => '[UNLINKED] ' . $query
+                                    $query => '[UNLINKED] '.$query,
                                 ];
 
-                                if($result)
-                                {
-                                    foreach($result['records'] as $record)
-                                    {
-                                        if($record->id && $record->source)
-                                        {
-                                            $options[$record->id . '&&&' . $record->source->value] = $record->citation();
+                                if ($result) {
+                                    foreach ($result['records'] as $record) {
+                                        if ($record->id && $record->source) {
+                                            $options[$record->id.'&&&'.$record->source->value] = $record->citation();
                                         }
                                     }
                                 }
+
                                 return $options;
                             })
                             ->afterStateUpdated(function (Set $set, Get $get, $state) use ($europePMC) {
-                                if(!str_contains($state, '&&&'))
-                                {
+                                if (! str_contains($state, '&&&')) {
                                     $set('identifier', '');
                                     $set('identifier_source', '');
                                     $set('doi', '');
@@ -91,13 +91,13 @@ class PublicationResource extends Resource
                                     $set('page', '');
                                     $set('year', '');
                                     $set('published_at', '');
-                                    
+
                                     return;
                                 }
 
                                 $identifier = explode('&&&', $state);
                                 $record = $europePMC->detail($identifier[0], Sources::tryFrom($identifier[1]));
-                                
+
                                 // Fill form
                                 $set('identifier', $record->id);
                                 $set('identifier_source', $record->source->value);
@@ -137,8 +137,7 @@ class PublicationResource extends Resource
                                         // Try to find the record
                                         $record = $europePMC->detail($state, Sources::tryFrom($get('identifier_source')));
 
-                                        if(!$record)
-                                        {
+                                        if (! $record) {
                                             // Not found?
                                             Notification::make()
                                                 ->title('Record not found')
@@ -146,6 +145,7 @@ class PublicationResource extends Resource
                                                 ->danger()
                                                 ->persistent()
                                                 ->send();
+
                                             return;
                                         }
 
@@ -176,45 +176,45 @@ class PublicationResource extends Resource
                             ->searchable()
                             ->reactive()
                             ->unique(ignoreRecord: true)
+                            ->getOptionLabelUsing(fn (?string $value): ?string => $value)
                             ->getSearchResultsUsing(function (string $query) use ($europePMC, $crossRef) {
                                 $result = $europePMC->search($query, SortBy::SCORE, SortOrder::DESC, 1, 1);
                                 $options = [];
 
-                                if($result)
-                                {
-                                    foreach($result['records'] as $record)
-                                    {
-                                        if($record->id && $record->source)
-                                        {
-                                            $options[$record->id . '&&&' . $record->source->value] = $record->doi . ' [EuropePMC]';
+                                if ($result) {
+                                    foreach ($result['records'] as $record) {
+                                        if ($record->id && $record->source) {
+                                            $options[$record->id.'&&&'.$record->source->value] = $record->doi.' [EuropePMC]';
                                         }
                                     }
-                                }
-                                else
-                                {
+                                } else {
                                     $result = $crossRef->work($query);
-                                    if($result)
-                                    {
-                                        $options[$result->doi] = $result->doi . ' [CrossRef]';
+                                    if ($result) {
+                                        $options[$result->doi] = $result->doi.' [CrossRef]';
                                     }
                                 }
+
                                 return $options;
                             })
                             ->afterStateUpdated(function (Set $set, Get $get, $state) use ($europePMC, $crossRef) {
-                                if(!str_contains($state, '&&&')){
-                                    if(!$state) return;
+                                if (! str_contains($state, '&&&')) {
+                                    if (! $state) {
+                                        return;
+                                    }
 
                                     $record = $crossRef->work($state);
-                                    if(!$record) return;
-                                }
-                                else
-                                {
+                                    if (! $record) {
+                                        return;
+                                    }
+                                } else {
                                     $identifier = explode('&&&', $state);
                                     $record = $europePMC->detail($identifier[0], Sources::tryFrom($identifier[1]));
                                 }
 
-                                if(!$record) return;
-                                
+                                if (! $record) {
+                                    return;
+                                }
+
                                 // Fill form
                                 $set('identifier', $record->id);
                                 $set('identifier_source', $record->source?->value);
@@ -238,7 +238,7 @@ class PublicationResource extends Resource
                                 Action::make('openDoi')
                                     ->icon(IconEnums::NEWTAB->value)
                                     ->openUrlInNewTab()
-                                    ->url(fn ($state) => 'https://doi.org/' . $state)
+                                    ->url(fn ($state) => 'https://doi.org/'.$state)
                             )
                             ->label('DOI')
                             ->requiredWithAll(['identifier', 'identifier_source'])
@@ -247,39 +247,39 @@ class PublicationResource extends Resource
                             ->maxLength(512)
                             ->disabled()
                             ->hint('Obtained automatically from EuropePMC.')
-                            ->hintColor('warning') 
+                            ->hintColor('warning')
                             ->columnSpanFull(),
                         TextInput::make('journal')
                             ->disabled()
                             ->hint('Obtained automatically from EuropePMC.')
-                            ->hintColor('warning') 
+                            ->hintColor('warning')
                             ->maxLength(256),
                         TextInput::make('volume')
                             ->disabled()
                             ->hint('Obtained automatically from EuropePMC.')
-                            ->hintColor('warning') 
+                            ->hintColor('warning')
                             ->maxLength(50),
                         TextInput::make('issue')
                             ->disabled()
                             ->hint('Obtained automatically from EuropePMC.')
-                            ->hintColor('warning') 
+                            ->hintColor('warning')
                             ->maxLength(50),
                         TextInput::make('page')
                             ->disabled()
                             ->hint('Obtained automatically from EuropePMC.')
-                            ->hintColor('warning') 
+                            ->hintColor('warning')
                             ->maxLength(50),
                         TextInput::make('year')
                             ->disabled()
                             ->hint('Obtained automatically from EuropePMC.')
-                            ->hintColor('warning') 
+                            ->hintColor('warning')
                             ->numeric()
                             ->minValue(1800)
                             ->maxValue(date('Y')),
                         DatePicker::make('published_at')
                             ->disabled()
                             ->hint('Obtained automatically from EuropePMC.')
-                            ->hintColor('warning') 
+                            ->hintColor('warning')
                             ->minDate('1800-01-01')
                             ->maxDate(date('Y-m-d'))
                             ->label('Date of publication'),
@@ -287,9 +287,9 @@ class PublicationResource extends Resource
                             ->label('Last validation at')
                             ->columnSpanFull()
                             ->hiddenOn('create')
-                            ->state(fn (?Publication $record): ?string => $record?->validated_at?->isoFormat('LLLL') ?? "Never"),
+                            ->state(fn (?Publication $record): ?string => $record?->validated_at?->isoFormat('LLLL') ?? 'Never'),
                     ])
-                    ->columns(2)
+                    ->columns(2),
             ]);
     }
 
@@ -298,7 +298,7 @@ class PublicationResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('type')
-                    ->formatStateUsing(fn (string $state) : string => Publication::enumType($state))
+                    ->formatStateUsing(fn (string $state): string => Publication::enumType($state))
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->badge()
                     ->color('warning')
@@ -342,7 +342,7 @@ class PublicationResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                TrashedFilter::make()
+                TrashedFilter::make(),
             ])
             ->recordActions([
                 ViewAction::make(),
@@ -372,7 +372,7 @@ class PublicationResource extends Resource
             InteractionsPassiveRelationManager::class,
             MethodsRelationManager::class,
             MembranesRelationManager::class,
-            FileRelationManager::class
+            FileRelationManager::class,
 
         ];
     }

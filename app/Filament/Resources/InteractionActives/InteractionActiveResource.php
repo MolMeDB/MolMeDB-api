@@ -2,24 +2,12 @@
 
 namespace App\Filament\Resources\InteractionActives;
 
-use Filament\Schemas\Schema;
-use Filament\Schemas\Components\Section;
-use Filament\Forms\Components\Select;
-use Filament\Schemas\Components\Utilities\Get;
-use Filament\Actions\Action;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\TextInput;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\TrashedFilter;
-use Filament\Actions\EditAction;
-use Filament\Actions\RestoreAction;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
-use App\Filament\Resources\InteractionActives\Pages\ListInteractionActives;
+use App\Enums\IconEnums;
+use App\Enums\PermissionEnums;
+use App\Filament\Clusters\Categories\Resources\InteractionActiveCategories\InteractionActiveCategoryResource;
 use App\Filament\Resources\InteractionActives\Pages\CreateInteractionActive;
 use App\Filament\Resources\InteractionActives\Pages\EditInteractionActive;
-use App\Enums\IconEnums;
-use App\Filament\Clusters\Categories\Resources\InteractionActiveCategories\InteractionActiveCategoryResource;
+use App\Filament\Resources\InteractionActives\Pages\ListInteractionActives;
 use App\Filament\Resources\Proteins\ProteinResource;
 use App\Filament\Resources\Publications\PublicationResource;
 use App\Filament\Resources\Structures\StructureResource;
@@ -27,20 +15,38 @@ use App\Models\InteractionActive;
 use App\Models\Protein;
 use App\Models\Publication;
 use App\Models\Structure;
+use Filament\Actions\Action;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
+use Filament\Actions\RestoreAction;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Schema;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 
 class InteractionActiveResource extends Resource
 {
     protected static ?string $model = InteractionActive::class;
-    protected static string | \BackedEnum | null $navigationIcon = IconEnums::INTERACTIONS->value;
-    protected static ?string $label = "Active interaction";
-    protected static ?string $navigationLabel = "Active";
-    protected static string | \UnitEnum | null $navigationGroup = 'Interactions management';
+
+    protected static string|\BackedEnum|null $navigationIcon = IconEnums::INTERACTIONS->value;
+
+    protected static ?string $label = 'Active interaction';
+
+    protected static ?string $navigationLabel = 'Active';
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Interactions management';
 
     public static function form(Schema $schema): Schema
     {
@@ -58,7 +64,7 @@ class InteractionActiveResource extends Resource
                         Select::make('structure_id')
                             ->relationship('structure', 'identifier', fn ($query, $record) => $record->trashed() ? $query->withTrashed() : $query)
                             ->searchable()
-                            ->getOptionLabelFromRecordUsing(fn(Structure $record) => "$record->identifier" . (
+                            ->getOptionLabelFromRecordUsing(fn (Structure $record) => "$record->identifier".(
                                 $record->trashed() ? ' (DELETED)' : ''
                             ))
                             ->suffixAction(fn (Get $get) => Action::make('edit_structure')
@@ -72,9 +78,9 @@ class InteractionActiveResource extends Resource
                         Select::make('protein_id')
                             ->relationship('protein', 'uniprot_id', fn ($query, $record) => $record->trashed() ? $query->withTrashed() : $query)
                             ->label('Protein target')
-                            ->getOptionLabelFromRecordUsing(fn(Protein $record) => (
+                            ->getOptionLabelFromRecordUsing(fn (Protein $record) => (
                                 $record->trashed() ? ' (DELETED) ' : ''
-                            ) . $record->uniprot_id)
+                            ).$record->uniprot_id)
                             ->suffixAction(fn (Get $get) => Action::make('edit_protein')
                                 ->url(fn () => $get('structure_id') ? ProteinResource::getUrl('edit', ['record' => Protein::withTrashed()->find($get('protein_id'))]) : null)
                                 ->icon(IconEnums::VIEW->value)
@@ -96,9 +102,9 @@ class InteractionActiveResource extends Resource
                         Select::make('publication_id')
                             ->relationship('publication', 'citation', fn ($query, $record) => $record->trashed() ? $query->withTrashed() : $query)
                             ->label('Primary reference')
-                            ->getOptionLabelFromRecordUsing(fn(Publication $record) => (
+                            ->getOptionLabelFromRecordUsing(fn (Publication $record) => (
                                 $record->trashed() ? ' (DELETED) ' : ''
-                            ) . $record->citation)
+                            ).$record->citation)
                             ->searchable()
                             ->suffixAction(fn (Get $get) => Action::make('edit_publication')
                                 ->url(fn () => PublicationResource::getUrl('edit', ['record' => Publication::withTrashed()->find($get('publication_id'))]))
@@ -163,7 +169,7 @@ class InteractionActiveResource extends Resource
                             ->numeric()
                             ->prefix('+/-')
                             ->label('IC50 accuracy'),
-                    ])
+                    ]),
             ]);
     }
 
@@ -193,7 +199,7 @@ class InteractionActiveResource extends Resource
                 TextColumn::make('publication_id')
                     ->sortable()
                     ->label('Prim. reference')
-                    ->formatStateUsing(fn (Model $record) : string => Str::limit($record->publication?->getSelectTitle(), 30))
+                    ->formatStateUsing(fn (Model $record): string => Str::limit($record->publication?->getSelectTitle(), 30))
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('note')
                     ->wrap()
@@ -218,28 +224,28 @@ class InteractionActiveResource extends Resource
                     ->sortable()
                     ->alignCenter()
                     ->tooltip(fn (Model $record) => $record->km_accuracy ? "+/- $record->km_accuracy" : null)
-                    ->color(fn(Model $record) => $record->km_accuracy ? 'warning' : null)
+                    ->color(fn (Model $record) => $record->km_accuracy ? 'warning' : null)
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('ec50')
                     ->label('EC50')
                     ->sortable()
                     ->alignCenter()
                     ->tooltip(fn (Model $record) => $record->ec50_accuracy ? "+/- $record->ec50_accuracy" : null)
-                    ->color(fn(Model $record) => $record->ec50_accuracy ? 'warning' : null)
+                    ->color(fn (Model $record) => $record->ec50_accuracy ? 'warning' : null)
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('ki')
                     ->label('Ki')
                     ->sortable()
                     ->alignCenter()
                     ->tooltip(fn (Model $record) => $record->ki_accuracy ? "+/- $record->ki_accuracy" : null)
-                    ->color(fn(Model $record) => $record->ki_accuracy ? 'warning' : null)
+                    ->color(fn (Model $record) => $record->ki_accuracy ? 'warning' : null)
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('ic50')
                     ->label('IC50')
                     ->sortable()
                     ->alignCenter()
                     ->tooltip(fn (Model $record) => $record->ic50_accuracy ? "+/- $record->ic50_accuracy" : null)
-                    ->color(fn(Model $record) => $record->ic50_accuracy ? 'warning' : null)
+                    ->color(fn (Model $record) => $record->ic50_accuracy ? 'warning' : null)
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('created_at')
                     ->since()
@@ -253,7 +259,7 @@ class InteractionActiveResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                TrashedFilter::make()
+                TrashedFilter::make(),
             ])
             ->headerActions([
             ])
@@ -264,7 +270,7 @@ class InteractionActiveResource extends Resource
                     ->url(fn ($record) => StructureResource::getUrl('edit', ['record' => $record->structure])),
                 EditAction::make()
                     ->color('warning'),
-                RestoreAction::make()
+                RestoreAction::make(),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
@@ -275,10 +281,28 @@ class InteractionActiveResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()
+        $query = parent::getEloquentQuery()
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);
+
+        $user = Auth::user();
+
+        if (! $user) {
+            return $query;
+        }
+
+        if ($user->hasPermissionTo(PermissionEnums::DATASET_VIEW)) {
+            return $query;
+        }
+
+        if ($user->hasPermissionTo(PermissionEnums::DATASET_VIEW_OWN)) {
+            return $query->whereHas('dataset', function (Builder $datasetQuery) use ($user): void {
+                $datasetQuery->where('created_by', $user->id);
+            });
+        }
+
+        return $query;
     }
 
     public static function getRelations(): array
@@ -292,7 +316,7 @@ class InteractionActiveResource extends Resource
     {
         return [
             'index' => ListInteractionActives::route('/'),
-            'create' => CreateInteractionActive::route('/create'),
+            // 'create' => CreateInteractionActive::route('/create'),
             'edit' => EditInteractionActive::route('/{record}/edit'),
         ];
     }

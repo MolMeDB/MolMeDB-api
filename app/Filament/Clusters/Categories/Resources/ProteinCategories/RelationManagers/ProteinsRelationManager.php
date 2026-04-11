@@ -2,18 +2,16 @@
 
 namespace App\Filament\Clusters\Categories\Resources\ProteinCategories\RelationManagers;
 
-use Filament\Schemas\Schema;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Actions\AttachAction;
-use Filament\Forms\Components\Hidden;
-use Filament\Actions\EditAction;
 use App\Enums\PermissionEnums;
 use App\Filament\Resources\Proteins\ProteinResource;
 use App\Models\Protein;
-use Filament\Forms;
+use Filament\Actions\AttachAction;
+use Filament\Actions\EditAction;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
 use Filament\Resources\RelationManagers\RelationManager;
-use Filament\Tables;
+use Filament\Schemas\Schema;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
 
@@ -36,12 +34,11 @@ class ProteinsRelationManager extends RelationManager
             ])
             ->headerActions([
                 AttachAction::make()
-                    ->visible(fn ($record): bool => Auth::user()->hasPermissionTo(PermissionEnums::MEMBRANE_METHOD_EDIT)) // TODO
+                    ->visible(fn ($record): bool => Auth::user()->hasPermissionTo(PermissionEnums::PROTEIN_EDIT))
                     ->recordSelectSearchColumns(['name', 'uniprot_id'])
                     ->multiple()
-                    ->recordSelect(fn (Select $select) => 
-                        $select->placeholder('Please, select protein')
-                            ->searchable())
+                    ->recordSelect(fn (Select $select) => $select->placeholder('Please, select protein')
+                        ->searchable())
                     ->schema(fn (AttachAction $action) => [
                         $action->getRecordSelect(),
                         Hidden::make('model_type')

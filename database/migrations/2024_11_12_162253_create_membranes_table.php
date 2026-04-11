@@ -12,7 +12,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        DB::statement('CREATE EXTENSION IF NOT EXISTS citext;');
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('CREATE EXTENSION IF NOT EXISTS citext');
+        }
 
         Schema::create('membranes', function (Blueprint $table) {
             $table->id();
@@ -30,7 +32,7 @@ return new class extends Migration
             $table->string('email', 80)->nullable();
         });
 
-        Schema::create('publications', function(Blueprint $table) {
+        Schema::create('publications', function (Blueprint $table) {
             $table->id();
             $table->tinyInteger('type')->nullable();
             $table->string('citation', 1024)->nullable();
@@ -38,9 +40,9 @@ return new class extends Migration
             $table->string('pmid', 50)->nullable();
             $table->string('title', 512)->nullable();
             $table->string('journal', 255)->nullable();
-            $table->string('volume',50)->nullable();
-            $table->string('issue',50)->nullable();
-            $table->string('page',50)->nullable();
+            $table->string('volume', 50)->nullable();
+            $table->string('issue', 50)->nullable();
+            $table->string('page', 50)->nullable();
             $table->integer('year')->nullable();
             $table->date('publicated_date')->nullable();
             $table->datetimes();
@@ -62,7 +64,7 @@ return new class extends Migration
             $table->index(['model_id', 'model_type'], 'model_has_publications_model_id_index');
         });
 
-        Schema::create('keywords', function (Blueprint $table)  {
+        Schema::create('keywords', function (Blueprint $table) {
             $table->id();
             $table->integer('model_id');
             $table->string('model_type', 255);

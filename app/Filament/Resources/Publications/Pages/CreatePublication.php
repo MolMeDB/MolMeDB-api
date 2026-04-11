@@ -16,15 +16,13 @@ class CreatePublication extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        if(isset($data['identifier']) && isset($data['identifier_source']))
-        {
-            $service = new EuropePMC();
+        if (isset($data['identifier']) && isset($data['identifier_source'])) {
+            $service = new EuropePMC;
 
             // Find data on remote server and save all details
             $record = $service->detail($data['identifier'], Sources::tryFrom($data['identifier_source']));
 
-            if($record)
-            {
+            if ($record) {
                 $data['title'] = $record->title;
                 $data['journal'] = $record->journal?->title;
                 $data['volume'] = $record->journal?->volume;
@@ -32,23 +30,18 @@ class CreatePublication extends CreateRecord
                 $data['page'] = $record->pageInfo;
                 $data['year'] = $record->journal?->yearOfPublication;
                 $data['validated_at'] = now();
-            }
-            else
-            {
+            } else {
                 Notification::make()
                     ->title('Record not found on Europe PMC server.')
                     ->danger()
                     ->body('Please check the identifier and try again.')
                     ->send();
             }
-        }
-        else if (isset($data['doi']))
-        {
-            $service = new CrossRef();
+        } elseif (isset($data['doi'])) {
+            $service = new CrossRef;
             $record = $service->work($data['doi']);
 
-            if($record)
-            {
+            if ($record) {
                 $data['title'] = $record->title;
                 $data['journal'] = $record->journal?->title;
                 $data['volume'] = $record->journal?->volume;
@@ -56,9 +49,7 @@ class CreatePublication extends CreateRecord
                 $data['page'] = $record->pageInfo;
                 $data['year'] = $record->journal?->yearOfPublication;
                 $data['validated_at'] = now();
-            }
-            else
-            {
+            } else {
                 Notification::make()
                     ->title('Record not found on CrossRef server.')
                     ->danger()
@@ -72,22 +63,26 @@ class CreatePublication extends CreateRecord
 
     protected function afterCreate(): void
     {
-        $europePMC = new EuropePMC();
-        $crossRef = new CrossRef();
+        $europePMC = new EuropePMC;
+        $crossRef = new CrossRef;
 
         // Find data on remote server and save all details
-        $record = $europePMC->detail($this->record->identifier, Sources::tryFrom($this->record->identifier_source)) ?? $crossRef->work($this->record->doi);
+        $record = null;
 
-        if($record)
-        {
-            foreach($record->authors as $author)
-            {
+        if ($this->record->identifier && $this->record->identifier_source) {
+            $record = $europePMC->detail($this->record->identifier, Sources::tryFrom($this->record->identifier_source));
+        } elseif ($this->record->doi) {
+            $record = $crossRef->work($this->record->doi);
+        }
+
+        if ($record) {
+            foreach ($record->authors as $author) {
                 // Add author if not exists
                 $authorModel = Author::firstOrCreate([
                     'first_name' => $author->firstName,
                     'last_name' => $author->lastName,
-                    'full_name' => $author->fullName, 
-                    'affiliation' => $author->affiliations && count($author->affiliations) ? $author->affiliations[0] : null
+                    'full_name' => $author->fullName,
+                    'affiliation' => $author->affiliations && count($author->affiliations) ? $author->affiliations[0] : null,
                 ]);
 
                 $this->record->authors()->syncWithoutDetaching($authorModel->id);
