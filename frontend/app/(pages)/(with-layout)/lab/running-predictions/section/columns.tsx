@@ -8,7 +8,21 @@ import {
 } from "@heroui/react";
 import { IPredictionDataset } from "@/lib/api/admin/interfaces/Predictions";
 import { EyeIcon } from "@/components/ui/icons/eye";
-import { redirect } from "next/navigation";
+import Link from "next/link";
+
+function formatDateTime(value: string) {
+  const match = value.match(
+    /^(?<year>\d{4})\/(?<month>\d{2})\/(?<day>\d{2}) (?<hour>\d{2}):(?<minute>\d{2})/,
+  );
+
+  if (!match?.groups) {
+    return value;
+  }
+
+  const { day, hour, minute, month, year } = match.groups;
+
+  return `${day}. ${month}. ${year} ${hour}:${minute}`;
+}
 
 export const datasetColumns: IUiTableColumn<IPredictionDataset>[] = [
   {
@@ -25,15 +39,11 @@ export const datasetColumns: IUiTableColumn<IPredictionDataset>[] = [
       <Popover color="secondary" placement="bottom" showArrow={true}>
         <PopoverTrigger>
           <div className="line-clamp-2 max-w-lg font-semibold cursor-default">
-            {!item.comment
-              ? "N/A"
-              : item.comment?.length < 40
-                ? (item.comment ?? "")
-                : item.comment?.substring(0, 40) + "..."}
+            {item.comment ? item.comment : "N/A"}
           </div>
         </PopoverTrigger>
         <PopoverContent>
-          <div className="max-w-lg">{item.comment}</div>
+          <div className="max-w-lg">{item.comment || "No comment"}</div>
         </PopoverContent>
       </Popover>
     ),
@@ -43,7 +53,10 @@ export const datasetColumns: IUiTableColumn<IPredictionDataset>[] = [
   {
     key: "author",
     title: "Author",
-    render: (item) => item.user?.name,
+    render: (item) =>
+      item.user?.name ??
+      item.user?.email ??
+      (item.user_id ? `User #${item.user_id}` : "N/A"),
     isSortable: true,
     sortKey: "author",
   },
@@ -51,59 +64,74 @@ export const datasetColumns: IUiTableColumn<IPredictionDataset>[] = [
     key: "state",
     title: "State",
     render: (item) => {
-      if (
-        item.stats.running > 0 ||
-        (item.stats.done > 0 && item.stats.pending > 0)
-      ) {
+      const { enum_state } = item;
+
+      if (enum_state === "In progress") {
         return (
-          <Chip variant="bordered" color="success" className="text-xs">
-            Running
-          </Chip>
-        );
-      }
-      if (
-        item.stats.pending > 0 ||
-        (!item.stats.done && !item.stats.running && !item.stats.failed)
-      ) {
-        return (
-          <Chip variant="flat" color="warning" className="text-xs">
-            Pending
+          <Chip variant="bordered" color="primary" className="text-xs">
+            {enum_state}
           </Chip>
         );
       }
 
-      if (item.stats.done > 0) {
+      if (enum_state === "Failed") {
         return (
-          <Chip variant="flat" color="success" className="text-xs">
-            Done
+          <Chip variant="flat" color="danger" className="text-xs">
+            {enum_state}
           </Chip>
         );
       }
+
+      if (enum_state === "Finished with errors") {
+        return (
+          <Chip variant="flat" color="warning" className="text-xs">
+            {enum_state}
+          </Chip>
+        );
+      }
+
+      if (enum_state === "Pending") {
+        return (
+          <Chip variant="flat" color="warning" className="text-xs">
+            {enum_state}
+          </Chip>
+        );
+      }
+
+      if (enum_state === "Finished") {
+        return (
+          <Chip variant="flat" color="success" className="text-xs">
+            {enum_state}
+          </Chip>
+        );
+      }
+
+      return enum_state ?? "N/A";
     },
     isSortable: true,
     sortKey: "state",
   },
   {
     key: "stats",
-    title: "Progress",
+    title: "Completed",
     render: (item) => (
       <div>
-        {item.stats.done + item.stats.running} / {item.stats.total}
+        {item.stats.done + item.stats.failed} / {item.stats.total || 0}
       </div>
     ),
     isSortable: false,
   },
-  {
-    key: "last_update_at",
-    title: "Updated at",
-    render: (item) => item.updated_at,
-    isSortable: true,
-    sortKey: "last_update_at",
-  },
+  // {
+  //   key: "last_update_at",
+  //   title: "Updated at",
+  //   render: (item) => formatDateTime(item.updated_at),
+  //   isSortable: true,
+  //   sortKey: "last_update_at",
+  // },
   {
     key: "created_at",
     title: "Created at",
-    render: (item) => item.created_at,
+    render: (item) => formatDateTime(item.created_at),
     isSortable: true,
     sortKey: "created_at",
   },
@@ -113,13 +141,12 @@ export const datasetColumns: IUiTableColumn<IPredictionDataset>[] = [
     render: (item) => (
       <div className="relative flex items-center w-full gap-2">
         <Tooltip content="Details">
-          <span className="text-lg text-default-400 cursor-pointer active:opacity-50">
-            <EyeIcon
-              onClick={() => {
-                redirect(`/lab/running-predictions/${item.id}`);
-              }}
-            />
-          </span>
+          <Link
+            href={`/lab/running-predictions/${item.id}`}
+            className="text-lg text-default-400 cursor-pointer active:opacity-50"
+          >
+            <EyeIcon />
+          </Link>
         </Tooltip>
       </div>
     ),

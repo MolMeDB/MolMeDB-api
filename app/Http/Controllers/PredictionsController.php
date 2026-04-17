@@ -18,12 +18,12 @@ class PredictionsController extends Controller
     public function index_datasets(Request $request)
     {
         $per_page = 10; // Default value
-        if($request->query('per_page') && is_numeric($request->query('per_page')))
-        {
+        if ($request->query('per_page') && is_numeric($request->query('per_page'))) {
             $per_page = intval($request->query('per_page'));
         }
 
-        $pubs = PredictionDataset::filter($request->all())
+        $pubs = PredictionDataset::with('user')
+            ->filter($request->all())
             ->paginateFilter($per_page);
 
         return PredictionDatasetResource::collection($pubs);
@@ -31,13 +31,7 @@ class PredictionsController extends Controller
 
     public function index(PredictionDataset $record)
     {
-        $record->loadCount([
-            'predictions as pending' => fn ($q) => $q->where('state', Prediction::STATE_PREPARED),
-            'predictions as running' => fn ($q) => $q->where('state', Prediction::STATE_RUNNING),
-            'predictions as done'    => fn ($q) => $q->where('state', Prediction::STATE_FINISHED),
-            'predictions as failed'  => fn ($q) => $q->whereIn('state', [Prediction::STATE_ERROR, Prediction::STATE_REMOVE, Prediction::STATE_STOPPED]),
-            'predictions as total',
-        ]);
+        $record->loadMissing('user');
 
         return PredictionDatasetResource::make($record);
     }
@@ -45,8 +39,7 @@ class PredictionsController extends Controller
     public function records(Request $request, PredictionDataset $record)
     {
         $per_page = 10; // Default value
-        if($request->query('per_page') && is_numeric($request->query('per_page')))
-        {
+        if ($request->query('per_page') && is_numeric($request->query('per_page'))) {
             $per_page = intval($request->query('per_page'));
         }
 
@@ -64,8 +57,7 @@ class PredictionsController extends Controller
     public function structures(Request $request, PredictionDataset $record)
     {
         $per_page = 10; // Default value
-        if($request->query('per_page') && is_numeric($request->query('per_page')))
-        {
+        if ($request->query('per_page') && is_numeric($request->query('per_page'))) {
             $per_page = intval($request->query('per_page'));
         }
 
@@ -80,12 +72,10 @@ class PredictionsController extends Controller
         return PredictionStructureResource::collection($records);
     }
 
-
     public function predictionsByStructure(Request $request, PredictionStructure $record)
     {
         $per_page = 10; // Default value
-        if($request->query('per_page') && is_numeric($request->query('per_page')))
-        {
+        if ($request->query('per_page') && is_numeric($request->query('per_page'))) {
             $per_page = intval($request->query('per_page'));
         }
 

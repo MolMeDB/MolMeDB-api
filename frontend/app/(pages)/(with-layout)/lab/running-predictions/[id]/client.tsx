@@ -20,6 +20,26 @@ import { datasetColumns } from "./components/columns";
 import { EyeIcon } from "@/components/ui/icons/eye";
 import PredictionDetail from "./components/predicitonDetail";
 
+const predictionStateOptions = [
+  { label: "Stopped", value: 0 },
+  { label: "Prepared", value: 1 },
+  { label: "Error", value: 2 },
+  { label: "Remove", value: 3 },
+  { label: "Running", value: 4 },
+  { label: "Finished", value: 5 },
+];
+
+const predictionStepOptions = [
+  { label: "Pending", value: 0 },
+  { label: "Ionized", value: 1 },
+  { label: "SDF Ready", value: 2 },
+  { label: "Optimization Running", value: 3 },
+  { label: "COSMO Running", value: 4 },
+  { label: "Result prepared for parsing", value: 5 },
+  { label: "Result Parsed", value: 6 },
+  { label: "Result Stored", value: 7 },
+];
+
 export default function PredictionDatasetClient(props: {
   data: IPredictionDataset;
 }) {
@@ -30,33 +50,36 @@ export default function PredictionDatasetClient(props: {
     return {};
   }, []);
 
-  const columns = [
-    ...datasetColumns,
-    {
-      key: "actions",
-      title: "Actions",
-      render: (item: IPrediction) => (
-        <div className="relative flex items-center w-full gap-2">
-          <Tooltip content="Details" placement="right">
-            <span className="text-lg text-default-400 cursor-pointer active:opacity-50">
-              <EyeIcon
-                onClick={() => {
-                  setModalRecord(item);
-                }}
-              />
-            </span>
-          </Tooltip>
-        </div>
-      ),
-      isSortable: false,
-    },
-  ];
+  const columns = useMemo(
+    () => [
+      ...datasetColumns,
+      {
+        key: "actions",
+        title: "Actions",
+        render: (item: IPrediction) => (
+          <div className="relative flex items-center w-full gap-2">
+            <Tooltip content="Details" placement="right">
+              <span className="text-lg text-default-400 cursor-pointer active:opacity-50">
+                <EyeIcon
+                  onClick={() => {
+                    setModalRecord(item);
+                  }}
+                />
+              </span>
+            </Tooltip>
+          </div>
+        ),
+        isSortable: false,
+      },
+    ],
+    [],
+  );
 
   useEffect(() => {
     if (modalRecord) {
       onOpen();
     }
-  }, [modalRecord]);
+  }, [modalRecord, onOpen]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -64,71 +87,67 @@ export default function PredictionDatasetClient(props: {
     }
   }, [isOpen]);
 
-  const finished_percent = Math.round(
-    ((props.data.stats.done + props.data.stats.failed) /
-      props.data.stats.total) *
-      100,
-  );
+  const progressPercent = props.data.overall_stats.progress_percent;
+
+  const datasetComment = props.data.comment || "No comment";
+
+  const priorityLabel: Record<IPredictionDataset["priority"], string> = {
+    1: "Low",
+    2: "Medium",
+    3: "High",
+  };
 
   return (
     <div className="flex flex-col gap-4">
-      <InfoBox icon={<MdComment size={20} />} title={"Comment"} help={"test"}>
-        {props.data.comment}
+      <InfoBox icon={<MdComment size={20} />} title={"Comment"}>
+        {datasetComment}
       </InfoBox>
-      <div className="grid grid-cols-3 gap-4">
-        <div className="col-span-2">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2">
           <InfoBox icon={<FaUser size={20} />} title={"Author"}>
-            {props.data.user?.email}
+            {props.data.user?.email ?? props.data.user?.name ?? "N/A"}
           </InfoBox>
         </div>
         <InfoBox icon={<MdPriorityHigh size={20} />} title={"Priority"}>
           {props.data.priority == 1 ? (
-            <label className="text-success font-bold">Low</label>
+            <span className="text-success font-bold">
+              {priorityLabel[props.data.priority]}
+            </span>
           ) : props.data.priority == 2 ? (
-            <label className="text-primary font-bold">Medium</label>
+            <span className="text-primary font-bold">
+              {priorityLabel[props.data.priority]}
+            </span>
           ) : (
-            <label className="text-warning font-bold">High</label>
+            <span className="text-warning font-bold">
+              {priorityLabel[props.data.priority]}
+            </span>
           )}
         </InfoBox>
       </div>
-      <div className="grid grid-cols-3 gap-4">
-        <InfoBox
-          icon={<FaTemperatureHalf size={20} />}
-          title={"Temperature"}
-          help={"test"}
-        >
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <InfoBox icon={<FaTemperatureHalf size={20} />} title={"Temperature"}>
           {props.data.temperature} °C
         </InfoBox>
-        <InfoBox
-          icon={<FiDatabase size={20} />}
-          title={"Membrane"}
-          help={"test"}
-        >
-          {props.data.membrane.name}
+        <InfoBox icon={<FiDatabase size={20} />} title={"Membrane"}>
+          {props.data.membrane?.name ?? "N/A"}
         </InfoBox>
-        <InfoBox
-          icon={<CgArrowRightO size={20} />}
-          title={"Method"}
-          help={"test"}
-        >
+        <InfoBox icon={<CgArrowRightO size={20} />} title={"Method"}>
           {props.data.method}
         </InfoBox>
       </div>
       <InfoBox
         icon={<RiProgress2Line size={20} />}
-        title={`Progress (${finished_percent}%)`}
-        help={"test"}
+        title={`Progress (${progressPercent}%)`}
       >
         <div className="flex flex-col gap-1">
           <PredictionDatasetStateBar
-            ready={props.data.stats.pending}
+            pending={props.data.stats.pending}
             running={props.data.stats.running}
             done={props.data.stats.done}
             error={props.data.stats.failed}
           />
-          <div className="flex flex-row gap-4">
-            {/* <PredictionDatasetStateHelper name="Pending" type="pending" /> */}
-            <PredictionDatasetStateHelper name="Queued" type="ready" />
+          <div className="flex flex-wrap gap-x-4 gap-y-2">
+            <PredictionDatasetStateHelper name="Pending" type="pending" />
             <PredictionDatasetStateHelper name="Running" type="running" />
             <PredictionDatasetStateHelper name="Finished" type="done" />
             <PredictionDatasetStateHelper name="Error" type="error" />
@@ -142,9 +161,28 @@ export default function PredictionDatasetClient(props: {
         aria-label="Datasets table"
         columns={columns}
         itemKey="id"
-        defaultRowsPerPage={50}
-        // searchPlaceholder="Search by comment..."
-        // hasSearch
+        defaultRowsPerPage={40}
+        filters={[
+          {
+            key: "query",
+            type: "text",
+            placeholder: "Search ID or SMILES...",
+          },
+          {
+            key: "state",
+            type: "select",
+            multiple: true,
+            placeholder: "State",
+            options: predictionStateOptions,
+          },
+          {
+            key: "step",
+            type: "select",
+            multiple: true,
+            placeholder: "Step",
+            options: predictionStepOptions,
+          },
+        ]}
       />
       <Drawer
         scrollBehavior="inside"

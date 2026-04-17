@@ -8,6 +8,9 @@ import {
 } from "@/lib/api/admin/interfaces/Predictions";
 import IUiTableColumn from "@/components/ui/table/interface/columns";
 
+const remoteLoadError =
+  "Unable to load data from the remote server. Please try again later.";
+
 export default function CompoundPredictions(props: {
   compound: IPredictionStructure;
 }) {
@@ -53,18 +56,48 @@ const columns: IUiTableColumn<IPrediction>[] = [
   {
     key: "logk",
     title: "LogK",
-    render: (item) =>
-      item?.result?.results?.pop()?.solutes?.pop()?.logK.toFixed(2),
+    render: (item) => {
+      if (item.result?.results === false) {
+        return remoteLoadError;
+      }
+
+      const solute = getLastSolute(item);
+
+      return solute?.logK !== undefined ? solute.logK.toFixed(2) : "N/A";
+    },
     isSortable: false,
   },
   {
     key: "logperm",
     title: "LogPerm",
-    render: (item) =>
-      item?.result?.results?.pop()?.solutes?.pop()?.logPerm.toFixed(2),
+    render: (item) => {
+      if (item.result?.results === false) {
+        return remoteLoadError;
+      }
+
+      const solute = getLastSolute(item);
+
+      return solute?.logPerm !== undefined ? solute.logPerm.toFixed(2) : "N/A";
+    },
     isSortable: false,
   },
 ];
+
+function getLastSolute(item: IPrediction) {
+  const results = item.result?.results;
+
+  if (!Array.isArray(results) || results.length === 0) {
+    return null;
+  }
+
+  const solutes = results[results.length - 1]?.solutes;
+
+  if (!Array.isArray(solutes) || solutes.length === 0) {
+    return null;
+  }
+
+  return solutes[solutes.length - 1];
+}
 
 function PredictionsTable(props: { structure: IPredictionStructure }) {
   const stableApiParams = useMemo(() => {

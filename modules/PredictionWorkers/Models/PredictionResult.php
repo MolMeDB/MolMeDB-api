@@ -9,9 +9,10 @@ use Modules\PredictionWorkers\Services\CosmoXmlParser;
 class PredictionResult extends PredictionBaseModel
 {
     protected $connection = 'predictions';
+
     protected $table = 'results';
 
-    public function prediction() : HasOne
+    public function prediction(): HasOne
     {
         return $this->hasOne(Prediction::class, 'result_id');
     }
@@ -23,13 +24,17 @@ class PredictionResult extends PredictionBaseModel
 
     public function loadParsedResults()
     {
-        $parser = new CosmoXmlParser();
+        try {
 
-        if(!$this->file)
-        {
-            return null;
+            $parser = new CosmoXmlParser;
+
+            if (! $this->file) {
+                return null;
+            }
+
+            return $parser->parse($this->file);
+        } catch (\Exception $e) {
+            return false;
         }
-
-        return $parser->parse($this->file);
     }
 }

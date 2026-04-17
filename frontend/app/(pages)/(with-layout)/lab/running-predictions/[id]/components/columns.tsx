@@ -7,6 +7,24 @@ import {
 } from "@heroui/react";
 import { IPrediction } from "@/lib/api/admin/interfaces/Predictions";
 
+function getProgressColor(
+  item: IPrediction,
+): "danger" | "success" | "warning" | "default" {
+  if (["Error", "Remove", "Stopped"].includes(item.enum_state)) {
+    return "danger";
+  }
+
+  if (item.progress_percent >= 100) {
+    return "success";
+  }
+
+  if (item.enum_state === "Running") {
+    return "warning";
+  }
+
+  return "default";
+}
+
 export const datasetColumns: IUiTableColumn<IPrediction>[] = [
   {
     key: "id",
@@ -22,11 +40,15 @@ export const datasetColumns: IUiTableColumn<IPrediction>[] = [
       return (
         <Popover>
           <PopoverTrigger>
-            {item.structure.canonical_smiles.length > 30
-              ? item.structure.canonical_smiles.substring(0, 30) + "..."
-              : item.structure.canonical_smiles}
+            <span className="line-clamp-2 max-w-xs cursor-default">
+              {item.structure.canonical_smiles}
+            </span>
           </PopoverTrigger>
-          <PopoverContent>test</PopoverContent>
+          <PopoverContent>
+            <div className="max-w-md break-all">
+              {item.structure.canonical_smiles}
+            </div>
+          </PopoverContent>
         </Popover>
       );
     },
@@ -39,19 +61,15 @@ export const datasetColumns: IUiTableColumn<IPrediction>[] = [
       <Popover>
         <PopoverTrigger>
           <Progress
-            color={
-              item.step == 0
-                ? "default"
-                : item.step == item.total_steps
-                  ? "success"
-                  : "warning"
-            }
-            value={item.step}
+            color={getProgressColor(item)}
+            value={item.progress_percent}
             minValue={0}
-            maxValue={item.total_steps}
+            maxValue={100}
           />
         </PopoverTrigger>
-        <PopoverContent>{item.enum_step}</PopoverContent>
+        <PopoverContent>
+          {item.enum_state}: {item.enum_step} ({item.progress_percent}%)
+        </PopoverContent>
       </Popover>
     ),
     isSortable: true,

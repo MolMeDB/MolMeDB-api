@@ -13,6 +13,7 @@ class PredictionResource extends JsonResource
     public function withParsedResults(bool $parse = true): static
     {
         $this->parseResults = $parse;
+
         return $this;
     }
 
@@ -30,8 +31,9 @@ class PredictionResource extends JsonResource
             'state' => $this->state,
             'enum_state' => Prediction::enumState($this->state),
             'step' => $this->step,
-            'total_steps' => max(array_keys(Prediction::$enum_steps)),
+            'total_steps' => Prediction::finalStep(),
             'enum_step' => Prediction::enumStep($this->step),
+            'progress_percent' => Prediction::progressPercent($this->step, $this->state, $this->result_id),
             'temperature' => $this->temperature,
             'membrane' => PredictionMembraneResource::make($this->predictionMembrane),
             'method' => Prediction::enumMethod($this->method_type),

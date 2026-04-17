@@ -12,6 +12,7 @@ export interface IPrediction {
   step: number;
   total_steps: number;
   enum_step: string;
+  progress_percent: number;
   method: string;
   priority: 1 | 2 | 3;
   dataset: IPredictionDataset;
@@ -39,10 +40,13 @@ export interface IPredictionDataset {
   id: number;
   comment: string;
   token: string;
+  user_id?: number;
   temperature: number;
   membrane: IPredictionMembrane;
   priority: 1 | 2 | 3;
   method: "cosmoperm" | "cosmomic";
+  state: number;
+  enum_state: string;
   stats: {
     pending: number;
     running: number;
@@ -51,9 +55,10 @@ export interface IPredictionDataset {
     total: number;
   };
   overall_stats: {
-    pending: number;
-    running: number;
-    done: number;
+    progress_percent: number;
+    completed_percent: number;
+    steps_done: number;
+    steps_total: number;
   };
   user?: IUser;
   updated_at: string;
@@ -84,5 +89,5 @@ interface IParsedCosmoResult {
 export interface IPredictionResult {
   id: number;
   file: IFile;
-  results: IParsedCosmoResult[];
+  results: IParsedCosmoResult[] | false;
 }

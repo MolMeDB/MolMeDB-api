@@ -4,14 +4,26 @@ import DetailProperty from "@/app/(pages)/(with-layout)/mol/[id]/components/prop
 import { IPrediction } from "@/lib/api/admin/interfaces/Predictions";
 import { SiMoleculer } from "react-icons/si";
 import { MdList } from "react-icons/md";
-import {
-  Link,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  Progress,
-} from "@heroui/react";
-import { RiProgress3Fill, RiProgress3Line } from "react-icons/ri";
+import { Link, Progress } from "@heroui/react";
+import { RiProgress3Line } from "react-icons/ri";
+
+function getProgressColor(
+  compound: IPrediction,
+): "danger" | "success" | "warning" | "default" {
+  if (["Error", "Remove", "Stopped"].includes(compound.enum_state)) {
+    return "danger";
+  }
+
+  if (compound.progress_percent >= 100) {
+    return "success";
+  }
+
+  if (compound.enum_state === "Running") {
+    return "warning";
+  }
+
+  return "default";
+}
 
 export default function CompoundBasicProperties(props: {
   compound: IPrediction;
@@ -33,9 +45,9 @@ export default function CompoundBasicProperties(props: {
                 {props.compound.structure.remote_identifier}
               </Link>
             ) : (
-              <label className="font-bold text-warning-700">
+              <span className="font-bold text-warning-700">
                 Not exists yet
-              </label>
+              </span>
             )
           }
         />
@@ -44,23 +56,18 @@ export default function CompoundBasicProperties(props: {
           title="Progress"
           className="w-full"
           value={
-            <div className="flex flex-row gap-4 w-full no-wrap items-center">
+            <div className="flex flex-row gap-4 w-full items-center">
               <Progress
                 className="w-1/2"
-                color={
-                  props.compound.step == 0
-                    ? "default"
-                    : props.compound.step == props.compound.total_steps
-                      ? "success"
-                      : "warning"
-                }
-                value={props.compound.step}
+                color={getProgressColor(props.compound)}
+                value={props.compound.progress_percent}
                 minValue={0}
-                maxValue={props.compound.total_steps}
+                maxValue={100}
               />
-              <label className="whitespace-nowrap">
-                {props.compound.enum_step}
-              </label>
+              <span className="whitespace-nowrap">
+                {props.compound.enum_state}: {props.compound.enum_step} (
+                {props.compound.progress_percent}%)
+              </span>
             </div>
           }
         />

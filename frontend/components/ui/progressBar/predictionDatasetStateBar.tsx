@@ -2,36 +2,33 @@ import { Popover, PopoverContent, PopoverTrigger } from "@heroui/react";
 import { useMemo } from "react";
 
 type Props = {
-  // pending: number;
-  ready: number;
+  pending: number;
   running: number;
   done: number;
   error: number;
-  height?: number; // optional
+  height?: number;
 };
 
 const colors = {
-  pending: "bg-default-400",
-  ready: "bg-primary",
+  pending: "bg-primary",
   running: "bg-warning",
   done: "bg-success",
   error: "bg-danger",
 };
 
 export default function PredictionDatasetStateBar({
-  ready,
+  pending,
   running,
   done,
   error,
   height = 12,
 }: Props) {
-  const total = ready + running + done + error;
+  const total = pending + running + done + error;
 
   const percentages = useMemo(() => {
     if (total === 0) {
       return {
         pending: 0,
-        ready: 0,
         running: 0,
         done: 0,
         error: 0,
@@ -39,26 +36,19 @@ export default function PredictionDatasetStateBar({
     }
 
     return {
-      // pending: (pending / total) * 100,
-      ready: (ready / total) * 100,
+      pending: (pending / total) * 100,
       running: (running / total) * 100,
       done: (done / total) * 100,
       error: (error / total) * 100,
     };
-  }, [ready, running, done, error, total]);
+  }, [pending, running, done, error, total]);
 
   const segments = [
-    // {
-    //   key: "pending",
-    //   value: percentages.pending,
-    //   total: pending,
-    //   color: colors.pending,
-    // },
     {
-      key: "ready",
-      value: percentages.ready,
-      total: ready,
-      color: colors.ready,
+      key: "pending",
+      value: percentages.pending,
+      total: pending,
+      color: colors.pending,
     },
     {
       key: "running",
@@ -87,7 +77,6 @@ export default function PredictionDatasetStateBar({
               <Popover key={segment.key} showArrow={true}>
                 <PopoverTrigger>
                   <div
-                    // key={segment.key}
                     className={`
                   ${segment.color}
                   transition-all duration-700 ease-in-out cursor-pointer
@@ -108,7 +97,7 @@ export default function PredictionDatasetStateBar({
 
 export function PredictionDatasetStateHelper(props: {
   name: string;
-  type: "pending" | "ready" | "running" | "done" | "error";
+  type: "pending" | "running" | "done" | "error";
 }) {
   return (
     <div className="flex flex-row items-center gap-2">

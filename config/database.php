@@ -17,7 +17,7 @@ return [
     */
 
     'default' => env('DB_CONNECTION', 'sqlite'),
-    'default_predictions' => env('DB_PREDICTIONS_CONNECTION', 'sqlite'),
+    'default_predictions' => env('DB_PREDICTIONS_CONNECTION', 'predictions'),
 
     /*
     |--------------------------------------------------------------------------
@@ -99,7 +99,7 @@ return [
         ],
 
         'predictions' => [
-            'driver' => env('DB_PREDICTIONS_CONNECTION', 'pgsql'),
+            'driver' => env('DB_PREDICTIONS_DRIVER', 'pgsql'),
             'url' => env('DB_PREDICTIONS_URL'),
             'host' => env('DB_PREDICTIONS_HOST', '127.0.0.1'),
             'port' => env('DB_PREDICTIONS_PORT', '5432'),
