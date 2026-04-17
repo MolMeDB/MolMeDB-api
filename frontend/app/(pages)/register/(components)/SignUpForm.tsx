@@ -3,7 +3,9 @@
 import { Alert, Button, Input } from "@heroui/react";
 import { useActionState, useState } from "react";
 import submitSignUp from "../(actions)/submitSignUp";
-import { actionAsyncStorage } from "next/dist/server/app-render/action-async-storage.external";
+import Turnstile from "@/components/auth/Turnstile";
+
+const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
 
 export default function SignUpForm() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -14,6 +16,7 @@ export default function SignUpForm() {
   const [affiliation, setAffiliation] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
   return (
     <div className="w-full max-w-96 flex flex-col items-center">
@@ -107,12 +110,19 @@ export default function SignUpForm() {
           label="Confirm Password"
           name="password_confirmation"
         />
+        <Turnstile
+          name="turnstile_token"
+          siteKey={turnstileSiteKey}
+          onVerify={setTurnstileToken}
+        />
         <Button
           className="w-full mt-4"
           type="submit"
           color="primary"
           size="lg"
-          isDisabled={actionState?.status === 201}
+          isDisabled={
+            actionState?.status === 201 || !turnstileSiteKey || !turnstileToken
+          }
           isLoading={isPending}
         >
           Create new account

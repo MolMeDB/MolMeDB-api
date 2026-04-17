@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { get, post } from "@/lib/api/admin";
+import { post } from "@/lib/api/admin";
 import ApiResponse from "@/lib/api/response";
 import { Cookie } from "@/lib/api/cookies";
 
@@ -16,62 +16,33 @@ export default async function submitLogin(
 
   let redirectTo = null;
 
-  // Check if user is already logged in
-  try {
-    const result = await get("/api/user");
-
-    if (result.status == 200) {
-      // Update user data
-      await Cookie.setUserData(await result.json());
-      // Redirect to default page
-      redirectTo = "/lab";
-    }
-  } catch {
-    // Fetch error?
-    return {
-      status: 500,
-      message: "Neplatná odpověď serveru. Zkuste to znovu.",
-      data: {},
-    } as ApiResponse;
-  }
-
-  if (redirectTo) {
-    redirect(redirectTo);
-  }
-
   try {
     const result2 = await post("/login", rawFormData);
 
-    if (result2.status != 200 && result2.status != 422) {
-      console.error(result2);
-      throw new Error("Invalid response.");
-    }
+    if (result2.status === 422) {
+      const data = await result2.json();
 
-    var data = await result2.json();
-
-    // Check if the login form return errors
-    if (data.errors) {
-      console.error(data);
       return {
         status: 400,
         message: "Incorrect login credentials.",
-        data: data.errors,
+        data: data.errors ?? {},
       } as ApiResponse;
     }
 
-    data = data?.data;
+    if (result2.status != 200) {
+      console.error(result2);
+      throw new Error("Invalid server response.");
+    }
 
-    // Check if returned data has correct format
+    const response = await result2.json();
+    const data = response?.data;
+
     if (!data.id || !data.name || !data.email) {
-      // Logout user
-      redirectTo = "/api/logout";
+      throw new Error("Invalid user response.");
     }
 
-    // Save user information
-    if (!redirectTo) {
-      await Cookie.setUserData(data);
-      redirectTo = "/lab";
-    }
+    await Cookie.setUserData(data);
+    redirectTo = "/lab";
   } catch (error) {
     console.error(error);
     return {

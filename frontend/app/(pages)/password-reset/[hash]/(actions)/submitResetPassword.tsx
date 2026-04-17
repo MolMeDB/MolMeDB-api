@@ -1,9 +1,7 @@
 "use server";
 
-import { redirect } from "next/navigation";
-import { get, post } from "@/lib/api/admin";
+import { post } from "@/lib/api/admin";
 import ApiResponse from "@/lib/api/response";
-import { Cookie } from "@/lib/api/cookies";
 
 export default async function submitResetPassword(
   _previousState: any,
@@ -13,7 +11,7 @@ export default async function submitResetPassword(
     email: formData.get("email"),
     token: formData.get("hash"),
     password: formData.get("password"),
-    password_confirmation: formData.get("password_confirm"),
+    password_confirmation: formData.get("password_confirmation"),
   };
 
   try {

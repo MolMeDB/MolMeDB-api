@@ -2,25 +2,18 @@
 
 namespace App\Providers\Filament;
 
-use Filament\Pages\Dashboard;
-use Filament\Widgets\AccountWidget;
-use Filament\Widgets\FilamentInfoWidget;
-use App\Filament\Pages\Auth\Login;
 use App\Filament\Pages\Auth\EmailVerification;
-use App\Filament\Pages\Auth\PasswordReset;
-use App\Filament\Pages\Auth\Profile;
+use App\Filament\Pages\Auth\Login;
 use App\Filament\Pages\Auth\Registration;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
-use Filament\Pages;
+use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
-use Filament\Support\Assets\Css;
-use Filament\Support\Assets\Js;
 use Filament\Support\Colors\Color;
-use Filament\Support\Facades\FilamentAsset;
-use Filament\Widgets;
+use Filament\Widgets\AccountWidget;
+use Filament\Widgets\FilamentInfoWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -40,7 +33,6 @@ class AdminPanelProvider extends PanelProvider
             ->registration(false)
             ->login(Login::class)
             // ->registration(Registration::class) # Disable registration on admin panel
-            ->passwordReset(requestAction: PasswordReset::class)
             ->emailVerification(EmailVerification::class)
             ->emailVerificationRoutePrefix('email')
             ->emailVerificationPromptRouteSlug('prompt')

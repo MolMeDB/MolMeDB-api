@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { get, post } from "@/lib/api/admin";
+import { post } from "@/lib/api/admin";
 import ApiResponse from "@/lib/api/response";
 import { Cookie } from "@/lib/api/cookies";
 
@@ -15,6 +15,7 @@ export default async function submitSignUp(
     password_confirmation: formData.get("password_confirmation"),
     affiliation: formData.get("affiliation"),
     name: formData.get("name"),
+    turnstile_token: formData.get("turnstile_token"),
   };
 
   let redirectTo = null;

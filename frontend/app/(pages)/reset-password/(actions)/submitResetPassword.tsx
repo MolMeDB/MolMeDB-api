@@ -1,9 +1,7 @@
 "use server";
 
-import { redirect } from "next/navigation";
-import { get, post } from "@/lib/api/admin";
+import { post } from "@/lib/api/admin";
 import ApiResponse from "@/lib/api/response";
-import { Cookie } from "@/lib/api/cookies";
 
 export default async function submitResetPassword(
   _previousState: any,
@@ -11,9 +9,8 @@ export default async function submitResetPassword(
 ) {
   const rawFormData = {
     email: formData.get("email"),
+    turnstile_token: formData.get("turnstile_token"),
   };
-
-  let redirectTo = null;
 
   try {
     const result2 = await post("/forgot-password", rawFormData);
@@ -37,11 +34,8 @@ export default async function submitResetPassword(
       } as ApiResponse;
     }
 
-    var data = await result2.json();
+    const data = await result2.json();
 
-    console.log(result2, data);
-
-    // Check if the login form return errors
     if (data.errors) {
       console.error(data);
       return {
@@ -52,20 +46,6 @@ export default async function submitResetPassword(
         data: data.errors,
       } as ApiResponse;
     }
-
-    data = data?.data;
-
-    // Check if returned data has correct format
-    if (!data.id || !data.name || !data.email) {
-      // Logout user
-      redirectTo = "/api/logout";
-    }
-
-    // Save user information
-    if (!redirectTo) {
-      await Cookie.setUserData(data);
-      redirectTo = "/lab";
-    }
   } catch (error) {
     console.error(error);
     return {
@@ -75,5 +55,9 @@ export default async function submitResetPassword(
     } as ApiResponse;
   }
 
-  if (redirectTo) redirect(redirectTo);
+  return {
+    status: 500,
+    message: "Server error, please try again later.",
+    data: {},
+  } as ApiResponse;
 }

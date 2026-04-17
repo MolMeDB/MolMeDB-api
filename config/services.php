@@ -37,6 +37,13 @@ return [
     'cdk_depict_url' => env('CDK_DEPICT_URL'),
 
     'rdkit' => [
-        'url' => rtrim(env('RDKIT_HOST') ?? "", '/')
+        'url' => rtrim(env('RDKIT_HOST') ?? '', '/'),
+    ],
+
+    'turnstile' => [
+        'enabled' => env('TURNSTILE_ENABLED', true),
+        'site_key' => env('TURNSTILE_SITE_KEY'),
+        'secret_key' => env('TURNSTILE_SECRET_KEY'),
+        'verify_url' => env('TURNSTILE_VERIFY_URL', 'https://challenges.cloudflare.com/turnstile/v0/siteverify'),
     ],
 ];

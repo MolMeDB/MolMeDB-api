@@ -70,7 +70,7 @@ export default function ResetPasswordForm(props: {
           }}
           type="password"
           label="Confirm new password"
-          name="password_confirm"
+          name="password_confirmation"
           autoComplete="new-password"
           isDisabled={actionState?.status === 200}
           value={passwordConfirm}
@@ -85,7 +85,7 @@ export default function ResetPasswordForm(props: {
           isDisabled={actionState?.status === 200}
           isLoading={isPending}
         >
-          Send email
+          Reset password
         </Button>
       </form>
     </div>

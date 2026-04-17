@@ -29,7 +29,6 @@ class ResetPasswordController extends Controller
      */
     protected $redirectTo = '/home';
 
-
     public function __invoke(Request $request, string $token)
     {
         $email = $request->query('email');
@@ -45,7 +44,7 @@ class ResetPasswordController extends Controller
         }
 
         return redirect(
-            config('app.frontend_url')."/reset-password?token={$token}&email={$email}"
+            config('app.frontend_url')."/password-reset/{$token}?email=".urlencode((string) $email)
         );
     }
 }

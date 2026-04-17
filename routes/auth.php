@@ -11,27 +11,26 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/register', function () {
     return redirect()->intended(
-                config('app.frontend_url').'/register'
-            );
+        config('app.frontend_url').'/register'
+    );
 })
     ->middleware('guest')
     ->name('register');
 
 Route::post('/register', [RegisteredUserController::class, 'store'])
     ->middleware('guest');
-    // ->name('register');
+// ->name('register');
 
-Route::post('/login', [AuthenticatedSessionController::class, 'store'])
-    ->middleware('guest');
-    // ->name('login');
+Route::post('/login', [AuthenticatedSessionController::class, 'store']);
+// ->name('login');
 
 Route::post('/forgot-password', [PasswordResetLinkController::class, 'store'])
     ->middleware('guest');
-    // ->name('password.email');
+// ->name('password.email');
 
 Route::post('/reset-password', [NewPasswordController::class, 'store'])
     ->middleware('guest');
-    // ->name('password.store');
+// ->name('password.store');
 
 Route::get('/reset-password/{token}', [ResetPasswordController::class, '__invoke'])
     ->name('password.reset');
@@ -46,4 +45,4 @@ Route::post('/email/verification-notification', [EmailVerificationNotificationCo
 
 // Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])
 //     ->middleware('auth');
-    // ->name('logout');
+// ->name('logout');
