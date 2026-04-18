@@ -5,8 +5,13 @@ import {
   ISearchQuery,
   ISearchResult,
 } from "@/lib/api/admin/interfaces/SearchEngine";
-import { addToast, Button, Link, Spinner } from "@heroui/react";
+import { addToast, Button, Chip, Link, Spinner } from "@heroui/react";
 import { useEffect, useState } from "react";
+import {
+  MdArrowForward,
+  MdImageNotSupported,
+  MdSearchOff,
+} from "react-icons/md";
 
 export default function SearchListItems(props: {
   searchOptions: ISearchQuery;
@@ -39,59 +44,95 @@ export default function SearchListItems(props: {
     });
   }, [props.searchOptions.query, props.searchOptions.type]);
 
+  const total = records?.meta.total ?? 0;
+
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-row items-center justify-between gap-8">
-        <h2 className="font-semibold text-foreground/80">
-          Results for '{props.searchOptions.query}'
-        </h2>
-        <h3 className="font-semibold text-foreground/60 text-sm">
-          Total: {records?.meta.total}
-        </h3>
+    <div className="flex flex-col gap-3 w-full">
+      <div className="flex flex-col w-full gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex min-w-0 flex-col gap-1 flex-1">
+          <h2 className="font-semibold text-foreground">
+            Results for &quot;{props.searchOptions.query}&quot;
+          </h2>
+          <p className="text-sm text-foreground-500">
+            Filtered by {props.searchOptions.type.toLowerCase()}.
+          </p>
+        </div>
+        <Chip color="primary" size="sm" variant="flat">
+          {isSearching ? "Searching" : `${total} results`}
+        </Chip>
       </div>
 
       {isSearching ? (
-        <div className="h-16 w-full flex flex-row items-center justify-center">
+        <div className="flex min-h-44 w-full flex-col items-center justify-center gap-3 rounded-lg border border-default-200 bg-default-50 dark:bg-background-dark-2">
           <Spinner size="lg" variant="wave" />
+          <span className="text-sm text-foreground-500">
+            Searching MolMeDB...
+          </span>
+        </div>
+      ) : records?.data.length === 0 ? (
+        <div className="flex min-h-44 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-default-300 bg-default-50 px-6 py-8 text-center dark:bg-background-dark-2">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-default-100 text-foreground-500">
+            <MdSearchOff size={22} />
+          </div>
+          <div className="flex flex-col gap-1">
+            <h3 className="font-medium text-foreground">No results found</h3>
+            <p className="max-w-sm text-sm text-foreground-500">
+              No matching records in this category.
+            </p>
+          </div>
+        </div>
+      ) : records?.data ? (
+        <div className="flex max-h-[30rem] flex-col gap-2 overflow-y-auto pr-1">
+          {records.data.map((record, index) => {
+            return (
+              <Button
+                key={`${record.link}-${index}`}
+                as={Link}
+                href={record.link}
+                className="h-auto min-h-24 justify-start border-default-200 bg-white px-3 py-3 text-left shadow-sm dark:bg-background-dark-2"
+                variant="bordered"
+                size="lg"
+                endContent={
+                  <MdArrowForward
+                    size={19}
+                    className="shrink-0 text-foreground-400"
+                  />
+                }
+              >
+                <div className="flex min-w-0 flex-1 items-center gap-4">
+                  {record.imageUrl ? (
+                    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-md border border-default-200 bg-default-50 p-1 dark:bg-background-dark">
+                      <img
+                        src={record.imageUrl ?? "todo"}
+                        alt={record.title}
+                        width={80}
+                        height={80}
+                        className="max-h-full max-w-full object-contain"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-md border border-default-200 bg-default-50 text-foreground-400 dark:bg-background-dark">
+                      <MdImageNotSupported size={22} />
+                    </div>
+                  )}
+                  <div className="flex min-w-0 flex-col items-start justify-center gap-1">
+                    <h3 className="line-clamp-1 text-sm font-semibold text-foreground">
+                      {record.title}
+                    </h3>
+                    <p className="line-clamp-2 text-left text-sm text-foreground-500">
+                      {record.subtitle}
+                    </p>
+                  </div>
+                </div>
+              </Button>
+            );
+          })}
         </div>
       ) : (
-        records?.data.map((record, index) => {
-          return (
-            <Button
-              key={index}
-              as={Link}
-              href={record.link}
-              className="px-2 h-24"
-              variant="bordered"
-              size="lg"
-            >
-              <div key={index} className="flex flex-row gap-8 w-full">
-                {record.imageUrl ? (
-                  <div
-                    style={{ width: 80, height: 80 }}
-                    className="flex items-center justify-center"
-                  >
-                    <img
-                      src={record.imageUrl ?? "todo"}
-                      alt={record.title}
-                      width={80}
-                      height={80}
-                      className="max-w-full h-auto"
-                    />
-                  </div>
-                ) : null}
-                <div className="flex flex-col items-start justify-center gap-1">
-                  <h1 className="font-bold color-danger line-clamp-1">
-                    {record.title}
-                  </h1>
-                  <h2 className="text-foreground-400 text-sm">
-                    {record.subtitle}
-                  </h2>
-                </div>
-              </div>
-            </Button>
-          );
-        })
+        <div className="flex min-h-44 flex-col items-center justify-center gap-3 rounded-lg border border-default-200 bg-default-50 px-6 py-8 text-center dark:bg-background-dark-2">
+          <MdSearchOff size={24} className="text-foreground-400" />
+          <p className="text-sm text-foreground-500">No active search.</p>
+        </div>
       )}
     </div>
   );
