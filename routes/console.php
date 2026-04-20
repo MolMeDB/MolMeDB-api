@@ -1,6 +1,7 @@
 <?php
 
 use App\Console\Commands\Cron\RunDailyCommands;
+use App\Console\Commands\ProcessFrontendUploads;
 use App\Models\Config;
 use Illuminate\Console\Command;
 use Illuminate\Foundation\Inspiring;
@@ -41,6 +42,10 @@ $failureRecipients = array_filter(explode(';', Config::get('email:cron:failure',
 
 Schedule::command('predictions:refresh-dataset-stats')
     ->everyFiveMinutes()
+    ->withoutOverlapping();
+
+Schedule::command(ProcessFrontendUploads::class)
+    ->everyMinute()
     ->withoutOverlapping();
 
 Schedule::command(RunDailyCommands::class)

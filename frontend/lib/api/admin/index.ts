@@ -79,6 +79,33 @@ async function _post(uri: string, data = {}, method = "POST") {
   return result;
 }
 
+async function _postForm(uri: string, data: FormData, method = "POST") {
+  const cks = await Cookies();
+
+  const SESSION = cks.get(FE_SESSION_KEY)?.value as string;
+  const XSRF_TOKEN = cks.get(XSRF_KEY)?.value as string;
+
+  const result = await fetch(`${baseUrl}${uri}`, {
+    method,
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      Referer: process.env.FRONTEND_URL as string,
+      Cookie: `${XSRF_KEY}=${XSRF_TOKEN}; ${BE_SESSION_KEY}=${SESSION}`,
+      "X-XSRF-TOKEN": XSRF_TOKEN,
+    },
+    body: data,
+  });
+
+  if (result.status == 419) {
+    return false;
+  }
+
+  await updateCookies(result);
+
+  return result;
+}
+
 export async function post(uri: string, data = {}, method = "POST") {
   let result = await _post(uri, data, method);
   if (result === false) {
@@ -88,6 +115,22 @@ export async function post(uri: string, data = {}, method = "POST") {
     if (result === false) {
       // Cannot refresch CSRF? Error!
       throw new Error("Cannot refresh CSRF."); // TODO RemoteServerError?
+    }
+  }
+  return result;
+}
+
+export async function postForm(
+  uri: string,
+  data: FormData,
+  method = "POST",
+) {
+  let result = await _postForm(uri, data, method);
+  if (result === false) {
+    await refreshCSRF();
+    result = await _postForm(uri, data, method);
+    if (result === false) {
+      throw new Error("Cannot refresh CSRF.");
     }
   }
   return result;

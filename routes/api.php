@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\InteractionActiveController;
 use App\Http\Controllers\InteractionPassiveController;
+use App\Http\Controllers\LabUploadController;
 use App\Http\Controllers\MembraneController;
 use App\Http\Controllers\MethodController;
 use App\Http\Controllers\PredictionsController;
@@ -20,54 +21,53 @@ Route::middleware(['auth:sanctum'])->get('/api/user', function (Request $request
     return UserResource::make($request->user());
 });
 
-Route::prefix('/api')->group(function() 
-{ 
+Route::prefix('/api')->group(function () {
     Route::get('test', function () {
         return response()->json(['message' => 'OK'], 200);
     });
 
     Route::prefix('interactions')
-        ->group(function() {
+        ->group(function () {
             Route::prefix('/passive')
                 ->controller(InteractionPassiveController::class)
-                ->group(function() {
+                ->group(function () {
                     Route::get('/structure/{identifier}', 'byStructure');
-                }); 
+                });
             Route::prefix('/active')
                 ->controller(InteractionActiveController::class)
-                ->group(function() {
+                ->group(function () {
                     Route::get('/structure/{identifier}', 'byStructure');
                 });
         });
 
     Route::prefix('membrane')
         ->controller(MembraneController::class)
-        ->group(function() { 
-           Route::get('/categories', 'categories'); 
-           Route::get('/{membrane}', 'show');
-           Route::get('/{membrane}/stats', 'stats');
+        ->group(function () {
+            Route::get('/categories', 'categories');
+            Route::get('/{membrane}', 'show');
+            Route::get('/{membrane}/stats', 'stats');
         });
 
     Route::prefix('method')
         ->controller(MethodController::class)
-        ->group(function() { 
-           Route::get('/categories', 'categories'); 
-           Route::get('/{method}', 'show');
-           Route::get('/{method}/stats', 'stats');
+        ->group(function () {
+            Route::get('/categories', 'categories');
+            Route::get('/{method}', 'show');
+            Route::get('/{method}/stats', 'stats');
         });
 
     Route::prefix('protein')
         ->controller(ProteinController::class)
-        ->group(function() { 
-           Route::get('/categories', 'categories'); 
-           Route::get('/{protein}', 'show');
-           Route::get('/{protein}/download/interactions', 'downloadInteractions');
-           Route::get('/{protein}/stats', 'stats');
+        ->group(function () {
+            Route::get('/categories', 'categories');
+            Route::get('/{protein}', 'show');
+            Route::get('/{protein}/download/interactions', 'downloadInteractions');
+            Route::get('/{protein}/stats', 'stats');
         });
 
-    Route::prefix("publication")
+    Route::prefix('publication')
         ->controller(PublicationController::class)
-        ->group(function() {
+        ->group(function () {
             Route::get('/', 'index');
             Route::get('/{publication}', 'show');
             Route::get('/{publication}/stats', 'stats');
@@ -75,7 +75,7 @@ Route::prefix('/api')->group(function()
 
     Route::prefix('search')
         ->controller(SearchController::class)
-        ->group(function() {
+        ->group(function () {
             Route::get('/structures', 'structure');
             Route::get('/membranes', 'membrane');
             Route::get('/methods', 'method');
@@ -86,7 +86,7 @@ Route::prefix('/api')->group(function()
     Route::prefix('predictions')
         ->controller(PredictionsController::class)
         ->middleware('auth')
-        ->group(function() {
+        ->group(function () {
             Route::get('/datasets', 'index_datasets');
             Route::get('/datasets/{record}', 'index');
             Route::get('/datasets/{record}/records', 'records');
@@ -96,9 +96,27 @@ Route::prefix('/api')->group(function()
 
     Route::prefix('stats')
         ->controller(StatsController::class)
-        ->group(function() {
-           Route::get('/', 'index');
-           Route::get('/publications', 'publications');
+        ->group(function () {
+            Route::get('/', 'index');
+            Route::get('/publications', 'publications');
+        });
+
+    Route::prefix('lab/upload')
+        ->controller(LabUploadController::class)
+        ->middleware('auth')
+        ->group(function () {
+            Route::get('/membranes', 'membranes');
+            Route::get('/methods', 'methods');
+            Route::get('/publications', 'publications');
+            Route::get('/publications/lookup', 'lookupPublications');
+            Route::get('/my-uploads', 'myUploads');
+            Route::post('/', 'store');
+            Route::get('/{record}/configure/preview', 'configurePreview');
+            Route::post('/{record}/configure/validate', 'validateConfiguration');
+            Route::post('/{record}/enqueue', 'enqueue');
+            Route::post('/{record}/revert', 'revert');
+            Route::post('/{record}/cancel', 'cancel');
+            Route::post('/{record}/reupload', 'reupload');
         });
 
     Route::prefix('structure')
@@ -113,4 +131,4 @@ Route::prefix('/api')->group(function()
             Route::get('/{identifier}/similarities', 'similarities');
         });
 })
-->middleware('throttle:100,1');
+    ->middleware('throttle:100,1');

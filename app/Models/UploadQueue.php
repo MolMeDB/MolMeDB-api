@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Casts\UploadQueueLogCasts;
 use App\Enums\UploadQueueLogContextEnums;
+use App\Enums\UploadQueueLogTypeEnums;
 use App\Jobs\ProcessUploadQueueRecord;
 use App\ValueObjects\UploadQueueLog;
 use Filament\Notifications\Notification;
@@ -16,12 +17,14 @@ use Modules\Rdkit\Rdkit;
 class UploadQueue extends Model
 {
     use HasFactory;
+
     protected $guarded = [];
+
     protected $table = 'upload_queue';
 
     protected static $disk = null;
 
-    protected function casts() : array
+    protected function casts(): array
     {
         return [
             'config' => 'array',
@@ -32,15 +35,16 @@ class UploadQueue extends Model
     }
 
     const TYPE_PASSIVE_DATASET = Dataset::TYPE_PASSIVE;
+
     const TYPE_ACTIVE_DATASET = Dataset::TYPE_ACTIVE;
     // const TYPE_ENERGY = 3;
 
-    private static $enum_types = array
-    (
-        self::TYPE_PASSIVE_DATASET => 'Passive interactions',
-        self::TYPE_ACTIVE_DATASET => 'Active interactions',
-        // self::TYPE_ENERGY => 'Energy',
-    );
+    private static $enum_types =
+        [
+            self::TYPE_PASSIVE_DATASET => 'Passive interactions',
+            self::TYPE_ACTIVE_DATASET => 'Active interactions',
+            // self::TYPE_ENERGY => 'Energy',
+        ];
 
     public static function enumType($type = null)
     {
@@ -55,19 +59,18 @@ class UploadQueue extends Model
         return null;
     }
 
-    public static function disk() : string | null
+    public static function disk(): ?string
     {
-        if(!self::$disk)
-        {
+        if (! self::$disk) {
             self::$disk = Filesystem::where('type', Filesystem::TYPE_UPLOAD_STORAGE)->first()?->systemName;
         }
 
         return self::$disk;
     }
 
-    public static function typeFolder($type) : string | null 
+    public static function typeFolder($type): ?string
     {
-        return match($type) {
+        return match ($type) {
             self::TYPE_PASSIVE_DATASET => 'upload_queue/passive',
             self::TYPE_ACTIVE_DATASET => 'upload_queue/active',
             default => null,
@@ -76,26 +79,32 @@ class UploadQueue extends Model
 
     /** STATES */
     const STATE_UPLOADED = -2;
+
     const STATE_CONFIGURED = -1;
+
     const STATE_PENDING = 0;
+
     const STATE_RUNNING = 1;
+
     const STATE_DONE = 2;
-    const STATE_ERROR = 3;   
-    const STATE_CANCELED = 4;  
+
+    const STATE_ERROR = 3;
+
+    const STATE_CANCELED = 4;
 
     /**
      * Enum states
      */
-    private static $enum_states = array
-    (
-        self::STATE_UPLOADED    => 'Uploaded',
-        self::STATE_CONFIGURED  => 'Configured',
-        self::STATE_PENDING     => 'Pending',
-        self::STATE_RUNNING     => 'Running',
-        self::STATE_DONE        => 'Done',
-        self::STATE_ERROR       => 'Error',
-        self::STATE_CANCELED    => 'Canceled',
-    );
+    private static $enum_states =
+        [
+            self::STATE_UPLOADED => 'Uploaded',
+            self::STATE_CONFIGURED => 'Configured',
+            self::STATE_PENDING => 'Pending',
+            self::STATE_RUNNING => 'Running',
+            self::STATE_DONE => 'Done',
+            self::STATE_ERROR => 'Error',
+            self::STATE_CANCELED => 'Canceled',
+        ];
 
     public static function enumState($state = null)
     {
@@ -110,9 +119,10 @@ class UploadQueue extends Model
         return null;
     }
 
-    public static function canBeAddedNewRecords() : bool 
+    public static function canBeAddedNewRecords(): bool
     {
-        $rdkit = new Rdkit();
+        $rdkit = new Rdkit;
+
         return $rdkit->is_connected();
     }
 
@@ -133,64 +143,102 @@ class UploadQueue extends Model
 
     public function isRevertible(): bool
     {
-        return $this->state !== self::STATE_UPLOADED && 
+        return $this->state !== self::STATE_UPLOADED &&
             $this->state !== self::STATE_CONFIGURED;
     }
+
     public function isDeletable(): bool
     {
         return $this->state === self::STATE_UPLOADED ||
             $this->state == self::STATE_CONFIGURED;
     }
-    
+
     public function isFinished(): bool
     {
         return $this->state === self::STATE_DONE;
     }
-    
+
     public function isCancelable(): bool
     {
-        return $this->state === self::STATE_PENDING || 
+        return $this->state === self::STATE_PENDING ||
             $this->state === self::STATE_RUNNING;
     }
 
     public function isEditableConfig(): bool
     {
-        return $this->state === self::STATE_UPLOADED || 
+        return $this->state === self::STATE_UPLOADED ||
             $this->state === self::STATE_CONFIGURED;
     }
 
-    public function isReadyToStart(): bool 
+    public function isReadyToStart(): bool
     {
-        return $this->state === self::STATE_CONFIGURED && 
+        return $this->state === self::STATE_CONFIGURED &&
             $this->hasValidConfig();
     }
 
-
-    public function addLog(UploadQueueLog $log) : void 
+    public function addLog(UploadQueueLog $log): void
     {
         $this->logs->push($log);
         $this->save();
     }
 
-    public function hasValidConfig(): bool 
+    public function addStructuredLog(
+        string $message,
+        UploadQueueLogContextEnums $context = UploadQueueLogContextEnums::INFO,
+        UploadQueueLogTypeEnums $type = UploadQueueLogTypeEnums::STATE_CHANGE,
+        ?int $state = null,
+        ?array $payload = null,
+        ?int $userId = null,
+    ): void {
+        $this->addLog(new UploadQueueLog(
+            $message,
+            $context,
+            now()->toISOString(),
+            $userId ? (string) $userId : (Auth::id() ? (string) Auth::id() : null),
+            $type,
+            $state ?? $this->state,
+            $payload,
+        ));
+    }
+
+    public function transitionToState(
+        int $state,
+        string $message,
+        UploadQueueLogContextEnums $context = UploadQueueLogContextEnums::INFO,
+        UploadQueueLogTypeEnums $type = UploadQueueLogTypeEnums::STATE_CHANGE,
+        ?array $payload = null,
+        ?int $userId = null,
+    ): void {
+        $this->state = $state;
+        $this->save();
+
+        $this->addStructuredLog(
+            $message,
+            $context,
+            $type,
+            $state,
+            $payload,
+            $userId,
+        );
+    }
+
+    public function hasValidConfig(): bool
     {
-        if(!$this->config || 
-            !isset($this->config['skip_first_row']) ||
-            !isset($this->config['separator']) ||
-            !isset($this->config['attributes']) || 
-            !is_array($this->config['attributes']) ||
-            count(array_filter($this->config['attributes'], fn($val) => $val !== null)) < 1)
-        {
+        if (! $this->config ||
+            ! isset($this->config['skip_first_row']) ||
+            ! isset($this->config['separator']) ||
+            ! isset($this->config['attributes']) ||
+            ! is_array($this->config['attributes']) ||
+            count(array_filter($this->config['attributes'], fn ($val) => $val !== null)) < 1) {
             return false;
         }
 
         return true;
     }
 
-    public function start() : void 
+    public function start(): void
     {
-        if(!$this->hasValidConfig())
-        {
+        if (! $this->hasValidConfig()) {
             Notification::make()
                 ->title('Upload job cannot be started')
                 ->body('Invalid configuration for the job. Please, reconfigure the upload job.')
@@ -199,6 +247,7 @@ class UploadQueue extends Model
 
             $this->state = self::STATE_UPLOADED;
             $this->save();
+
             return;
         }
 
@@ -216,15 +265,14 @@ class UploadQueue extends Model
             ->send();
     }
 
-    public function cancel() : void 
+    public function cancel(): void
     {
-        if(!$this->isCancelable())
-        {
-             $this->addLog(
+        if (! $this->isCancelable()) {
+            $this->addLog(
                 new UploadQueueLog(
-                    'Could not be canceled. State: [' . $this->enumState($this->state) . ']', 
-                    UploadQueueLogContextEnums::ERROR, 
-                    now(), 
+                    'Could not be canceled. State: ['.$this->enumState($this->state).']',
+                    UploadQueueLogContextEnums::ERROR,
+                    now(),
                     Auth::user()->id
                 )
             );
@@ -234,6 +282,7 @@ class UploadQueue extends Model
                 ->body('Only running jobs can be canceled.')
                 ->danger()
                 ->send();
+
             return;
         }
 
@@ -242,21 +291,21 @@ class UploadQueue extends Model
             ->body('Cancel process is not implemented yet.')
             ->warning()
             ->send();
+
         return;
 
         $this->state = self::STATE_CANCELED;
         $this->save();
     }
 
-    public function revert(): void 
+    public function revert(): void
     {
-        if(!$this->isRevertible())
-        {
+        if (! $this->isRevertible()) {
             $this->addLog(
                 new UploadQueueLog(
-                    'Could not be reverted. State: [' . $this->enumState($this->state) . ']', 
-                    UploadQueueLogContextEnums::ERROR, 
-                    now(), 
+                    'Could not be reverted. State: ['.$this->enumState($this->state).']',
+                    UploadQueueLogContextEnums::ERROR,
+                    now(),
                     Auth::user()->id
                 )
             );
@@ -266,19 +315,19 @@ class UploadQueue extends Model
                 ->body('Only finished and not started jobs can be reverted.')
                 ->danger()
                 ->send();
+
             return;
         }
 
-        if($this->state == self::STATE_PENDING)
-        {
+        if ($this->state == self::STATE_PENDING) {
             $this->state = self::STATE_CONFIGURED;
             $this->save();
 
             $this->addLog(
                 new UploadQueueLog(
-                    'Reverted from state: "' . $this->enumState($this->state) . '".', 
-                    UploadQueueLogContextEnums::WARNING, 
-                    now(), 
+                    'Reverted from state: "'.$this->enumState($this->state).'".',
+                    UploadQueueLogContextEnums::WARNING,
+                    now(),
                     Auth::user()->id
                 )
             );
@@ -287,6 +336,7 @@ class UploadQueue extends Model
                 ->title('Upload job reverted')
                 ->success()
                 ->send();
+
             return;
         }
 

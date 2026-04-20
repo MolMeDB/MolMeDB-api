@@ -49,6 +49,9 @@ enum PermissionEnums: string
     case DATASET_DELETE_OWN = 'dataset.delete.own';
     case DATASET_DELETE_FORCE = 'dataset.delete.force';
 
+    case UPLOAD_QUEUE_MANAGE_OWN = 'upload_queue.manage.own';
+    case UPLOAD_QUEUE_MANAGE_ALL = 'upload_queue.manage.all';
+
     case USERS_VIEW = 'users.view';
     case USERS_EDIT = 'users.edit';
     case USERS_DELETE = 'users.delete';
@@ -72,6 +75,8 @@ enum PermissionEnums: string
             self::DATASET_DELETE => 'Can delete datasets',
             self::DATASET_DELETE_OWN => 'Can delete own datasets',
             self::DATASET_DELETE_FORCE => 'Can force delete datasets',
+            self::UPLOAD_QUEUE_MANAGE_OWN => 'Can upload and manage own upload queue records',
+            self::UPLOAD_QUEUE_MANAGE_ALL => 'Can manage any upload queue records',
             self::MEMBRANE_METHOD_VIEW => 'Can view membranes and methods',
             self::MEMBRANE_METHOD_EDIT => 'Can manage membranes and methods',
             self::MEMBRANE_METHOD_EDIT_OWN => 'Can manage own membranes and methods',

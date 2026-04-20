@@ -2,38 +2,37 @@
 
 namespace App\Livewire;
 
-use Filament\Tables\Contracts\HasTable;
 use App\Enums\UploadQUeueLogContextEnums;
 use App\Models\UploadQueue;
 use App\Models\User;
 use App\ValueObjects\UploadQueueLog;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
-use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
+use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 
-class UploadQueueLogsTable extends TableWidget implements HasTable, HasForms
+class UploadQueueLogsTable extends TableWidget implements HasForms, HasTable
 {
-    use InteractsWithTable;
     use InteractsWithForms;
+    use InteractsWithTable;
 
     public ?UploadQueue $record = null;
-    protected int | string | array $columnSpan = 2;
 
+    protected int|string|array $columnSpan = 2;
 
     public function getTableRecords(): EloquentCollection
     {
         $records = $this->record->logs;
 
         // Sort
-        $sort_by = $this->getTableSortColumn() ?? "timestamp";
-        $sort_dir = $this->getTableSortDirection() ?? "asc";
+        $sort_by = $this->getTableSortColumn() ?? 'timestamp';
+        $sort_dir = $this->getTableSortDirection() ?? 'asc';
         $records = $records->sortBy($sort_by, SORT_REGULAR, $sort_dir === 'asc');
 
         return $records;
@@ -55,10 +54,19 @@ class UploadQueueLogsTable extends TableWidget implements HasTable, HasForms
                 TextColumn::make('context')
                     ->badge()
                     ->sortable()
+                    ->label('Severity'),
+                TextColumn::make('type')
+                    ->badge()
+                    ->sortable()
                     ->label('Type'),
+                TextColumn::make('state')
+                    ->badge()
+                    ->sortable()
+                    ->formatStateUsing(fn ($state) => $this->record->enumState($state))
+                    ->label('State'),
                 TextColumn::make('message')
                     ->html()
-                    ->color(fn (UploadQueueLog $record) => match($record->context) {
+                    ->color(fn (UploadQueueLog $record) => match ($record->context) {
                         UploadQUeueLogContextEnums::ERROR => 'danger',
                         UploadQUeueLogContextEnums::INFO => 'primary',
                         UploadQUeueLogContextEnums::SUCCESS => 'success',
