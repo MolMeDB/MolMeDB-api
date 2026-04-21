@@ -17,7 +17,7 @@ enum IconEnums: string
     case DOWNLOAD = 'heroicon-s-arrow-down-tray';
     case EDIT = 'heroicon-s-pencil-square';
     case FILES = 'heroicon-o-document';
-    case FILE_DOCUMENT = 'heroicon-s-document-text';
+    case FILE_DOCUMENT = 'heroicon-o-document-text';
     case FILE_IMAGE = 'heroicon-s-photo';
     case IDENTIFIERS = 'heroicon-s-italic';
     case INTERACTIONS = 'heroicon-s-arrows-up-down';

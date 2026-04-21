@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\DocumentationController;
 use App\Http\Controllers\InteractionActiveController;
 use App\Http\Controllers\InteractionPassiveController;
 use App\Http\Controllers\LabUploadController;
@@ -81,6 +82,15 @@ Route::prefix('/api')->group(function () {
             Route::get('/methods', 'method');
             Route::get('/proteins', 'protein');
             Route::get('/datasets', 'dataset');
+        });
+
+    Route::prefix('docs')
+        ->controller(DocumentationController::class)
+        ->group(function () {
+            Route::get('/tree', 'tree');
+            Route::get('/article', 'article');
+            Route::get('/article/{parentSlug}', 'article');
+            Route::get('/article/{parentSlug}/{childSlug}', 'article');
         });
 
     Route::prefix('predictions')

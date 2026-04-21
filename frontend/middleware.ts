@@ -8,14 +8,6 @@ const XSRF_KEY = process.env.COOKIES_BACKEND_XSRF_KEY as string;
 
 // This function can be marked `async` if using `await` inside
 export async function middleware(request: NextRequest) {
-  // Redirect /docs to docs.molmedb.upol.cz
-  if (request.nextUrl.pathname.startsWith("/docs")) {
-    const redirect = NextResponse.redirect(
-      new URL("", "https://docs.molmedb.upol.cz"),
-    );
-    return redirect;
-  }
-
   const requestHeaders = new Headers(request.headers);
   return NextResponse.next({
     request: {
