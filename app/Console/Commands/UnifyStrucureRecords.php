@@ -168,5 +168,10 @@ class UnifyStrucureRecords extends Command
 
         $this->info('Done.');
         $this->warn('Do not forget to check identifiers of the changed structures. Run: php artisan structures:check-internal-identifiers');
+        if ($this->confirm('Do you want to run it immediately?', true)) {
+            $this->call('structures:check-internal-identifiers', [
+                '--force' => True
+            ]);
+        }
     }
 }
