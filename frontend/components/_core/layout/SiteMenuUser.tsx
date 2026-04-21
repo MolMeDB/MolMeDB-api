@@ -11,6 +11,7 @@ import { UserDetailButton } from "./SiteMenu";
 import { useEffect, useState } from "react";
 import { UserSession } from "@/lib/api/admin/interfaces/User";
 import { IoMdLogOut } from "react-icons/io";
+import { IoSettingsOutline } from "react-icons/io5";
 
 export default function SiteMenuUser(props: { user?: UserSession }) {
   const [mounted, setMounted] = useState(false);
@@ -39,9 +40,13 @@ export default function SiteMenuUser(props: { user?: UserSession }) {
           <p className="font-semibold">Logged in as</p>
           <p className="font-semibold">{props.user.email}</p>
         </DropdownItem>
-        {/* <DropdownItem href="/account" key="settings">
-          Nastavení účtu
-        </DropdownItem> */}
+        <DropdownItem
+          key="settings"
+          href="/account/settings"
+          startContent={<IoSettingsOutline />}
+        >
+          Account settings
+        </DropdownItem>
         <DropdownItem
           startContent={<IoMdLogOut />}
           key="logout"

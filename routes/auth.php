@@ -15,7 +15,7 @@ Route::get('/register', function () {
     );
 })
     ->middleware('guest')
-    ->name('register');
+    ->name('frontend.register');
 
 Route::post('/register', [RegisteredUserController::class, 'store'])
     ->middleware('guest');
@@ -33,7 +33,7 @@ Route::post('/reset-password', [NewPasswordController::class, 'store'])
 // ->name('password.store');
 
 Route::get('/reset-password/{token}', [ResetPasswordController::class, '__invoke'])
-    ->name('password.reset');
+    ->name('frontend.password.reset');
 
 Route::get('/verify-email/{id}/{hash}', VerifyEmailController::class)
     ->middleware(['signed', 'throttle:6,1'])

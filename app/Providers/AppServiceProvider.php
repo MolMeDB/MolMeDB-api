@@ -2,12 +2,15 @@
 
 namespace App\Providers;
 
+use App\Listeners\RunPredictionsMigrationsAfterDefaultMigrate;
 use App\Models\Filesystem;
 use App\Models\SshCredential;
 use Exception;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
+use Illuminate\Console\Events\CommandFinished;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
@@ -25,6 +28,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Event::listen(CommandFinished::class, RunPredictionsMigrationsAfterDefaultMigrate::class);
+
         ResetPassword::createUrlUsing(function (object $notifiable, string $token) {
             return config('app.frontend_url')."/password-reset/{$token}?email=".urlencode($notifiable->getEmailForPasswordReset());
         });
