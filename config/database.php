@@ -146,6 +146,10 @@ return [
         'update_date_on_publish' => true,
     ],
 
+    'migrations_predictions' => [
+        'table' => env('DB_PREDICTIONS_MIGRATIONS_TABLE', 'predictions_migrations'),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Redis Databases
