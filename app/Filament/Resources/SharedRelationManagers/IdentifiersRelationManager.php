@@ -118,6 +118,7 @@ class IdentifiersRelationManager extends RelationManager
                         strval(Identifier::STATE_VALIDATED) => IconEnums::STATE_VALIDATED->value,
                         strval(Identifier::STATE_INVALID) => IconEnums::STATE_INVALID->value,
                         strval(Identifier::STATE_ACTIVE) => IconEnums::STATE_ACTIVE->value,
+                        strval(Identifier::STATE_OBSOLETE) => IconEnums::STATE_OBSOLETE->value,
                         default => IconEnums::QUESTION_MARK->value,
                     })
                     ->tooltip(fn (?string $state): string => match ($state) {
@@ -125,6 +126,7 @@ class IdentifiersRelationManager extends RelationManager
                         strval(Identifier::STATE_VALIDATED) => 'Validated',
                         strval(Identifier::STATE_INVALID) => 'Invalid identifier',
                         strval(Identifier::STATE_ACTIVE) => 'Primary',
+                        strval(Identifier::STATE_OBSOLETE) => 'Obsolete',
                         default => 'Unknown state',
                     }),
                 TextColumn::make('created_at')
