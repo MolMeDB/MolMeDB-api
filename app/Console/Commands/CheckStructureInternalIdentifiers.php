@@ -15,7 +15,7 @@ class CheckStructureInternalIdentifiers extends Command
      *
      * @var string
      */
-    protected $signature = 'structures:check-internal-identifiers {startId=1} {--force} {--preprocess-legacy-links}';
+    protected $signature = 'structures:check-internal-identifiers {--startId=0} {--force} {--preprocess-legacy-links}';
 
     /**
      * The console command description.
@@ -45,13 +45,24 @@ class CheckStructureInternalIdentifiers extends Command
         }
 
         $this->info('Checking structures identifiers...');
-
-        $startId = $this->option('force') ? 1 : (int) $this->argument('startId');
+        if($this->option('force'))
+        {
+            $startId = 1;   
+        }
+        else if(((int) $this->option('startId')) > 0) 
+        {
+            $startId = (int) $this->option('startId');
+        }
+        else
+        {
+            $startId = (int) Config::get('cron:daily:check_structure_identifier:start_id');
+        }
 
         $total = Structure::where('id', '>=', $startId)->count();
 
         if (! $total) {
-            Config::set('cron:daily:check_structure_identifier:start_id', 1);
+            $startId = 1;
+            Config::set('cron:daily:check_structure_identifier:start_id', $startId);
             $this->info('###### REWIND ##### - All structures processed');
             $total = Structure::where('id', '>=', $startId)->count();
         }
