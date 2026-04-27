@@ -7,7 +7,7 @@ const USER_KEY = process.env.COOKIES_FRONTEND_SESSION_USER_KEY as string;
 const XSRF_KEY = process.env.COOKIES_BACKEND_XSRF_KEY as string;
 
 // This function can be marked `async` if using `await` inside
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   return NextResponse.next({
     request: {
