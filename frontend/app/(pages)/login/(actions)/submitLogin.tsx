@@ -7,14 +7,14 @@ import { Cookie } from "@/lib/api/cookies";
 
 export default async function submitLogin(
   _previousState: any,
-  formData: FormData,
+  formData: FormData
 ) {
   const rawFormData = {
     email: formData.get("email"),
     password: formData.get("password"),
   };
 
-  let redirectTo = null;
+  let redirectTo = formData.get("redirectTo")?.toString() ?? false;
 
   try {
     const result2 = await post("/login", rawFormData);
@@ -42,7 +42,7 @@ export default async function submitLogin(
     }
 
     await Cookie.setUserData(data);
-    redirectTo = "/lab";
+    redirectTo = redirectTo ? redirectTo : "/lab";
   } catch (error) {
     console.error(error);
     return {

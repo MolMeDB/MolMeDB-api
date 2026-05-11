@@ -9,6 +9,7 @@ import { UserSession } from "@/lib/api/admin/interfaces/User";
 import { Cookie } from "@/lib/api/cookies";
 import LoginInformTable from "./(components)/LoginInformTable";
 import SiteNotifications from "@/components/_core/layout/SiteNotifications";
+import { cookies } from "next/headers";
 
 export const metadata: Metadata = {
   title: "Login | MolMeDB",
@@ -27,11 +28,28 @@ export default async function LoginPage({ searchParams }: PageProps) {
 
   const isVerified = getParams?.verified === "1";
   const verifiedEmail = getParams?.email as string | undefined;
+  const isExpired = getParams?.expired == "1";
+  const redirectTo = getParams?.redirect?.toString();
+  
+  var notification = null;
 
-  return (
-    <>
-      {isVerified && verifiedEmail && (
-        <SiteNotifications
+  if(isExpired){
+     notification = <SiteNotifications
+      notifications={[
+        {
+          title: "Your login expired due to inactivity.",
+          type: "warning",
+          message: (
+            <label>
+              Please, log in again.
+            </label>
+          ),
+        },
+      ]}
+    />
+  }
+  else if (isVerified && verifiedEmail) {
+    notification = <SiteNotifications
           notifications={[
             {
               title: "Email verified!",
@@ -45,18 +63,22 @@ export default async function LoginPage({ searchParams }: PageProps) {
             },
           ]}
         />
-      )}
+  }
+
+  return (
+    <>
+      {notification}
       <SiteMenu isLogoClickable />
       <SimpleSiteHeader>
         <></>
       </SimpleSiteHeader>
-      <Main user={user} defaultEmail={verifiedEmail} />
+      <Main user={isExpired ? undefined : user} defaultEmail={isExpired ? undefined : verifiedEmail} redirectTo={redirectTo}/>
       <SiteFooter />
     </>
   );
 }
 
-function Main(props: { user?: UserSession; defaultEmail?: string }) {
+function Main(props: { user?: UserSession; defaultEmail?: string; redirectTo?: string}) {
   return (
     <main className="p-8 lg:p-20 mt-12 max-h-screen max-w-screen-lg w-full mx-auto flex-1 flex flex-col justify-center items-center">
       <div className="max-h-[800px] max-w-[1200px] shadow-2xl rounded-xl bg-white dark:bg-background-dark flex flex-col lg:flex-row">
@@ -94,7 +116,7 @@ function Main(props: { user?: UserSession; defaultEmail?: string }) {
                 <p>Login to your account below</p>
               </div>
               <div className="flex flex-col items-center gap-2 w-full h-1/2 lg:h-[60%]">
-                <LoginForm defaultEmail={props.defaultEmail} />
+                <LoginForm defaultEmail={props.defaultEmail} redirectTo={props.redirectTo} />
               </div>
             </>
           )}

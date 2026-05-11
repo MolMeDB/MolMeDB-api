@@ -34,6 +34,7 @@ use App\Rules\UploadFile\PassiveInteractions\ColumnLogPerm;
 use App\Rules\UploadFile\PassiveInteractions\ColumnLogPermAcc;
 use App\Rules\UploadFile\PassiveInteractions\ColumnXmin;
 use App\Rules\UploadFile\PassiveInteractions\ColumnXminAcc;
+use App\ValueObjects\UploadQueueConfig;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use RuntimeException;
@@ -258,15 +259,14 @@ class UploadQueueFrontendConfigurator
             'ok' => true,
             'errors' => [],
             'warnings' => array_values($warnings),
-            'config' => [
-                'skip_first_row' => $skipFirstRow,
-                'separator' => $separator,
-                'attributes' => $columnMapping,
-                'validated_rows' => $validatedRows,
-                'validated_at' => now()->toISOString(),
-                'quick_validation_ok' => true,
-                'quick_validation_at' => now()->toISOString(),
-            ],
+            'config' => UploadQueueConfig::configured($separator, $skipFirstRow, $columnMapping)
+                ->withQuickValidation(
+                    true,
+                    $validatedRows,
+                    now()->toISOString(),
+                    now()->toISOString(),
+                )
+                ->toArray(),
         ];
     }
 
@@ -303,11 +303,8 @@ class UploadQueueFrontendConfigurator
      */
     private function defaultColumnMapping(UploadQueue $record, int $columnCount): array
     {
-        $configured = is_array($record->config['attributes'] ?? null) ? $record->config['attributes'] : null;
-        if (
-            is_array($configured) &&
-            count($configured) === $columnCount
-        ) {
+        $configured = $record->config->attributes();
+        if (count($configured) === $columnCount) {
             return array_map(function ($value) {
                 return is_string($value) && trim($value) !== '' ? trim($value) : self::IGNORE_COLUMN;
             }, $configured);

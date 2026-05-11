@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\UploadQueueConfigCasts;
 use App\Casts\UploadQueueLogCasts;
 use App\Enums\UploadQueueLogContextEnums;
 use App\Enums\UploadQueueLogTypeEnums;
@@ -27,7 +28,7 @@ class UploadQueue extends Model
     protected function casts(): array
     {
         return [
-            'config' => 'array',
+            'config' => UploadQueueConfigCasts::class,
             'logs' => UploadQueueLogCasts::class,
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
@@ -82,6 +83,8 @@ class UploadQueue extends Model
 
     const STATE_CONFIGURED = -1;
 
+    const STATE_REVIEW_REQUIRED = 50;
+
     const STATE_PENDING = 0;
 
     const STATE_RUNNING = 1;
@@ -95,14 +98,27 @@ class UploadQueue extends Model
     /**
      * Enum states
      */
-    private static $enum_states =
+    public static $enum_states =
         [
             self::STATE_UPLOADED => 'Uploaded',
             self::STATE_CONFIGURED => 'Configured',
+            self::STATE_REVIEW_REQUIRED => 'Review required',
             self::STATE_PENDING => 'Pending',
             self::STATE_RUNNING => 'Running',
             self::STATE_DONE => 'Done',
             self::STATE_ERROR => 'Error',
+            self::STATE_CANCELED => 'Canceled',
+        ];
+
+    public static $ui_enum_states =
+        [
+            self::STATE_UPLOADED => 'Configuration required',
+            self::STATE_CONFIGURED => 'Ready to start upload',
+            self::STATE_REVIEW_REQUIRED => 'Waiting for validation',
+            self::STATE_PENDING => 'Pending upload',
+            self::STATE_RUNNING => 'Uploading',
+            self::STATE_DONE => 'Uploaded',
+            self::STATE_ERROR => 'Validation error',
             self::STATE_CANCELED => 'Canceled',
         ];
 
@@ -150,7 +166,8 @@ class UploadQueue extends Model
     public function isDeletable(): bool
     {
         return $this->state === self::STATE_UPLOADED ||
-            $this->state == self::STATE_CONFIGURED;
+            $this->state == self::STATE_CONFIGURED ||
+            $this->state === self::STATE_REVIEW_REQUIRED;
     }
 
     public function isFinished(): bool
@@ -161,7 +178,8 @@ class UploadQueue extends Model
     public function isCancelable(): bool
     {
         return $this->state === self::STATE_PENDING ||
-            $this->state === self::STATE_RUNNING;
+            $this->state === self::STATE_RUNNING ||
+            $this->state === self::STATE_REVIEW_REQUIRED;
     }
 
     public function isEditableConfig(): bool
@@ -174,6 +192,47 @@ class UploadQueue extends Model
     {
         return $this->state === self::STATE_CONFIGURED &&
             $this->hasValidConfig();
+    }
+
+    public function canBeReuploaded(): bool
+    {
+        return $this->state === self::STATE_ERROR;
+    }
+
+    public function canBeConfigured(): bool
+    {
+        return in_array(
+            $this->state,
+            [
+                self::STATE_UPLOADED,
+                self::STATE_ERROR,
+                self::STATE_CONFIGURED,
+            ],
+            true
+        );
+    }
+
+    public function canBeEnqueued(): bool
+    {
+        return $this->state === self::STATE_CONFIGURED &&
+            $this->hasValidConfig() &&
+            $this->config->quickValidationPassed();
+    }
+
+    public function canBeRevertedToConfigState(): bool
+    {
+        return $this->state === self::STATE_PENDING ||
+            $this->state === self::STATE_REVIEW_REQUIRED;
+    }
+
+    public function canBeCanceled(): bool
+    {
+        return in_array($this->state, [
+            self::STATE_UPLOADED,
+            self::STATE_ERROR,
+            self::STATE_CONFIGURED,
+            self::STATE_PENDING,
+        ], true);
     }
 
     public function addLog(UploadQueueLog $log): void
@@ -224,16 +283,7 @@ class UploadQueue extends Model
 
     public function hasValidConfig(): bool
     {
-        if (! $this->config ||
-            ! isset($this->config['skip_first_row']) ||
-            ! isset($this->config['separator']) ||
-            ! isset($this->config['attributes']) ||
-            ! is_array($this->config['attributes']) ||
-            count(array_filter($this->config['attributes'], fn ($val) => $val !== null)) < 1) {
-            return false;
-        }
-
-        return true;
+        return $this->config->isConfigured();
     }
 
     public function start(): void

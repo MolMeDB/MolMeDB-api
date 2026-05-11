@@ -9,6 +9,7 @@ use App\Http\Requests\Lab\PreviewLabUploadConfigRequest;
 use App\Http\Requests\Lab\ReuploadLabUploadRequest;
 use App\Http\Requests\Lab\StoreLabUploadRequest;
 use App\Http\Requests\Lab\ValidateLabUploadConfigRequest;
+use App\Http\Resources\UploadQueueResource;
 use App\Models\Author;
 use App\Models\Dataset;
 use App\Models\File;
@@ -36,16 +37,6 @@ use Throwable;
 
 class LabUploadController extends Controller
 {
-    private const FRONTEND_STATE_LABELS = [
-        UploadQueue::STATE_UPLOADED => 'Configuration required',
-        UploadQueue::STATE_CONFIGURED => 'Ready to start upload',
-        UploadQueue::STATE_PENDING => 'Pending upload',
-        UploadQueue::STATE_RUNNING => 'Uploading',
-        UploadQueue::STATE_DONE => 'Uploaded',
-        UploadQueue::STATE_ERROR => 'Validation error',
-        UploadQueue::STATE_CANCELED => 'Canceled',
-    ];
-
     public function membranes(Request $request): JsonResponse
     {
         $query = trim($request->string('query')->toString());
@@ -187,8 +178,8 @@ class LabUploadController extends Controller
                 'type' => (int) $validated['dataset_type'],
                 'name' => $datasetName,
                 'comment' => $comment !== '' ? $comment : null,
-                'membrane_id' => (int) $validated['membrane_id'],
-                'method_id' => (int) $validated['method_id'],
+                'membrane_id' => $validated['dataset_type'] == Dataset::TYPE_PASSIVE ? (int) $validated['membrane_id'] : null,
+                'method_id' => $validated['dataset_type'] == Dataset::TYPE_PASSIVE ? (int) $validated['method_id'] : null,
                 'created_by' => $user->id,
             ]);
 
@@ -277,7 +268,7 @@ class LabUploadController extends Controller
         ], 201);
     }
 
-    public function myUploads(Request $request): JsonResponse
+    public function myUploads(Request $request)
     {
         $records = UploadQueue::query()
             ->with(['file', 'dataset.membrane', 'dataset.method', 'dataset.publications'])
@@ -285,68 +276,7 @@ class LabUploadController extends Controller
             ->orderByDesc('id')
             ->paginate((int) $request->integer('per_page', 20));
 
-        return response()->json([
-            'data' => $records->through(function (UploadQueue $record): array {
-                $lastLog = $record->logs?->last();
-
-                return [
-                    'id' => $record->id,
-                    'state' => $record->state,
-                    'state_label' => self::FRONTEND_STATE_LABELS[$record->state] ?? UploadQueue::enumState($record->state),
-                    'state_phase' => $this->statePhase($record->state),
-                    'can_reupload' => $record->state === UploadQueue::STATE_ERROR,
-                    'can_configure' => in_array($record->state, [UploadQueue::STATE_UPLOADED, UploadQueue::STATE_ERROR, UploadQueue::STATE_CONFIGURED], true),
-                    'can_enqueue' => $record->state === UploadQueue::STATE_CONFIGURED &&
-                        $record->hasValidConfig() &&
-                        (bool) ($record->config['quick_validation_ok'] ?? false),
-                    'can_revert' => $record->state === UploadQueue::STATE_PENDING,
-                    'can_cancel' => in_array($record->state, [
-                        UploadQueue::STATE_UPLOADED,
-                        UploadQueue::STATE_ERROR,
-                        UploadQueue::STATE_CONFIGURED,
-                        UploadQueue::STATE_PENDING,
-                    ], true),
-                    'dataset' => [
-                        'id' => $record->dataset?->id,
-                        'name' => $record->dataset?->name,
-                        'type' => $record->dataset ? Dataset::enumType((int) $record->dataset->type) : null,
-                        'membrane' => $record->dataset?->membrane?->abbreviation,
-                        'method' => $record->dataset?->method?->abbreviation,
-                    ],
-                    'publication' => $record->dataset?->publications?->first()?->citation,
-                    'file' => [
-                        'id' => $record->file?->id,
-                        'name' => $record->file?->name,
-                        'mime' => $record->file?->mime,
-                    ],
-                    'last_message' => $lastLog?->message,
-                    'config' => [
-                        'separator' => $record->config['separator'] ?? null,
-                        'skip_first_row' => $record->config['skip_first_row'] ?? null,
-                        'attributes' => $record->config['attributes'] ?? null,
-                        'quick_validation_ok' => $record->config['quick_validation_ok'] ?? false,
-                        'quick_validation_at' => $record->config['quick_validation_at'] ?? null,
-                    ],
-                    'logs' => $record->logs->map(fn ($log) => [
-                        'message' => $log->message,
-                        'context' => $log->context->value,
-                        'type' => $log->type->value,
-                        'state' => $log->state,
-                        'payload' => $log->payload,
-                        'timestamp' => $log->timestamp,
-                        'user_id' => $log->user_id,
-                    ])->values(),
-                    'created_at' => $record->created_at?->toISOString(),
-                    'updated_at' => $record->updated_at?->toISOString(),
-                ];
-            }),
-            'meta' => [
-                'current_page' => $records->currentPage(),
-                'last_page' => $records->lastPage(),
-                'per_page' => $records->perPage(),
-                'total' => $records->total(),
-            ],
-        ]);
+        return UploadQueueResource::collection($records);
     }
 
     public function reupload(ReuploadLabUploadRequest $request, UploadQueue $record): JsonResponse
@@ -355,7 +285,7 @@ class LabUploadController extends Controller
             abort(403);
         }
 
-        if ((int) $record->state !== UploadQueue::STATE_ERROR) {
+        if (! $record->canBeReuploaded()) {
             throw ValidationException::withMessages([
                 'record' => 'Only records in error state can be reuploaded.',
             ]);
@@ -390,11 +320,8 @@ class LabUploadController extends Controller
         ]);
 
         $oldFile = $record->file;
-        $config = is_array($record->config) ? $record->config : [];
-        unset($config['validated_rows'], $config['validated_at'], $config['attributes'], $config['separator'], $config['skip_first_row']);
-
         $record->file_id = $newFileRecord->id;
-        $record->config = $config;
+        $record->config = $record->config->withoutConfiguration();
         $record->save();
 
         $record->transitionToState(
@@ -419,7 +346,7 @@ class LabUploadController extends Controller
             'data' => [
                 'id' => $record->id,
                 'state' => $record->state,
-                'state_label' => self::FRONTEND_STATE_LABELS[$record->state] ?? UploadQueue::enumState($record->state),
+                'state_label' => UploadQueue::$ui_enum_states[$record->state] ?? UploadQueue::enumState($record->state),
             ],
         ]);
     }
@@ -433,8 +360,14 @@ class LabUploadController extends Controller
             abort(403);
         }
 
-        $separator = (string) $request->input('separator', (string) ($record->config['separator'] ?? ','));
-        $skipFirstRow = (int) $request->integer('skip_first_row', (int) ($record->config['skip_first_row'] ?? 1));
+        if (! $record->canBeConfigured()) {
+            throw ValidationException::withMessages([
+                'record' => 'Configuration can be loaded only for uploaded, configured or error records.',
+            ]);
+        }
+
+        $separator = (string) $request->input('separator', $record->config->separator());
+        $skipFirstRow = (int) $request->integer('skip_first_row', $record->config->skipFirstRow());
         $startLine = (int) $request->integer('start_line', 1);
         $limit = (int) $request->integer('limit', 5);
 
@@ -460,7 +393,7 @@ class LabUploadController extends Controller
             abort(403);
         }
 
-        if (! in_array($record->state, [UploadQueue::STATE_UPLOADED, UploadQueue::STATE_ERROR, UploadQueue::STATE_CONFIGURED], true)) {
+        if (! $record->canBeConfigured()) {
             throw ValidationException::withMessages([
                 'record' => 'Configuration can be updated only for uploaded, configured or error records.',
             ]);
@@ -490,12 +423,9 @@ class LabUploadController extends Controller
             ], 422);
         }
 
-        $record->config = [
-            ...(is_array($record->config) ? $record->config : []),
-            ...($result['config'] ?? []),
-            'detailed_validation_ok' => false,
-            'detailed_validation_at' => null,
-        ];
+        $record->config = $record->config
+            ->merge($result['config'] ?? [])
+            ->markDetailedValidationPending();
         $record->save();
 
         if ((int) $record->state !== UploadQueue::STATE_CONFIGURED) {
@@ -515,7 +445,7 @@ class LabUploadController extends Controller
             UploadQueueLogTypeEnums::VALIDATION_RUN,
             UploadQueue::STATE_CONFIGURED,
             [
-                'validated_rows' => $record->config['validated_rows'] ?? null,
+                'validated_rows' => $record->config->validatedRows(),
             ],
             $record->user_id,
         );
@@ -535,22 +465,13 @@ class LabUploadController extends Controller
             abort(403);
         }
 
-        if ((int) $record->state !== UploadQueue::STATE_CONFIGURED) {
-            throw ValidationException::withMessages([
-                'record' => 'Only configured records can be sent to queue.',
-            ]);
-        }
-
-        if (! $record->hasValidConfig() || ! (bool) ($record->config['quick_validation_ok'] ?? false)) {
+        if (! $record->canBeEnqueued()) {
             throw ValidationException::withMessages([
                 'config' => 'Configuration must be validated before sending record to queue.',
             ]);
         }
 
-        $config = is_array($record->config) ? $record->config : [];
-        $config['detailed_validation_ok'] = false;
-        $config['detailed_validation_at'] = null;
-        $record->config = $config;
+        $record->config = $record->config->markDetailedValidationPending();
         $record->save();
 
         $record->transitionToState(
@@ -569,7 +490,7 @@ class LabUploadController extends Controller
             'data' => [
                 'id' => $record->id,
                 'state' => $record->state,
-                'state_label' => self::FRONTEND_STATE_LABELS[$record->state] ?? UploadQueue::enumState($record->state),
+                'state_label' => UploadQueue::$ui_enum_states[$record->state] ?? UploadQueue::enumState($record->state),
             ],
         ]);
     }
@@ -592,12 +513,7 @@ class LabUploadController extends Controller
             ]);
         }
 
-        if (! in_array((int) $record->state, [
-            UploadQueue::STATE_UPLOADED,
-            UploadQueue::STATE_ERROR,
-            UploadQueue::STATE_CONFIGURED,
-            UploadQueue::STATE_PENDING,
-        ], true)) {
+        if (! $record->canBeCanceled()) {
             throw ValidationException::withMessages([
                 'record' => 'This record cannot be canceled in current state.',
             ]);
@@ -626,10 +542,7 @@ class LabUploadController extends Controller
             }
         }
 
-        $config = is_array($record->config) ? $record->config : [];
-        $config['uploaded_file_deleted'] = $fileDeleted;
-        $config['uploaded_file_deleted_at'] = now()->toISOString();
-        $record->config = $config;
+        $record->config = $record->config->markUploadedFileDeleted($fileDeleted, now()->toISOString());
         $record->save();
 
         $record->transitionToState(
@@ -650,7 +563,7 @@ class LabUploadController extends Controller
             'data' => [
                 'id' => $record->id,
                 'state' => $record->state,
-                'state_label' => self::FRONTEND_STATE_LABELS[$record->state] ?? UploadQueue::enumState($record->state),
+                'state_label' => UploadQueue::$ui_enum_states[$record->state] ?? UploadQueue::enumState($record->state),
             ],
         ]);
     }
@@ -661,9 +574,9 @@ class LabUploadController extends Controller
             abort(403);
         }
 
-        if ((int) $record->state !== UploadQueue::STATE_PENDING) {
+        if (! $record->canBeRevertedToConfigState()) {
             throw ValidationException::withMessages([
-                'record' => 'Only pending records can be reverted to configuration state.',
+                'record' => 'Only pending or review-required records can be reverted to configuration state.',
             ]);
         }
 
@@ -681,7 +594,7 @@ class LabUploadController extends Controller
             'data' => [
                 'id' => $record->id,
                 'state' => $record->state,
-                'state_label' => self::FRONTEND_STATE_LABELS[$record->state] ?? UploadQueue::enumState($record->state),
+                'state_label' => UploadQueue::$ui_enum_states[$record->state] ?? UploadQueue::enumState($record->state),
             ],
         ]);
     }
@@ -713,19 +626,19 @@ class LabUploadController extends Controller
         return $user->can($ability, $record);
     }
 
-    private function statePhase(int $state): string
-    {
-        return match ($state) {
-            UploadQueue::STATE_UPLOADED => 'configuration',
-            UploadQueue::STATE_CONFIGURED => 'validating',
-            UploadQueue::STATE_PENDING => 'pending',
-            UploadQueue::STATE_RUNNING => 'processing',
-            UploadQueue::STATE_DONE => 'done',
-            UploadQueue::STATE_ERROR => 'error',
-            UploadQueue::STATE_CANCELED => 'canceled',
-            default => 'unknown',
-        };
-    }
+    // private function statePhase(int $state): string
+    // {
+    //     return match ($state) {
+    //         UploadQueue::STATE_UPLOADED => 'configuration',
+    //         UploadQueue::STATE_CONFIGURED => 'validating',
+    //         UploadQueue::STATE_PENDING => 'pending',
+    //         UploadQueue::STATE_RUNNING => 'processing',
+    //         UploadQueue::STATE_DONE => 'done',
+    //         UploadQueue::STATE_ERROR => 'error',
+    //         UploadQueue::STATE_CANCELED => 'canceled',
+    //         default => 'unknown',
+    //     };
+    // }
 
     private function resolvePublication(array $validated): Publication
     {
@@ -767,7 +680,6 @@ class LabUploadController extends Controller
         $identifierSource = $record->source?->value ?? Sources::MED->value;
 
         $publication = new Publication;
-        $publication->type = Publication::TYPE_COSMO;
 
         $publication->citation = Str::limit(
             $record->citation() ?: ($record->title ?? $doi ?? 'Unknown citation'),

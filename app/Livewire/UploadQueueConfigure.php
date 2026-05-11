@@ -155,10 +155,10 @@ class UploadQueueConfigure extends Component
         ];
 
         if ($this->record->config) {
-            $this->skipFirstRow = isset($this->record->config['skip_first_row']) ? $this->record->config['skip_first_row'] : $this->skipFirstRow;
-            $this->separator = isset($this->record->config['separator']) && in_array($this->record->config['separator'], $this->validSeparators) ? $this->record->config['separator'] : $this->separator;
-            $this->columnMapping = isset($this->record->config['attributes']) ? array_filter(
-                $this->record->config['attributes'],
+            $this->skipFirstRow = $this->record->config->skipFirstRow($this->skipFirstRow);
+            $this->separator = in_array($this->record->config->separator(), $this->validSeparators) ? $this->record->config->separator() : $this->separator;
+            $this->columnMapping = $this->record->config->attributes() ? array_filter(
+                $this->record->config->attributes(),
                 fn ($val) => array_key_exists($val, $this->validColumnTypes)
             ) : $this->columnMapping;
         }
@@ -376,13 +376,11 @@ class UploadQueueConfigure extends Component
 
     public function save()
     {
-        $settings = [
-            'skip_first_row' => $this->skipFirstRow,
-            'separator' => $this->separator,
-            'attributes' => $this->columnMapping,
-        ];
-
-        $this->record->config = $settings;
+        $this->record->config = $this->record->config->withConfiguration(
+            $this->separator,
+            $this->skipFirstRow,
+            $this->columnMapping,
+        );
         $this->record->state = UploadQueue::STATE_CONFIGURED;
         $this->record->save();
 

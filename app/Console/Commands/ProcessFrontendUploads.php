@@ -57,13 +57,14 @@ class ProcessFrontendUploads extends Command
                     continue;
                 }
 
-                $config = is_array($record->config) ? $record->config : [];
-                $record->config = [
-                    ...$config,
-                    ...($result['config'] ?? []),
-                    'detailed_validation_ok' => true,
-                    'detailed_validation_at' => now()->toISOString(),
-                ];
+                $record->config = $record->config
+                    ->merge($result['config'] ?? [])
+                    ->withDetailedValidation(
+                        true,
+                        $result['config']['validated_rows'] ?? null,
+                        $result['config']['validated_at'] ?? null,
+                        now()->toISOString(),
+                    );
                 $record->save();
 
                 $record->addStructuredLog(

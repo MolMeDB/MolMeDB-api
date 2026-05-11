@@ -4,7 +4,7 @@ import { Alert, Button, Input } from "@heroui/react";
 import submitLogin from "../(actions)/submitLogin";
 import { useActionState, useState } from "react";
 
-export default function LoginForm(props: { defaultEmail?: string }) {
+export default function LoginForm(props: { defaultEmail?: string; redirectTo?: string }) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [actionState, action, isPending] = useActionState(submitLogin, null);
 
@@ -14,6 +14,7 @@ export default function LoginForm(props: { defaultEmail?: string }) {
   return (
     <div className="w-full max-w-96 flex flex-col items-center">
       <form className="w-full" action={action}>
+        <input type="hidden" name="redirectTo" value={props.redirectTo} />
         {actionState?.message && (
           <div>
             <Alert

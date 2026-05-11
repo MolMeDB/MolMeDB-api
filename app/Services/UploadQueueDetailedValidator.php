@@ -34,6 +34,7 @@ use App\Rules\UploadFile\PassiveInteractions\ColumnLogPerm;
 use App\Rules\UploadFile\PassiveInteractions\ColumnLogPermAcc;
 use App\Rules\UploadFile\PassiveInteractions\ColumnXmin;
 use App\Rules\UploadFile\PassiveInteractions\ColumnXminAcc;
+use App\ValueObjects\UploadQueueConfig;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use RuntimeException;
@@ -82,7 +83,7 @@ class UploadQueueDetailedValidator
         }
         fclose($stream);
 
-        $configured = is_array($record->config) ? $record->config : [];
+        $configured = $record->config->toArray();
         $hasManualConfig = is_array($configured['attributes'] ?? null) &&
             isset($configured['separator']) &&
             isset($configured['skip_first_row']);
@@ -189,13 +190,17 @@ class UploadQueueDetailedValidator
         return [
             'ok' => true,
             'errors' => [],
-            'config' => [
-                'skip_first_row' => $hasManualConfig ? ((int) ($configured['skip_first_row'] ?? 0) === 1 ? 1 : 0) : 1,
-                'separator' => $separator,
-                'attributes' => $columnKeys,
-                'validated_rows' => count($dataLines),
-                'validated_at' => now()->toISOString(),
-            ],
+            'config' => UploadQueueConfig::configured(
+                $separator,
+                $hasManualConfig ? ((int) ($configured['skip_first_row'] ?? 0) === 1 ? 1 : 0) : 1,
+                $columnKeys,
+            )
+                ->withDetailedValidation(
+                    true,
+                    count($dataLines),
+                    now()->toISOString(),
+                )
+                ->toArray(),
         ];
     }
 

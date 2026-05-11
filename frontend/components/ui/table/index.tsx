@@ -26,6 +26,7 @@ import {
 } from "@heroui/react";
 import { FaEye, FaEyeSlash } from "react-icons/fa6";
 import { MdSearch } from "react-icons/md";
+import { useHandle401 } from "@/lib/api/admin/redirections";
 
 type UiTableFilterOption = {
   label: string;
@@ -101,6 +102,8 @@ export default function UiTable<TData>(props: {
   const rowsPerPage = props.defaultRowsPerPage ?? 10;
   const hasFilters = (props.filters?.length ?? 0) > 0;
 
+  const handle401 = useHandle401();
+
   let list = useAsyncList({
     async load({ signal }) {
       try {
@@ -120,6 +123,10 @@ export default function UiTable<TData>(props: {
           },
           signal,
         );
+
+        if(response?.code === 401) {
+          handle401();
+        }
 
         if (response?.code === 200 && response.data) {
           const fr: FilteredResponse<TData> = response.data;
@@ -505,7 +512,7 @@ export default function UiTable<TData>(props: {
             {props.loadingText && <div>{props.loadingText}</div>}
           </div>
         }
-        emptyContent={"Start by selecting the membranes and methods."}
+        emptyContent={"No data..."}
       >
         {(item: TData) => (
           <TableRow key={item[props.itemKey]?.toString()}>

@@ -25,8 +25,8 @@ class StoreLabUploadRequest extends FormRequest
             ])],
             'dataset_name' => ['nullable', 'string', 'max:255'],
             'comment' => ['nullable', 'string', 'max:1000'],
-            'method_id' => ['required', 'integer', 'exists:methods,id'],
-            'membrane_id' => ['required', 'integer', 'exists:membranes,id'],
+            'method_id' => ['required_if:dataset_type,'.Dataset::TYPE_PASSIVE, 'nullable', 'integer', 'exists:methods,id'],
+            'membrane_id' => ['required_if:dataset_type,'.Dataset::TYPE_PASSIVE, 'nullable', 'integer', 'exists:membranes,id'],
             'publication_pmid' => ['required', 'string', 'max:50', 'regex:/^\d+$/'],
             'publication_lookup_provider' => ['nullable', 'string', Rule::in(['europe_pmc'])],
             'publication_lookup_source' => ['nullable', 'string', Rule::in(['MED'])],
@@ -35,7 +35,8 @@ class StoreLabUploadRequest extends FormRequest
                 'required',
                 'file',
                 'max:20480',
-                'mimes:csv,txt,tsv,xls,xlsx,json',
+                'mimes:csv,txt,tsv',
+                // 'mimes:csv,txt,tsv,xls,xlsx,json',
                 new FileDatasetUniqueByHash,
             ],
         ];
@@ -46,7 +47,7 @@ class StoreLabUploadRequest extends FormRequest
         return [
             function (Validator $validator): void {
                 if (! $this->filled('publication_pmid')) {
-                    $validator->errors()->add('publication_pmid', 'Select publication from Europe PMC autocomplete.');
+                    $validator->errors()->add('publication_pmid', 'Select publication from Europe PMC list.');
                 }
             },
         ];

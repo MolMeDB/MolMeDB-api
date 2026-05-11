@@ -60,6 +60,11 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser, Has
         return $this->hasRole(RoleEnums::ADMIN->value);
     }
 
+    public function hasAdminRole(): bool 
+    {
+        return $this->hasRole(RoleEnums::ADMIN->value);
+    }
+
     public function getFilamentName(): string
     {
         return $this->name;

@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\DocumentationController;
-use App\Http\Controllers\Export\ExportStructureController;
 use App\Http\Controllers\InteractionActiveController;
 use App\Http\Controllers\InteractionPassiveController;
 use App\Http\Controllers\LabUploadController;
@@ -129,13 +128,6 @@ Route::prefix('/api')->group(function () {
             Route::post('/{record}/cancel', 'cancel');
             Route::post('/{record}/reupload', 'reupload');
         });
-
-    // Route::prefix('export/structure/{record}')
-    //     ->controller(ExportStructureController::class)
-    //     ->group(function () {
-    //         Route::get('/passiveInteractions', 'passiveInteractions');
-    //         Route::get('/activeInteractions', 'activeInteractions');
-    //     });
 
     Route::prefix('structure')
         ->controller(StructureController::class)
