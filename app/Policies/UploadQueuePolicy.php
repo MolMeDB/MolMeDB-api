@@ -10,7 +10,8 @@ class UploadQueuePolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasPermissionTo(PermissionEnums::UPLOAD_QUEUE_MANAGE_OWN)
+        return $user->hasAdminRole()
+            || $user->hasPermissionTo(PermissionEnums::UPLOAD_QUEUE_MANAGE_OWN)
             || $user->hasPermissionTo(PermissionEnums::UPLOAD_QUEUE_MANAGE_ALL);
     }
 
@@ -36,7 +37,7 @@ class UploadQueuePolicy
 
     public function cancel(User $user, UploadQueue $uploadQueue): bool
     {
-        return $this->canManage($user, $uploadQueue);
+        return $uploadQueue->canDeleteUploadedFile($user);
     }
 
     public function revert(User $user, UploadQueue $uploadQueue): bool
@@ -44,9 +45,15 @@ class UploadQueuePolicy
         return $this->canManage($user, $uploadQueue);
     }
 
+    public function delete(User $user, UploadQueue $uploadQueue): bool
+    {
+        return $uploadQueue->canDeleteUploadedFile($user);
+    }
+
     private function canManage(User $user, UploadQueue $uploadQueue): bool
     {
-        return $uploadQueue->user_id === $user->id
+        return $user->hasAdminRole()
+            || $uploadQueue->user_id === $user->id
             || $user->hasPermissionTo(PermissionEnums::UPLOAD_QUEUE_MANAGE_ALL);
     }
 }

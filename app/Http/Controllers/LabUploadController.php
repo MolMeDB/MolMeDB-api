@@ -25,7 +25,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Modules\References\EuropePMC\Enums\Query\SortBy;
@@ -501,62 +500,7 @@ class LabUploadController extends Controller
             abort(403);
         }
 
-        if ((int) $record->state === UploadQueue::STATE_CANCELED) {
-            throw ValidationException::withMessages([
-                'record' => 'Record is already marked for deletion.',
-            ]);
-        }
-
-        if ((int) $record->state === UploadQueue::STATE_RUNNING) {
-            throw ValidationException::withMessages([
-                'record' => 'Running records cannot be canceled right now.',
-            ]);
-        }
-
-        if (! $record->canBeCanceled()) {
-            throw ValidationException::withMessages([
-                'record' => 'This record cannot be canceled in current state.',
-            ]);
-        }
-
-        $file = $record->file;
-        $fileDeleted = false;
-
-        if ($file) {
-            $disk = is_string($file->storage) && trim($file->storage) !== '' ? $file->storage : null;
-            if (! $disk) {
-                throw ValidationException::withMessages([
-                    'record' => 'Uploaded file storage is not configured.',
-                ]);
-            }
-
-            if (Storage::disk($disk)->exists($file->path)) {
-                $fileDeleted = Storage::disk($disk)->delete($file->path);
-                if (! $fileDeleted) {
-                    throw ValidationException::withMessages([
-                        'record' => 'Uploaded file could not be deleted. Please try again.',
-                    ]);
-                }
-            } else {
-                $fileDeleted = true;
-            }
-        }
-
-        $record->config = $record->config->markUploadedFileDeleted($fileDeleted, now()->toISOString());
-        $record->save();
-
-        $record->transitionToState(
-            UploadQueue::STATE_CANCELED,
-            'Record was canceled by user and uploaded file was deleted.',
-            UploadQueueLogContextEnums::WARNING,
-            UploadQueueLogTypeEnums::STATE_CHANGE,
-            [
-                'file_id' => $file?->id,
-                'file_name' => $file?->name,
-                'file_deleted' => $fileDeleted,
-            ],
-            $record->user_id
-        );
+        $record->deleteUploadedFileAndCancel(Auth::user());
 
         return response()->json([
             'message' => 'Record canceled. Uploaded file was removed. This action cannot be reverted.',

@@ -31,6 +31,8 @@ type BackendErrorResponse = {
   errors?: Record<string, string[] | string>;
 };
 
+type UploadQueueLog = IUploadQueue["logs"][number];
+
 export default function MyUploadsList(props: {
   reloadKey: number;
  }) {
@@ -45,6 +47,9 @@ export default function MyUploadsList(props: {
   >({});
   const [reuploadErrors, setReuploadErrors] = useState<Record<number, string[]>>(
     {},
+  );
+  const [logsModalUpload, setLogsModalUpload] = useState<IUploadQueue | null>(
+    null,
   );
   const [configureState, setConfigureState] = useState<ConfigureState>({
     isOpen: false,
@@ -115,6 +120,58 @@ export default function MyUploadsList(props: {
     }
 
     return [json?.message ?? fallbackMessage];
+  }
+
+  function logToneClass(log: UploadQueueLog): string {
+    if (log.context === "error" || log.state === 3) {
+      return "bg-danger-100 text-danger-700 border-danger-200";
+    }
+
+    if (log.context === "success" || log.state === 2) {
+      return "bg-success-100 text-success-700 border-success-200";
+    }
+
+    if (log.context === "warning") {
+      return "bg-warning-100 text-warning-700 border-warning-200";
+    }
+
+    return "bg-default-100 text-default-700 border-default-200";
+  }
+
+  function formatLogPayload(payload: unknown): string | null {
+    if (payload === null || payload === undefined) {
+      return null;
+    }
+
+    if (typeof payload === "string") {
+      return payload;
+    }
+
+    try {
+      return JSON.stringify(payload, null, 2);
+    } catch {
+      return String(payload);
+    }
+  }
+
+  function formatLogTimestamp(timestamp?: string): string {
+    if (!timestamp) {
+      return "";
+    }
+
+    return timestamp
+      .replace("T", " ")
+      .replace(/\.\d+Z?$/, "")
+      .replace(/Z$/, "");
+  }
+
+  function sortedLogs(upload: IUploadQueue | null): UploadQueueLog[] {
+    return [...(upload?.logs ?? [])].sort((firstLog, secondLog) => {
+      return (
+        Date.parse(secondLog.timestamp ?? "") -
+        Date.parse(firstLog.timestamp ?? "")
+      );
+    });
   }
 
   async function loadMyUploads() {
@@ -533,35 +590,18 @@ export default function MyUploadsList(props: {
                         {upload.state_label}
                       </span>
                     </td>
-                    <td className="p-2 max-w-72 truncate">
+                    <td className="p-2 max-w-72">
                       <div className="flex flex-col gap-1">
-                        <span>{upload.last_message ?? "-"}</span>
+                        <span className="truncate">{upload.last_message ?? "-"}</span>
                         {upload.logs && upload.logs.length > 0 && (
-                          <details>
-                            <summary className="text-xs cursor-pointer text-primary">
-                              Show logs ({upload.logs.length})
-                            </summary>
-                            <div className="mt-2 flex flex-col gap-1">
-                              {upload.logs.map((log, index) => (
-                                <div
-                                  key={`${upload.id}-log-${index}`}
-                                  className={`text-xs rounded px-2 py-1 ${
-                                    log.state === 3
-                                      ? "bg-danger-100 text-danger-700"
-                                      : log.state === 2
-                                        ? "bg-success-100 text-success-700"
-                                        : "bg-default-100 text-default-700"
-                                  }`}
-                                >
-                                  <div className="font-semibold">
-                                    [{log.type}] state={log.state ?? "-"}{" "}
-                                    {log.timestamp ? `| ${log.timestamp}` : ""}
-                                  </div>
-                                  <div>{log.message}</div>
-                                </div>
-                              ))}
-                            </div>
-                          </details>
+                          <Button
+                            size="sm"
+                            variant="light"
+                            className="w-fit px-0 text-xs text-primary"
+                            onPress={() => setLogsModalUpload(upload)}
+                          >
+                            Logs ({upload.logs.length})
+                          </Button>
                         )}
                       </div>
                     </td>
@@ -663,6 +703,84 @@ export default function MyUploadsList(props: {
             </table>
           </div>
         )}
+
+        <Modal
+          isOpen={logsModalUpload !== null}
+          onOpenChange={(open) => {
+            if (!open) {
+              setLogsModalUpload(null);
+            }
+          }}
+          size="4xl"
+          scrollBehavior="inside"
+        >
+          <ModalContent>
+            <ModalHeader>
+              Upload logs {logsModalUpload ? `#${logsModalUpload.id}` : ""}
+            </ModalHeader>
+            <ModalBody className="flex flex-col gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+                <div className="flex flex-col gap-1">
+                  <span className="text-foreground-500">Dataset</span>
+                  <span className="font-semibold">
+                    {logsModalUpload?.dataset?.name ?? "Unnamed"}
+                  </span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-foreground-500">File</span>
+                  <span className="font-semibold">
+                    {logsModalUpload?.file?.name ?? "-"}
+                  </span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-foreground-500">State</span>
+                  <span className="font-semibold">
+                    {logsModalUpload?.state_label ?? "-"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                {logsModalUpload?.logs?.length ? (
+                  sortedLogs(logsModalUpload).map((log, index) => {
+                    const payload = formatLogPayload(log.payload);
+
+                    return (
+                      <div
+                        key={`${logsModalUpload.id}-modal-log-${index}`}
+                        className={`rounded-md border px-3 py-2 text-xs ${logToneClass(log)}`}
+                      >
+                        <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+                          <div className="font-semibold">
+                            {log.type ?? "LOG"} · {log.state_label ?? "-"}
+                          </div>
+                          <div className="text-current opacity-75">
+                            {formatLogTimestamp(log.timestamp)}
+                          </div>
+                        </div>
+                        <div className="mt-2 whitespace-pre-wrap break-words">
+                          {log.message}
+                        </div>
+                        {payload && (
+                          <pre className="mt-2 max-h-56 overflow-auto rounded-md bg-background/70 px-3 py-2 text-[11px] leading-relaxed text-foreground">
+                            {payload}
+                          </pre>
+                        )}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p className="text-sm text-foreground-500">No logs available.</p>
+                )}
+              </div>
+            </ModalBody>
+            <ModalFooter>
+              <Button variant="flat" onPress={() => setLogsModalUpload(null)}>
+                Close
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
 
         <Modal
         isOpen={configureState.isOpen}

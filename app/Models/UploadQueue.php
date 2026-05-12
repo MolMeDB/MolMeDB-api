@@ -6,15 +6,20 @@ use App\Casts\UploadQueueConfigCasts;
 use App\Casts\UploadQueueLogCasts;
 use App\Enums\UploadQueueLogContextEnums;
 use App\Enums\UploadQueueLogTypeEnums;
-use App\Jobs\ProcessUploadQueueRecord;
+use App\Observers\UploadQueueObserver;
 use App\ValueObjects\UploadQueueLog;
 use Filament\Notifications\Notification;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Modules\Rdkit\Rdkit;
 
+#[ObservedBy([UploadQueueObserver::class])]
 class UploadQueue extends Model
 {
     use HasFactory;
@@ -159,8 +164,7 @@ class UploadQueue extends Model
 
     public function isRevertible(): bool
     {
-        return $this->state !== self::STATE_UPLOADED &&
-            $this->state !== self::STATE_CONFIGURED;
+        return $this->state === self::STATE_DONE;
     }
 
     public function isDeletable(): bool
@@ -190,8 +194,7 @@ class UploadQueue extends Model
 
     public function isReadyToStart(): bool
     {
-        return $this->state === self::STATE_CONFIGURED &&
-            $this->hasValidConfig();
+        return $this->canBeEnqueued();
     }
 
     public function canBeReuploaded(): bool
@@ -233,6 +236,138 @@ class UploadQueue extends Model
             self::STATE_CONFIGURED,
             self::STATE_PENDING,
         ], true);
+    }
+
+    public function isDatasetOwner(?User $user): bool
+    {
+        return $user !== null && $this->dataset?->created_by === $user->id;
+    }
+
+    public function canDeleteUploadedFile(?User $user): bool
+    {
+        return $this->isDatasetOwner($user) && $this->canBeCanceled();
+    }
+
+    /**
+     * @return array{file_id: int|null, file_name: string|null, file_deleted: bool}
+     *
+     * @throws AuthorizationException
+     */
+    public function deleteUploadedFileAndCancel(User $user): array
+    {
+        if (! $this->canDeleteUploadedFile($user)) {
+            throw new AuthorizationException('Only the dataset owner can delete this upload.');
+        }
+
+        if ((int) $this->state === self::STATE_CANCELED) {
+            throw ValidationException::withMessages([
+                'record' => 'Record is already marked for deletion.',
+            ]);
+        }
+
+        if ((int) $this->state === self::STATE_RUNNING) {
+            throw ValidationException::withMessages([
+                'record' => 'Running records cannot be canceled right now.',
+            ]);
+        }
+
+        if (! $this->canBeCanceled()) {
+            throw ValidationException::withMessages([
+                'record' => 'This record cannot be canceled in current state.',
+            ]);
+        }
+
+        $file = $this->file;
+        $fileDeleted = false;
+
+        if ($file) {
+            $disk = is_string($file->storage) && trim($file->storage) !== '' ? $file->storage : null;
+            if (! $disk) {
+                throw ValidationException::withMessages([
+                    'record' => 'Uploaded file storage is not configured.',
+                ]);
+            }
+
+            if (Storage::disk($disk)->exists($file->path)) {
+                $fileDeleted = Storage::disk($disk)->delete($file->path);
+                if (! $fileDeleted) {
+                    throw ValidationException::withMessages([
+                        'record' => 'Uploaded file could not be deleted. Please try again.',
+                    ]);
+                }
+            } else {
+                $fileDeleted = true;
+            }
+        }
+
+        $this->config = $this->config->markUploadedFileDeleted($fileDeleted, now()->toISOString());
+        $this->save();
+
+        $payload = [
+            'file_id' => $file?->id,
+            'file_name' => $file?->name,
+            'file_deleted' => $fileDeleted,
+        ];
+
+        $this->transitionToState(
+            self::STATE_CANCELED,
+            'Record was canceled by user and uploaded file was deleted.',
+            UploadQueueLogContextEnums::WARNING,
+            UploadQueueLogTypeEnums::STATE_CHANGE,
+            $payload,
+            $user->id
+        );
+
+        return $payload;
+    }
+
+    public function canBeReviewedByAdmin(): bool
+    {
+        return $this->state >= self::STATE_CONFIGURED;
+    }
+
+    public function shouldBeDecidedByAdmin(): bool
+    {
+        return $this->state == self::STATE_REVIEW_REQUIRED && 
+            $this->config->detailedValidationPassed();
+    }
+
+    public function approveAdminReview(?int $userId = null): void
+    {
+        if (! $this->canBeReviewedByAdmin()) {
+            return;
+        }
+
+        $this->config = $this->config->markAdminReviewApproved(now()->toISOString());
+        $this->save();
+
+        $this->transitionToState(
+            self::STATE_PENDING,
+            'Upload data was approved by administrator and returned to processing queue.',
+            UploadQueueLogContextEnums::SUCCESS,
+            UploadQueueLogTypeEnums::STATE_CHANGE,
+            ['admin_review_approved' => true],
+            $userId,
+        );
+    }
+
+    public function rejectAdminReview(string $reason, ?int $userId = null): void
+    {
+        if (! $this->canBeReviewedByAdmin()) {
+            return;
+        }
+
+        $this->config = $this->config->markAdminReviewRejected($reason, now()->toISOString());
+        $this->save();
+
+        $this->transitionToState(
+            self::STATE_ERROR,
+            'Upload data was rejected by administrator.',
+            UploadQueueLogContextEnums::ERROR,
+            UploadQueueLogTypeEnums::STATE_CHANGE,
+            ['reason' => $reason],
+            $userId,
+        );
     }
 
     public function addLog(UploadQueueLog $log): void
@@ -304,8 +439,6 @@ class UploadQueue extends Model
         // Just label as pending and add to the queue to process
         $this->state = self::STATE_PENDING;
         $this->save();
-
-        ProcessUploadQueueRecord::dispatch($this->id, Auth::user());
 
         Notification::make()
             ->title('Upload job added to queue')

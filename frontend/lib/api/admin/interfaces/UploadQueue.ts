@@ -22,7 +22,8 @@ export interface IUploadQueue {
     context?: 'error' | 'success' | 'warning' | 'info',
     type?: 'UPLOAD' | 'STATE CHANGE' | 'VALIDATION RUN' | 'REUPLOAD' | 'UPLOAD RUN',
     state: number,
-    pyload?: any,
+    state_label?: string,
+    payload?: any,
     timestamp: string,
     user_id?: number
   }[]

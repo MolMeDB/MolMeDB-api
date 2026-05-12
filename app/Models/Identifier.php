@@ -73,6 +73,10 @@ class Identifier extends Model
     // const STATE_VALIDATED = IdentifierValidation::STATE_VALIDATED;
     // const STATE_INVALID = IdentifierValidation::STATE_INVALID;
 
+    protected $attributes = [
+        'state' => self::STATE_NEW,
+    ];
+
     private static $enum_states =
         [
             self::STATE_NEW => 'New',

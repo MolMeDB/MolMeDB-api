@@ -6,17 +6,17 @@ use App\Enums\UploadQueueLogContextEnums;
 use App\Enums\UploadQueueLogTypeEnums;
 use App\Jobs\ProcessUploadQueueRecord;
 use App\Models\UploadQueue;
-use App\Services\UploadQueueDetailedValidator;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class ProcessFrontendUploads extends Command
 {
     protected $signature = 'uploads:process-frontend {--limit=25}';
 
-    protected $description = 'Runs detailed validation for frontend uploads and enqueues valid records for processing.';
+    protected $description = 'Dispatches pending frontend upload records to the upload queue.';
 
-    public function handle(UploadQueueDetailedValidator $validator): int
+    public function handle(): int
     {
         $limit = max(1, (int) $this->option('limit'));
 
@@ -26,57 +26,17 @@ class ProcessFrontendUploads extends Command
         $pendingRecords = UploadQueue::query()
             ->with('user')
             ->where('state', UploadQueue::STATE_PENDING)
-            ->whereRaw("COALESCE((config->>'detailed_validation_ok')::boolean, false) = false")
             ->orderBy('id')
             ->limit($limit)
             ->get();
 
         foreach ($pendingRecords as $record) {
             try {
-                $record->addStructuredLog(
-                    'Detailed validation started.',
-                    UploadQueueLogContextEnums::INFO,
-                    UploadQueueLogTypeEnums::VALIDATION_RUN,
-                    $record->state,
-                    null,
-                    $record->user_id
-                );
+                Log::channel('upload')->info('Dispatching pending upload processing job from command.', [
+                    'record_id' => $record->id,
+                ]);
 
-                $result = $validator->validate($record);
-                if (! ($result['ok'] ?? false)) {
-                    $record->transitionToState(
-                        UploadQueue::STATE_ERROR,
-                        'Detailed validation failed.',
-                        UploadQueueLogContextEnums::ERROR,
-                        UploadQueueLogTypeEnums::VALIDATION_RUN,
-                        ['errors' => $result['errors'] ?? []],
-                        $record->user_id
-                    );
-                    $errorCount++;
-
-                    continue;
-                }
-
-                $record->config = $record->config
-                    ->merge($result['config'] ?? [])
-                    ->withDetailedValidation(
-                        true,
-                        $result['config']['validated_rows'] ?? null,
-                        $result['config']['validated_at'] ?? null,
-                        now()->toISOString(),
-                    );
-                $record->save();
-
-                $record->addStructuredLog(
-                    'Detailed validation passed. Record stays pending and is ready for processing.',
-                    UploadQueueLogContextEnums::SUCCESS,
-                    UploadQueueLogTypeEnums::VALIDATION_RUN,
-                    $record->state,
-                    ['validated_rows' => $result['config']['validated_rows'] ?? null],
-                    $record->user_id
-                );
-
-                ProcessUploadQueueRecord::dispatch($record->id, $record->user);
+                ProcessUploadQueueRecord::dispatch($record->id);
                 $queuedCount++;
             } catch (Throwable $throwable) {
                 $record->transitionToState(

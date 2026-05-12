@@ -38,6 +38,14 @@ class UploadQueueConfig implements Arrayable, ArrayAccess, Countable, IteratorAg
 
     public const UPLOADED_FILE_DELETED_AT = 'uploaded_file_deleted_at';
 
+    public const ADMIN_REVIEW_APPROVED = 'admin_review_approved';
+
+    public const ADMIN_REVIEW_APPROVED_AT = 'admin_review_approved_at';
+
+    public const ADMIN_REVIEW_REJECTED_AT = 'admin_review_rejected_at';
+
+    public const ADMIN_REVIEW_REJECTED_REASON = 'admin_review_rejected_reason';
+
     /**
      * @param  array<string, mixed>  $values
      */
@@ -100,23 +108,28 @@ class UploadQueueConfig implements Arrayable, ArrayAccess, Countable, IteratorAg
         ], fn (mixed $value): bool => $value !== null));
     }
 
-    // public function withDetailedValidation(
-    //     bool $ok,
-    //     ?int $validatedRows = null,
-    //     ?string $validatedAt = null,
-    //     ?string $detailedValidationAt = null,
-    // ): self {
-    //     return $this->merge(array_filter([
-    //         self::DETAILED_VALIDATION_OK => $ok,
-    //         self::VALIDATED_ROWS => $validatedRows,
-    //         self::VALIDATED_AT => $validatedAt,
-    //         self::DETAILED_VALIDATION_AT => $detailedValidationAt,
-    //     ], fn (mixed $value): bool => $value !== null));
-    // }
+    public function withDetailedValidation(
+        bool $ok,
+        ?int $validatedRows = null,
+        ?string $validatedAt = null,
+        ?string $detailedValidationAt = null,
+    ): self {
+        return $this->merge(array_filter([
+            self::DETAILED_VALIDATION_OK => $ok,
+            self::VALIDATED_ROWS => $validatedRows,
+            self::VALIDATED_AT => $validatedAt,
+            self::DETAILED_VALIDATION_AT => $detailedValidationAt,
+        ], fn (mixed $value): bool => $value !== null));
+    }
 
     public function markDetailedValidationPending(): self
     {
-        return $this->merge([
+        return $this->without(
+            self::ADMIN_REVIEW_APPROVED,
+            self::ADMIN_REVIEW_APPROVED_AT,
+            self::ADMIN_REVIEW_REJECTED_AT,
+            self::ADMIN_REVIEW_REJECTED_REASON,
+        )->merge([
             self::DETAILED_VALIDATION_OK => false,
             self::DETAILED_VALIDATION_AT => null,
         ]);
@@ -169,6 +182,64 @@ class UploadQueueConfig implements Arrayable, ArrayAccess, Countable, IteratorAg
         return is_string($validatedAt) ? $validatedAt : null;
     }
 
+    public function detailedValidationPassed(): bool
+    {
+        return (bool) ($this->values[self::DETAILED_VALIDATION_OK] ?? false);
+    }
+
+    public function detailedValidationAt(): ?string
+    {
+        $validatedAt = $this->values[self::DETAILED_VALIDATION_AT] ?? null;
+
+        return is_string($validatedAt) ? $validatedAt : null;
+    }
+
+    public function adminReviewApproved(): bool
+    {
+        return (bool) ($this->values[self::ADMIN_REVIEW_APPROVED] ?? false);
+    }
+
+    public function adminReviewApprovedAt(): ?string
+    {
+        $approvedAt = $this->values[self::ADMIN_REVIEW_APPROVED_AT] ?? null;
+
+        return is_string($approvedAt) ? $approvedAt : null;
+    }
+
+    public function adminReviewRejectedAt(): ?string
+    {
+        $rejectedAt = $this->values[self::ADMIN_REVIEW_REJECTED_AT] ?? null;
+
+        return is_string($rejectedAt) ? $rejectedAt : null;
+    }
+
+    public function adminReviewRejectedReason(): ?string
+    {
+        $reason = $this->values[self::ADMIN_REVIEW_REJECTED_REASON] ?? null;
+
+        return is_string($reason) && trim($reason) !== '' ? $reason : null;
+    }
+
+    public function markAdminReviewApproved(string $approvedAt): self
+    {
+        return $this->without(
+            self::ADMIN_REVIEW_REJECTED_AT,
+            self::ADMIN_REVIEW_REJECTED_REASON,
+        )->merge([
+            self::ADMIN_REVIEW_APPROVED => true,
+            self::ADMIN_REVIEW_APPROVED_AT => $approvedAt,
+        ]);
+    }
+
+    public function markAdminReviewRejected(string $reason, string $rejectedAt): self
+    {
+        return $this->merge([
+            self::ADMIN_REVIEW_APPROVED => false,
+            self::ADMIN_REVIEW_REJECTED_AT => $rejectedAt,
+            self::ADMIN_REVIEW_REJECTED_REASON => $reason,
+        ]);
+    }
+
     public function isConfigured(): bool
     {
         return isset($this->values[self::SKIP_FIRST_ROW], $this->values[self::SEPARATOR], $this->values[self::ATTRIBUTES]) &&
@@ -186,6 +257,12 @@ class UploadQueueConfig implements Arrayable, ArrayAccess, Countable, IteratorAg
             self::ATTRIBUTES => $this->attributes(),
             self::QUICK_VALIDATION_OK => $this->quickValidationPassed(),
             self::QUICK_VALIDATION_AT => $this->quickValidationAt(),
+            self::DETAILED_VALIDATION_OK => $this->detailedValidationPassed(),
+            self::DETAILED_VALIDATION_AT => $this->detailedValidationAt(),
+            self::ADMIN_REVIEW_APPROVED => $this->adminReviewApproved(),
+            self::ADMIN_REVIEW_APPROVED_AT => $this->adminReviewApprovedAt(),
+            self::ADMIN_REVIEW_REJECTED_AT => $this->adminReviewRejectedAt(),
+            self::ADMIN_REVIEW_REJECTED_REASON => $this->adminReviewRejectedReason(),
         ];
     }
 

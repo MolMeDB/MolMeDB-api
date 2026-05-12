@@ -37,6 +37,7 @@ class UploadQueueResource extends JsonResource
                 'context' => $log->context->value,
                 'type' => $log->type->value,
                 'state' => $log->state,
+                'state_label' => UploadQueue::$ui_enum_states[$log->state] ?? UploadQueue::enumState($log->state),
                 'payload' => $log->payload,
                 'timestamp' => $log->timestamp,
                 'user_id' => $log->user_id,
