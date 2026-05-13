@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Rules\UploadFile;
 
 use Closure;
@@ -8,6 +9,7 @@ use Illuminate\Support\Facades\Validator;
 class ColumnAccuracy implements ColumnTypeInterface, DataAwareRule
 {
     public static string $key = 'accuracy';
+
     public static string $label = 'Accuracy';
 
     /**
@@ -19,7 +21,7 @@ class ColumnAccuracy implements ColumnTypeInterface, DataAwareRule
 
     public static function make(): static
     {
-        return new static();
+        return new static;
     }
 
     /**
@@ -30,17 +32,16 @@ class ColumnAccuracy implements ColumnTypeInterface, DataAwareRule
     public function setData(array $data): static
     {
         $this->data = $data;
- 
+
         return $this;
     }
 
     public function validate(string $attribute, $value, Closure $fail): void
     {
-        $parent = str_replace('_acc', '', $this::$key);
+        $parent = property_exists($this, 'parentKey') ? $this::$parentKey : str_replace('_acc', '', $this::$key);
 
-        if(!isset($this->data[$parent]))
-        {
-            $fail("Column '" . $parent . "' is required if '" . $this::$label . "' is present.");
+        if (! isset($this->data[$parent])) {
+            $fail("Column '".$parent."' is required if '".$this::$label."' is present.");
         }
 
         // use native numeric validator
@@ -50,7 +51,7 @@ class ColumnAccuracy implements ColumnTypeInterface, DataAwareRule
         );
 
         if ($validator->fails()) {
-            $fail("Column " . $this::$label . " must be a positive number.");
+            $fail('Column '.$this::$label.' must be a positive number.');
         }
     }
 }

@@ -4,6 +4,8 @@ namespace App\Filament\Resources\UploadQueues;
 
 use App\Enums\IconEnums;
 use App\Filament\Resources\Datasets\DatasetResource;
+use App\Filament\Resources\SharedRelationManagers\InteractionsActiveRelationManager;
+use App\Filament\Resources\SharedRelationManagers\InteractionsPassiveRelationManager;
 use App\Filament\Resources\UploadQueues\Pages\CreateUploadQueue;
 use App\Filament\Resources\UploadQueues\Pages\EditUploadQueue;
 use App\Filament\Resources\UploadQueues\Pages\ListUploadQueues;
@@ -245,7 +247,8 @@ class UploadQueueResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            InteractionsPassiveRelationManager::class,
+            InteractionsActiveRelationManager::class,
         ];
     }
 
@@ -288,31 +291,6 @@ class UploadQueueResource extends Resource
                 ->hidden(fn (UploadQueue $record) => ! $record->isRevertible())
                 ->tooltip('Revert to initial state'),
 
-            Action::make('config')
-                ->label(fn (UploadQueue $record) => $record->state == UploadQueue::STATE_CONFIGURED ? 'Reconfigure' : 'Configure')
-                ->color(fn (UploadQueue $record) => $record->state == UploadQueue::STATE_CONFIGURED ? 'warning' : 'success')
-                ->icon(IconEnums::SETTINGS->value)
-                ->modalContent(fn (UploadQueue $record) => view('livewire.upload-queue-configure-wrapper', [
-                    'record' => $record,
-                ]))
-                ->modalHeading('Configure upload process')
-                ->modalFooterActions([
-                    Action::make('fake')->hidden(),
-                ])
-                ->hidden(fn (UploadQueue $record) => ! $record->isEditableConfig()),
-
-            Action::make('start')
-                ->label('Start')
-                ->color('success')
-                ->icon(IconEnums::CHECK->value)
-                ->requiresConfirmation()
-                ->modalHeading('Do you want to start the upload process?')
-                ->modalDescription('This will add the file to the queue to be processed.')
-                ->action(function (UploadQueue $record) {
-                    $record->start();
-                })
-                ->hidden(fn (UploadQueue $record) => ! $record->isReadyToStart()),
-
             static::reviewDataAction(),
             static::exportAction(),
         ];
@@ -328,13 +306,13 @@ class UploadQueueResource extends Resource
             ->modalWidth('7xl')
             ->modalSubmitAction(false)
             ->modalCancelActionLabel('Close')
-            ->modalFooterActions(fn (UploadQueue $record) => $record->shouldBeDecidedByAdmin() ?[
+            ->modalFooterActions(fn (UploadQueue $record) => $record->shouldBeDecidedByAdmin() ? [
                 static::approveReviewAction(),
                 static::rejectReviewAction(),
             ] : [])
             ->modalContent(fn (UploadQueue $record) => view('filament.upload-queues.review-data', [
                 'record' => $record,
-                'rows' => app(UploadQueueImporter::class)->previewRows($record, 500)
+                'rows' => app(UploadQueueImporter::class)->previewRows($record, 500),
             ]))
             ->hidden(fn (UploadQueue $record) => ! $record->canBeReviewedByAdmin());
     }

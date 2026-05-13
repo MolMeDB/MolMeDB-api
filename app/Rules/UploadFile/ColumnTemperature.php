@@ -5,11 +5,11 @@ namespace App\Rules\UploadFile;
 use Closure;
 use Illuminate\Support\Facades\Validator;
 
-class ColumnPh implements ColumnTypeInterface
+class ColumnTemperature implements ColumnTypeInterface
 {
-    public static string $key = 'ph';
+    public static string $key = 'temperature';
 
-    public static string $label = 'pH';
+    public static string $label = 'Temperature [C]';
 
     public static function make(): static
     {
@@ -18,14 +18,13 @@ class ColumnPh implements ColumnTypeInterface
 
     public function validate(string $attribute, $value, Closure $fail): void
     {
-        // use native numeric validator
         $validator = Validator::make(
             [$attribute => $value],
-            [$attribute => 'numeric|min:0|max:14']
+            [$attribute => 'numeric|min:-273.15']
         );
 
         if ($validator->fails()) {
-            $fail('Column '.self::$label.' must be a number between 0 and 14.');
+            $fail('Column '.self::$label.' must be a number greater than or equal to -273.15.');
         }
     }
 }

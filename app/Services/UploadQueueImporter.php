@@ -2,62 +2,24 @@
 
 namespace App\Services;
 
-use App\Models\Author;
 use App\Models\Category;
 use App\Models\Dataset;
 use App\Models\Identifier;
 use App\Models\InteractionActive;
 use App\Models\InteractionPassive;
 use App\Models\Protein;
-use App\Models\Publication;
 use App\Models\Structure;
 use App\Models\UploadQueue;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
-use Modules\References\CrossRef\CrossRef;
-use Modules\References\EuropePMC\Enums\Sources;
-use Modules\References\EuropePMC\EuropePMC;
-use Modules\References\Models\Record;
+use Modules\Rdkit\Rdkit;
 use RuntimeException;
-use Throwable;
 
 class UploadQueueImporter
 {
     private const IGNORE_COLUMN = 'ignore';
 
     private const DEFAULT_ACTIVE_CATEGORY_TITLE = 'Unassigned';
-
-    private const PASSIVE_VALUE_COLUMNS = [
-        'x_min',
-        'x_min_acc' => 'x_min_accuracy',
-        'gpen',
-        'gpen_acc' => 'gpen_accuracy',
-        'gwat',
-        'gwat_acc' => 'gwat_accuracy',
-        'logk',
-        'logk_acc' => 'logk_accuracy',
-        'logperm',
-        'logperm_acc' => 'logperm_accuracy',
-    ];
-
-    private const ACTIVE_VALUE_COLUMNS = [
-        'km',
-        'km_acc' => 'km_accuracy',
-        'ec50',
-        'ec50_acc' => 'ec50_accuracy',
-        'ki',
-        'ki_acc' => 'ki_accuracy',
-        'ic50',
-        'ic50_acc' => 'ic50_accuracy',
-    ];
-
-    private const COMMON_VALUE_COLUMNS = [
-        'temperature',
-        'ph',
-        'charge',
-        'comment' => 'note',
-    ];
 
     /**
      * @return array<int, array<string, string>>
@@ -121,12 +83,13 @@ class UploadQueueImporter
 
         $result = DB::transaction(function () use ($record, &$summary): array {
             return $this->forEachMappedRow($record, function (array $row) use ($record, &$summary): void {
+                $columns = app(UploadQueueColumnRegistry::class);
                 $payload = [
                     'dataset_id' => $record->dataset_id,
                     'structure_id' => $this->resolveStructureId($row, $record),
                     'publication_id' => $this->resolvePublicationId($record, $row),
-                    ...$this->interactionValues($row, self::COMMON_VALUE_COLUMNS),
-                    ...$this->interactionValues($row, self::PASSIVE_VALUE_COLUMNS),
+                    ...$this->interactionValues($row, $columns->commonValueColumns()),
+                    ...$this->interactionValues($row, $columns->interactionValueColumns($record)),
                 ];
 
                 InteractionPassive::query()->create($payload);
@@ -165,14 +128,15 @@ class UploadQueueImporter
 
         $result = DB::transaction(function () use ($record, &$summary): array {
             return $this->forEachMappedRow($record, function (array $row) use ($record, &$summary): void {
+                $columns = app(UploadQueueColumnRegistry::class);
                 $payload = [
                     'dataset_id' => $record->dataset_id,
                     'structure_id' => $this->resolveStructureId($row, $record),
                     'protein_id' => $this->resolveProteinId($row),
                     'category_id' => $this->defaultActiveCategoryId(),
                     'publication_id' => $this->resolvePublicationId($record, $row),
-                    ...$this->interactionValues($row, self::COMMON_VALUE_COLUMNS),
-                    ...$this->interactionValues($row, self::ACTIVE_VALUE_COLUMNS),
+                    ...$this->interactionValues($row, $columns->commonValueColumns()),
+                    ...$this->interactionValues($row, $columns->interactionValueColumns($record)),
                 ];
 
                 InteractionActive::query()->create($payload);
@@ -241,9 +205,19 @@ class UploadQueueImporter
     {
         $structure = null;
 
-        if (($row['smiles'] ?? null) !== null) {
+        $smiles = trim($row['smiles'] ?? '');
+
+        if ($smiles !== '') {
+            $rdkit = new Rdkit;
+            $canonical_smiles = $rdkit->canonize_smiles($smiles);
+            if ($canonical_smiles) {
+                $smiles = $canonical_smiles;
+            }
+        }
+
+        if (! empty($smiles)) {
             $structure = Structure::withTrashed()
-                ->where('canonical_smiles', trim($row['smiles']))
+                ->where('canonical_smiles', $smiles)
                 ->first();
         }
 
@@ -269,14 +243,14 @@ class UploadQueueImporter
             $structure = $identifier?->structure;
         }
 
-        if (! $structure && empty($row['smiles'] ?? null)) {
+        if (! $structure && empty($smiles ?? null)) {
             throw new RuntimeException('Unable to resolve structure for imported row. Fill SMILES column or provide at least one valid structure identifier (PubChem CID, ChEMBL ID, PDB ID, DrugBank ID, ChEBI ID).');
         }
 
         if (! $structure) {
             // If no existing structure could be resolved, create a new one from the provided SMILES.
             $structure = Structure::create([
-                'canonical_smiles' => trim($row['smiles']),
+                'canonical_smiles' => trim($smiles),
             ]);
 
             $structure->identifiers()->createMany(array_map(
@@ -336,165 +310,15 @@ class UploadQueueImporter
      */
     private function resolvePublicationId(UploadQueue $record, array $row): ?int
     {
-        $reference = $this->normalizeReference($row['primaryReference'] ?? '');
+        $resolver = app(PublicationReferenceResolver::class);
+        $reference = $resolver->normalizeReference($row['primaryReference'] ?? '');
         if ($reference !== '') {
-            $publication = $this->findPublicationByReference($reference);
-            if ($publication) {
-                return (int) $publication->id;
-            }
-
-            $referenceRecord = $this->fetchPublicationRecord($reference);
-            if (! $referenceRecord) {
-                throw new RuntimeException("Unable to resolve publication reference '{$reference}'.");
-            }
-
-            $publication = $this->findPublicationByRecord($referenceRecord);
-            if ($publication) {
-                return (int) $publication->id;
-            }
-
-            return (int) $this->createPublicationFromReferenceRecord($referenceRecord, $reference)->id;
+            return (int) $resolver->resolveOrCreatePublication($reference)->id;
         }
 
         $sourcePublicationId = $record->config['source_publication_id'] ?? null;
 
         return is_numeric($sourcePublicationId) ? (int) $sourcePublicationId : null;
-    }
-
-    private function normalizeReference(string $reference): string
-    {
-        $reference = trim($reference);
-        $reference = preg_replace('/^https?:\/\/(dx\.)?doi\.org\//i', '', $reference) ?? $reference;
-        $reference = preg_replace('/^doi:\s*/i', '', $reference) ?? $reference;
-
-        return trim($reference);
-    }
-
-    private function findPublicationByReference(string $reference): ?Publication
-    {
-        return Publication::query()
-            ->where(function ($query) use ($reference): void {
-                $query
-                    ->where(function ($query) use ($reference): void {
-                        $query
-                            ->where('identifier_source', Sources::MED->value)
-                            ->where('identifier', $reference);
-                    })
-                    ->orWhereRaw('LOWER(doi) = ?', [mb_strtolower($reference)]);
-            })
-            ->first();
-    }
-
-    private function findPublicationByIdentifier(string $identifier, Sources $source): ?Publication
-    {
-        return Publication::query()
-            ->where('identifier_source', $source->value)
-            ->where('identifier', $identifier)
-            ->first();
-    }
-
-    private function findPublicationByRecord(Record $record): ?Publication
-    {
-        if (is_string($record->id) && trim($record->id) !== '' && $record->source instanceof Sources) {
-            $publication = $this->findPublicationByIdentifier(trim($record->id), $record->source);
-            if ($publication) {
-                return $publication;
-            }
-        }
-
-        if (is_string($record->doi) && trim($record->doi) !== '') {
-            return Publication::query()
-                ->whereRaw('LOWER(doi) = ?', [mb_strtolower(trim($record->doi))])
-                ->first();
-        }
-
-        return null;
-    }
-
-    private function fetchPublicationRecord(string $reference): ?Record
-    {
-        if (ctype_digit($reference)) {
-            return $this->fetchEuropePmcRecord($reference, Sources::MED);
-        }
-
-        $record = $this->fetchCrossRefRecord($reference);
-        if ($record) {
-            return $record;
-        }
-
-        return $this->searchEuropePmcRecordByDoi($reference);
-    }
-
-    private function fetchEuropePmcRecord(string $identifier, Sources $source): ?Record
-    {
-        try {
-            return (new EuropePMC)->detail($identifier, $source);
-        } catch (Throwable) {
-            return null;
-        }
-    }
-
-    private function fetchCrossRefRecord(string $doi): ?Record
-    {
-        try {
-            return (new CrossRef)->work($doi);
-        } catch (Throwable) {
-            return null;
-        }
-    }
-
-    private function searchEuropePmcRecordByDoi(string $doi): ?Record
-    {
-        try {
-            $result = (new EuropePMC)->search('DOI:"'.$doi.'"', pageSize: 1);
-        } catch (Throwable) {
-            return null;
-        }
-
-        $records = is_array($result) ? ($result['records'] ?? []) : [];
-        $record = $records[0] ?? null;
-
-        return $record instanceof Record ? $record : null;
-    }
-
-    private function createPublicationFromReferenceRecord(Record $record, string $fallbackIdentifier): Publication
-    {
-        $doi = $record->doi ? trim($record->doi) : null;
-        $identifier = $record->id ? trim($record->id) : (ctype_digit($fallbackIdentifier) ? $fallbackIdentifier : null);
-        $identifierSource = $record->source?->value ?? (ctype_digit($fallbackIdentifier) ? Sources::MED->value : null);
-
-        $publication = Publication::query()->create([
-            'citation' => Str::limit(
-                $record->citation() ?: ($record->title ?? $doi ?? 'Unknown citation'),
-                1024
-            ),
-            'title' => $record->title ? Str::limit($record->title, 512) : null,
-            'doi' => $doi ?? (! ctype_digit($fallbackIdentifier) ? $fallbackIdentifier : null),
-            'identifier' => $identifier,
-            'identifier_source' => $identifierSource,
-            'journal' => $record->journal?->title,
-            'volume' => $record->journal?->volume,
-            'issue' => $record->journal?->issue,
-            'page' => $record->pageInfo,
-            'year' => is_numeric($record->journal?->yearOfPublication) ? (int) $record->journal?->yearOfPublication : null,
-            'published_at' => $record->publicationDate(),
-            'validated_at' => now(),
-        ]);
-
-        if (is_array($record->authors)) {
-            foreach ($record->authors as $author) {
-                $authorModel = Author::firstOrCreate([
-                    'first_name' => $author->firstName,
-                    'last_name' => $author->lastName,
-                    'full_name' => $author->fullName,
-                    'affiliation' => $author->affiliations && count($author->affiliations) > 0 ? $author->affiliations[0] : null,
-                ]);
-
-                $publication->authors()->syncWithoutDetaching([$authorModel->id]);
-            }
-        }
-
-        return $publication->refresh();
     }
 
     /**

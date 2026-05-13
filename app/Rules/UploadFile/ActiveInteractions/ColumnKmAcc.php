@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Rules\UploadFile\ActiveInteractions;
 
 use App\Rules\UploadFile\ColumnAccuracy;
@@ -6,5 +7,8 @@ use App\Rules\UploadFile\ColumnAccuracy;
 class ColumnKmAcc extends ColumnAccuracy
 {
     public static string $key = 'km_acc';
+
     public static string $label = '+/- Km';
+
+    public static string $databaseColumn = 'km_accuracy';
 }

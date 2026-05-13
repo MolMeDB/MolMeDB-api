@@ -127,7 +127,7 @@ class ProcessUploadQueueRecord implements ShouldBeUnique, ShouldQueue
 
             $record->transitionToState(
                 UploadQueue::STATE_DONE,
-                'Upload import preparation has finished. Final persistence is ready for implementation review.',
+                'All interactions successfully imported.',
                 UploadQueueLogContextEnums::SUCCESS,
                 UploadQueueLogTypeEnums::UPLOAD_RUN,
                 $summary,

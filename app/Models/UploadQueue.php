@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -160,6 +161,16 @@ class UploadQueue extends Model
     public function file(): BelongsTo
     {
         return $this->belongsTo(File::class);
+    }
+
+    public function interactionsPassive(): HasMany
+    {
+        return $this->hasMany(InteractionPassive::class, 'dataset_id', 'dataset_id');
+    }
+
+    public function interactionsActive(): HasMany
+    {
+        return $this->hasMany(InteractionActive::class, 'dataset_id', 'dataset_id');
     }
 
     public function isRevertible(): bool
@@ -328,7 +339,7 @@ class UploadQueue extends Model
 
     public function shouldBeDecidedByAdmin(): bool
     {
-        return $this->state == self::STATE_REVIEW_REQUIRED && 
+        return $this->state == self::STATE_REVIEW_REQUIRED &&
             $this->config->detailedValidationPassed();
     }
 
@@ -362,7 +373,7 @@ class UploadQueue extends Model
 
         $this->transitionToState(
             self::STATE_ERROR,
-            'Upload data was rejected by administrator.',
+            "Upload data was rejected by administrator.\nReason: {$reason}",
             UploadQueueLogContextEnums::ERROR,
             UploadQueueLogTypeEnums::STATE_CHANGE,
             ['reason' => $reason],
@@ -523,14 +534,28 @@ class UploadQueue extends Model
             return;
         }
 
-        // TODO
-        Notification::make()
-            ->title('Not implemented')
-            ->body('Revert process is not implemented yet.')
-            ->warning()
-            ->send();
+        $dataset = $this->dataset;
 
-        return;
+        // Remove all passive interactions
+        foreach ($dataset->interactionsPassive as $interaction) {
+            $interaction->forceDelete();
+        }
+
+        // Remove all active interactions
+        foreach ($dataset->interactionsActive as $interaction) {
+            $interaction->forceDelete();
+        }
+
+        // Remove all added identifiers
+        foreach ($dataset->identifiers as $identifier) {
+            $identifier->forceDelete();
+        }
+
+        Notification::make()
+            ->title('Upload job reverted.')
+            ->body('All uploaded data was removed and the job is ready to be reconfigured.')
+            ->success()
+            ->send();
 
         $this->state = self::STATE_CONFIGURED;
         $this->save();
