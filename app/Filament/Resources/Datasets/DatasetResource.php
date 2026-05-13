@@ -13,6 +13,7 @@ use App\Filament\Resources\SharedRelationManagers\IdentifiersRelationManager;
 use App\Filament\Resources\SharedRelationManagers\InteractionsActiveRelationManager;
 use App\Filament\Resources\SharedRelationManagers\InteractionsPassiveRelationManager;
 use App\Filament\Resources\SharedRelationManagers\PublicationsRelationManager;
+use App\Filament\Resources\SharedRelationManagers\UploadQueuesRelationManager;
 use App\Models\Dataset;
 use App\Models\Membrane;
 use App\Models\Method;
@@ -225,6 +226,7 @@ class DatasetResource extends Resource
     {
         return [
             PublicationsRelationManager::class,
+            UploadQueuesRelationManager::class,
             IdentifiersRelationManager::class,
             InteractionsPassiveRelationManager::class,
             InteractionsActiveRelationManager::class,

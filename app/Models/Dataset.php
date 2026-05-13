@@ -141,6 +141,11 @@ class Dataset extends Model
         return $this->hasMany(InteractionActive::class);
     }
 
+    public function uploadQueues(): HasMany
+    {
+        return $this->hasMany(UploadQueue::class);
+    }
+
     public function isRestoreable()
     {
         if (! $this?->id) {
