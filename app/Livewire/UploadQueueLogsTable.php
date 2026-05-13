@@ -54,6 +54,13 @@ class UploadQueueLogsTable extends TableWidget implements HasForms, HasTable
                 TextColumn::make('context')
                     ->badge()
                     ->sortable()
+                    ->color(fn (UploadQueueLog $record) => match ($record->context) {
+                        UploadQUeueLogContextEnums::ERROR => 'danger',
+                        UploadQUeueLogContextEnums::INFO => 'primary',
+                        UploadQUeueLogContextEnums::SUCCESS => 'success',
+                        UploadQUeueLogContextEnums::WARNING => 'warning',
+                        default => 'default',
+                    })
                     ->label('Severity'),
                 TextColumn::make('type')
                     ->badge()
