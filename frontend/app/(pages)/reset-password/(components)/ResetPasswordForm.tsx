@@ -30,6 +30,14 @@ export default function ResetPasswordForm() {
           </div>
         )}
 
+        {!turnstileSiteKey && (
+          <Alert
+            color="warning"
+            className="mb-4"
+            title="Captcha is not configured. Password reset email cannot be requested right now."
+          />
+        )}
+
         <Input
           size="sm"
           classNames={{
@@ -51,6 +59,11 @@ export default function ResetPasswordForm() {
           siteKey={turnstileSiteKey}
           onVerify={setTurnstileToken}
         />
+        {turnstileSiteKey && !turnstileToken && (
+          <p className="mt-2 text-sm text-warning">
+            Complete the captcha verification to continue.
+          </p>
+        )}
         <Button
           className="w-full mt-4"
           type="submit"
