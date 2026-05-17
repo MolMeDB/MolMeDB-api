@@ -20,11 +20,16 @@ class ColumnTemperature implements ColumnTypeInterface
     {
         $validator = Validator::make(
             [$attribute => $value],
-            [$attribute => 'numeric|min:-273.15']
+            [$attribute => 'numeric|min:0']
         );
 
         if ($validator->fails()) {
-            $fail('Column '.self::$label.' must be a number greater than or equal to -273.15.');
+            $fail('Column '.self::$label.' must be a number greater than or equal to 0 [°C].');
         }
+    }
+
+    public function validate_fast(string $attribute, mixed $value, Closure $fail): void
+    {
+        $this->validate($attribute, $value, $fail);
     }
 }

@@ -40,6 +40,13 @@ return [
         'url' => rtrim(env('RDKIT_HOST') ?? '', '/'),
     ],
 
+    /**
+     * External services configuration
+     */
+    'unichem' => [
+        'base_api_url' => env('UNICHEM_BASE_API_URL', 'https://www.ebi.ac.uk/unichem/api/v1/'),
+    ],
+
     'turnstile' => [
         'enabled' => env('TURNSTILE_ENABLED', true),
         'site_key' => env('TURNSTILE_SITE_KEY'),

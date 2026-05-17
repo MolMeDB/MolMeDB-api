@@ -54,4 +54,9 @@ class ColumnAccuracy implements ColumnTypeInterface, DataAwareRule
             $fail('Column '.$this::$label.' must be a positive number.');
         }
     }
+
+    public function validate_fast(string $attribute, mixed $value, Closure $fail): void
+    {
+        $this->validate($attribute, $value, $fail);
+    }
 }

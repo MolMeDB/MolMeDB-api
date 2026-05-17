@@ -8,6 +8,7 @@ use App\Rules\UploadFile\ActiveInteractions\ColumnIc50;
 use App\Rules\UploadFile\ActiveInteractions\ColumnKi;
 use App\Rules\UploadFile\ActiveInteractions\ColumnKm;
 use App\Rules\UploadFile\ActiveInteractions\ColumnTarget;
+use App\Rules\UploadFile\FastColumnTypeRule;
 use App\Rules\UploadFile\Identifiers\ColumnSmiles;
 use App\Rules\UploadFile\PassiveInteractions\ColumnGpen;
 use App\Rules\UploadFile\PassiveInteractions\ColumnGwat;
@@ -352,7 +353,7 @@ class UploadQueueFrontendConfigurator
     {
         $validators = [];
         foreach ($this->validatorClasses($record) as $className) {
-            $validators[$className::$key] = new $className;
+            $validators[$className::$key] = new FastColumnTypeRule(new $className);
         }
 
         return $validators;

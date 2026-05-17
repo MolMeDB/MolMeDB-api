@@ -159,10 +159,29 @@ export default function MyUploadsList(props: {
       return "";
     }
 
-    return timestamp
-      .replace("T", " ")
-      .replace(/\.\d+Z?$/, "")
-      .replace(/Z$/, "");
+    const normalizedTimestamp = timestamp.includes("T")
+      ? timestamp
+      : timestamp.replace(" ", "T");
+    const hasExplicitTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(
+      normalizedTimestamp,
+    );
+    const date = new Date(
+      hasExplicitTimezone ? normalizedTimestamp : `${normalizedTimestamp}Z`,
+    );
+
+    if (Number.isNaN(date.getTime())) {
+      return timestamp;
+    }
+
+    return new Intl.DateTimeFormat(undefined, {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      timeZoneName: "short",
+    }).format(date);
   }
 
   function sortedLogs(upload: IUploadQueue | null): UploadQueueLog[] {
@@ -677,14 +696,18 @@ export default function MyUploadsList(props: {
                             >
                               Reupload
                             </Button>
-                            {reuploadErrors[upload.id]?.map((error, index) => (
-                              <div
-                                key={`${upload.id}-reupload-error-${index}`}
-                                className="rounded-md bg-danger-100 text-danger-700 text-xs px-2 py-1"
-                              >
-                                {error}
+                            {!!reuploadErrors[upload.id]?.length && (
+                              <div className="flex max-h-44 flex-col gap-1 overflow-y-auto pr-1">
+                                {reuploadErrors[upload.id].map((error, index) => (
+                                  <div
+                                    key={`${upload.id}-reupload-error-${index}`}
+                                    className="rounded-md bg-danger-100 text-danger-700 text-xs px-2 py-1"
+                                  >
+                                    {error}
+                                  </div>
+                                ))}
                               </div>
-                            ))}
+                            )}
                           </>
                         )}
 
@@ -911,7 +934,7 @@ export default function MyUploadsList(props: {
                       <tbody>
                         {configureState.previewRows.map((row, rowIndex) => (
                           <tr key={`preview-row-${rowIndex}`} className="border-t border-default-200">
-                            <td className="p-2">{configureState.startLine + rowIndex}</td>
+                            <td className="p-2">{configureState.startLine + rowIndex + configureState.skipFirstRow}</td>
                             {row.map((value, index) => (
                               <td key={`preview-cell-${rowIndex}-${index}`} className="p-2">
                                 <div className="max-w-64 truncate" title={value}>
@@ -927,7 +950,7 @@ export default function MyUploadsList(props: {
                 )}
 
                 {configureState.errors.length > 0 && (
-                  <div className="flex flex-col gap-1">
+                  <div className="flex max-h-72 flex-col gap-1 overflow-y-auto pr-1">
                     {configureState.errors.map((error, index) => (
                       <div
                         key={`config-error-${index}`}
@@ -940,7 +963,7 @@ export default function MyUploadsList(props: {
                 )}
 
                 {configureState.warnings.length > 0 && (
-                  <div className="flex flex-col gap-1">
+                  <div className="flex max-h-56 flex-col gap-1 overflow-y-auto pr-1">
                     {configureState.warnings.map((warning, index) => (
                       <div
                         key={`config-warning-${index}`}

@@ -36,4 +36,9 @@ class ColumnSmiles implements ColumnTypeInterface
             $fail('Column '.self::$label.' contains invalid SMILES string.');
         }
     }
+
+    public function validate_fast(string $attribute, mixed $value, Closure $fail): void
+    {
+        $this->validate($attribute, $value, $fail);
+    }
 }

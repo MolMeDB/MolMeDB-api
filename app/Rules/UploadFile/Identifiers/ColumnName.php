@@ -18,6 +18,11 @@ class ColumnName implements ColumnTypeInterface
 
     public function validate(string $attribute, $value, Closure $fail): void
     {
+        $this->validate_fast($attribute, $value, $fail);
+    }
+
+    public function validate_fast(string $attribute, mixed $value, Closure $fail): void
+    {
         $maxLength = self::$maxLength;
         if (!is_string($value) || empty($value) || strlen($value) > $maxLength || strlen($value) <= 2) {
             $fail("Column " . self::$label . " must be a string between 3 and $maxLength characters.");

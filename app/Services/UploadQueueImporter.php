@@ -62,11 +62,6 @@ class UploadQueueImporter
     /**
      * This is the final passive interaction persistence path.
      *
-     * TODO: decide whether duplicate rows should be skipped, updated, or inserted
-     * as separate measurements.
-     * TODO: decide whether missing structures should be created from SMILES here
-     * or rejected earlier during detailed validation.
-     *
      * @return array<string, mixed>
      */
     private function importPassiveInteractions(UploadQueue $record): array

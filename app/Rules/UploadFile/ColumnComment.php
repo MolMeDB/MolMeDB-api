@@ -26,4 +26,9 @@ class ColumnComment implements ColumnTypeInterface
             $fail('Column '.self::$label." must be a string with a maximum of $ml characters.");
         }
     }
+
+    public function validate_fast(string $attribute, mixed $value, Closure $fail): void
+    {
+        $this->validate($attribute, $value, $fail);
+    }
 }

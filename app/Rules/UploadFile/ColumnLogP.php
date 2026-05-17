@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Rules\UploadFile;
 
 use Closure;
@@ -7,11 +8,12 @@ use Illuminate\Support\Facades\Validator;
 class ColumnLogP implements ColumnTypeInterface
 {
     public static string $key = 'logp';
+
     public static string $label = 'LogP';
 
     public static function make(): static
     {
-        return new static();
+        return new static;
     }
 
     public function validate(string $attribute, $value, Closure $fail): void
@@ -23,7 +25,12 @@ class ColumnLogP implements ColumnTypeInterface
         );
 
         if ($validator->fails()) {
-            $fail("Column " . self::$label . " must be a number.");
+            $fail('Column '.self::$label.' must be a number.');
         }
+    }
+
+    public function validate_fast(string $attribute, mixed $value, Closure $fail): void
+    {
+        $this->validate($attribute, $value, $fail);
     }
 }

@@ -5,6 +5,11 @@ namespace App\Jobs;
 use App\Enums\UploadQueueLogContextEnums;
 use App\Enums\UploadQueueLogTypeEnums;
 use App\Models\UploadQueue;
+use App\Rules\UploadFile\Identifiers\ColumnChebi;
+use App\Rules\UploadFile\Identifiers\ColumnChembl;
+use App\Rules\UploadFile\Identifiers\ColumnPdb;
+use App\Rules\UploadFile\Identifiers\ColumnPubchem;
+use App\Services\External\Chemical\Unichem\Unichem;
 use App\Services\UploadQueueDetailedValidator;
 use App\Services\UploadQueueImporter;
 use Illuminate\Bus\Queueable;
@@ -25,7 +30,9 @@ class ProcessUploadQueueRecord implements ShouldBeUnique, ShouldQueue
     use Queueable;
     use SerializesModels;
 
-    public int $tries = 3;
+    private const UNICHEM_RETRY_DELAY_SECONDS = 1800;
+
+    public int $tries = 48;
 
     public int $timeout = 120;
 
@@ -74,7 +81,7 @@ class ProcessUploadQueueRecord implements ShouldBeUnique, ShouldQueue
             return;
         }
 
-        if ((int) $record->state !== UploadQueue::STATE_PENDING) {
+        if (! in_array((int) $record->state, [UploadQueue::STATE_PENDING, UploadQueue::STATE_RUNNING], true)) {
             Log::channel('upload')
                 ->warning('Upload queue record has invalid state. Stopping...', [
                     'record_id' => $this->recordId,
@@ -84,23 +91,31 @@ class ProcessUploadQueueRecord implements ShouldBeUnique, ShouldQueue
             return;
         }
 
-        $record->transitionToState(
-            UploadQueue::STATE_RUNNING,
-            'Upload processing has started.',
-            UploadQueueLogContextEnums::INFO,
-            UploadQueueLogTypeEnums::UPLOAD_RUN,
-            null,
-            $record->user_id
-        );
+        if ((int) $record->state === UploadQueue::STATE_PENDING) {
+            $record->transitionToState(
+                UploadQueue::STATE_RUNNING,
+                'Upload processing has started.',
+                UploadQueueLogContextEnums::INFO,
+                UploadQueueLogTypeEnums::UPLOAD_RUN,
+                null,
+                $record->user_id
+            );
+        }
 
         try {
             Log::channel('upload')
                 ->info('Starting upload processing', [
                     'record_id' => $this->recordId,
                     'file_path' => $record->file?->path,
-                ]);
+            ]);
 
             if (! $record->config->detailedValidationPassed()) {
+                if ($this->shouldWaitForUnichem($record)) {
+                    $this->waitForUnichem($record);
+
+                    return;
+                }
+
                 $this->runDetailedValidation($record, $validator);
                 $record->refresh()->load(['file', 'dataset', 'user']);
             }
@@ -137,14 +152,18 @@ class ProcessUploadQueueRecord implements ShouldBeUnique, ShouldQueue
             Log::channel('upload')
                 ->info('Upload import preparation finished', $summary);
         } catch (Throwable $throwable) {
-            $record->transitionToState(
-                UploadQueue::STATE_ERROR,
-                $throwable->getMessage(),
-                UploadQueueLogContextEnums::ERROR,
-                UploadQueueLogTypeEnums::UPLOAD_RUN,
-                null,
-                $record->user_id
-            );
+            $record->refresh();
+
+            if ((int) $record->state !== UploadQueue::STATE_ERROR) {
+                $record->transitionToState(
+                    UploadQueue::STATE_ERROR,
+                    $throwable->getMessage(),
+                    UploadQueueLogContextEnums::ERROR,
+                    UploadQueueLogTypeEnums::UPLOAD_RUN,
+                    null,
+                    $record->user_id
+                );
+            }
 
             throw $throwable;
         }
@@ -181,16 +200,19 @@ class ProcessUploadQueueRecord implements ShouldBeUnique, ShouldQueue
 
         $result = $validator->validate($record);
         if (! ($result['ok'] ?? false)) {
+            $errors = $result['errors'] ?? [];
+            $message = $this->detailedValidationFailureMessage($errors);
+
             $record->transitionToState(
                 UploadQueue::STATE_ERROR,
-                'Detailed validation failed.',
+                $message,
                 UploadQueueLogContextEnums::ERROR,
                 UploadQueueLogTypeEnums::VALIDATION_RUN,
-                ['errors' => $result['errors'] ?? []],
+                ['errors' => $errors],
                 $record->user_id
             );
 
-            throw new RuntimeException('Detailed validation failed.');
+            throw new RuntimeException($message);
         }
 
         $record->config = $record->config
@@ -211,5 +233,70 @@ class ProcessUploadQueueRecord implements ShouldBeUnique, ShouldQueue
             ['validated_rows' => $result['config']['validated_rows'] ?? null],
             $record->user_id
         );
+    }
+
+    private function shouldWaitForUnichem(UploadQueue $record): bool
+    {
+        if (! $this->usesUnichemValidatedIdentifier($record)) {
+            return false;
+        }
+
+        return ! (new Unichem)->is_reachable();
+    }
+
+    private function usesUnichemValidatedIdentifier(UploadQueue $record): bool
+    {
+        $unichemColumnKeys = [
+            ColumnChebi::$key,
+            ColumnChembl::$key,
+            ColumnPdb::$key,
+            ColumnPubchem::$key,
+        ];
+
+        foreach ($record->config->attributes() as $columnKey) {
+            if (is_string($columnKey) && in_array($columnKey, $unichemColumnKeys, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function waitForUnichem(UploadQueue $record): void
+    {
+        $record->addStructuredLog(
+            'UniChem API is not reachable. Upload processing is waiting for UniChem availability and will be retried in 30 minutes.',
+            UploadQueueLogContextEnums::WARNING,
+            UploadQueueLogTypeEnums::VALIDATION_RUN,
+            UploadQueue::STATE_RUNNING,
+            [
+                'service' => 'unichem',
+                'retry_delay_seconds' => self::UNICHEM_RETRY_DELAY_SECONDS,
+                'retry_at' => now()->addSeconds(self::UNICHEM_RETRY_DELAY_SECONDS)->toISOString(),
+            ],
+            $record->user_id
+        );
+
+        $this->release(self::UNICHEM_RETRY_DELAY_SECONDS);
+    }
+
+    /**
+     * @param  array<int, string>  $errors
+     */
+    private function detailedValidationFailureMessage(array $errors): string
+    {
+        if ($errors === []) {
+            return 'Detailed validation failed.';
+        }
+
+        $visibleErrors = array_slice($errors, 0, 10);
+        $message = "Detailed validation failed:\n- ".implode("\n- ", $visibleErrors);
+
+        $remainingErrors = count($errors) - count($visibleErrors);
+        if ($remainingErrors > 0) {
+            $message .= "\n- ...and {$remainingErrors} more errors.";
+        }
+
+        return $message;
     }
 }

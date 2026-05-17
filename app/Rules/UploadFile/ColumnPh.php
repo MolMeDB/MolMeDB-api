@@ -28,4 +28,9 @@ class ColumnPh implements ColumnTypeInterface
             $fail('Column '.self::$label.' must be a number between 0 and 14.');
         }
     }
+
+    public function validate_fast(string $attribute, mixed $value, Closure $fail): void
+    {
+        $this->validate($attribute, $value, $fail);
+    }
 }
