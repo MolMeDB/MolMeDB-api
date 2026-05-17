@@ -9,10 +9,13 @@ import { useSearchParams } from "next/navigation";
 export default function SectionWrapper(props: { categories: ICategory[] }) {
   const [selectedProteinId, setSelectedProteinId] = useState("");
   const searchParams = useSearchParams();
+  const proteinIdFromUrl = searchParams.get("id") || "";
 
   useEffect(() => {
-    setSelectedProteinId(searchParams.get("id") || "");
-  }, [searchParams]);
+    if (proteinIdFromUrl !== "") {
+      setSelectedProteinId(proteinIdFromUrl);
+    }
+  }, [proteinIdFromUrl]);
 
   return (
     props.categories && (

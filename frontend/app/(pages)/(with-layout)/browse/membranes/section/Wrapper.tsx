@@ -9,10 +9,13 @@ import { useSearchParams } from "next/navigation";
 export default function SectionWrapper(props: { categories: ICategory[] }) {
   const [selectedMembraneId, setSelectedMembraneId] = useState("");
   const searchParams = useSearchParams();
+  const membraneIdFromUrl = searchParams.get("id") || "";
 
   useEffect(() => {
-    setSelectedMembraneId(searchParams.get("id") || "");
-  }, [searchParams]);
+    if (membraneIdFromUrl !== "") {
+      setSelectedMembraneId(membraneIdFromUrl);
+    }
+  }, [membraneIdFromUrl]);
 
   return (
     props.categories && (
