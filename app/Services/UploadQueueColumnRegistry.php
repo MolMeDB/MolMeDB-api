@@ -17,7 +17,7 @@ use App\Rules\UploadFile\ColumnComment;
 use App\Rules\UploadFile\ColumnLogP;
 use App\Rules\UploadFile\ColumnPh;
 use App\Rules\UploadFile\ColumnPrimaryReference;
-use App\Rules\UploadFile\ColumnSecondaryReference;
+// use App\Rules\UploadFile\ColumnSecondaryReference;
 use App\Rules\UploadFile\ColumnTemperature;
 use App\Rules\UploadFile\Identifiers\ColumnChebi;
 use App\Rules\UploadFile\Identifiers\ColumnChembl;
@@ -26,7 +26,7 @@ use App\Rules\UploadFile\Identifiers\ColumnName;
 use App\Rules\UploadFile\Identifiers\ColumnPdb;
 use App\Rules\UploadFile\Identifiers\ColumnPubchem;
 use App\Rules\UploadFile\Identifiers\ColumnSmiles;
-use App\Rules\UploadFile\Identifiers\ColumnUniprot;
+// use App\Rules\UploadFile\Identifiers\ColumnUniprot;
 use App\Rules\UploadFile\PassiveInteractions\ColumnGpen;
 use App\Rules\UploadFile\PassiveInteractions\ColumnGpenAcc;
 use App\Rules\UploadFile\PassiveInteractions\ColumnGwat;
@@ -52,7 +52,7 @@ class UploadQueueColumnRegistry
             UploadQueue::TYPE_ACTIVE_DATASET => [
                 ColumnName::class,
                 ColumnSmiles::class,
-                ColumnUniprot::class,
+                // ColumnUniprot::class,
                 ColumnPubchem::class,
                 ColumnPdb::class,
                 ColumnChembl::class,
@@ -63,7 +63,7 @@ class UploadQueueColumnRegistry
                 ColumnPh::class,
                 ColumnComment::class,
                 ColumnPrimaryReference::class,
-                ColumnSecondaryReference::class,
+                // ColumnSecondaryReference::class,
                 ColumnLogP::class,
                 ColumnTarget::class,
                 ColumnEc50::class,
@@ -88,7 +88,7 @@ class UploadQueueColumnRegistry
                 ColumnPh::class,
                 ColumnComment::class,
                 ColumnPrimaryReference::class,
-                ColumnSecondaryReference::class,
+                // ColumnSecondaryReference::class,
                 ColumnLogP::class,
                 ColumnXmin::class,
                 ColumnXminAcc::class,

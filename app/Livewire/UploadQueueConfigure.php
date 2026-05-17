@@ -15,7 +15,7 @@ use App\Rules\UploadFile\ActiveInteractions\ColumnTarget;
 use App\Rules\UploadFile\ColumnComment;
 use App\Rules\UploadFile\ColumnLogP;
 use App\Rules\UploadFile\ColumnPrimaryReference;
-use App\Rules\UploadFile\ColumnSecondaryReference;
+// use App\Rules\UploadFile\ColumnSecondaryReference;
 use App\Rules\UploadFile\Identifiers\ColumnChebi;
 use App\Rules\UploadFile\Identifiers\ColumnChembl;
 use App\Rules\UploadFile\Identifiers\ColumnDrugbank;
@@ -23,7 +23,7 @@ use App\Rules\UploadFile\Identifiers\ColumnName;
 use App\Rules\UploadFile\Identifiers\ColumnPdb;
 use App\Rules\UploadFile\Identifiers\ColumnPubchem;
 use App\Rules\UploadFile\Identifiers\ColumnSmiles;
-use App\Rules\UploadFile\Identifiers\ColumnUniprot;
+// use App\Rules\UploadFile\Identifiers\ColumnUniprot;
 use App\Rules\UploadFile\PassiveInteractions\ColumnGpen;
 use App\Rules\UploadFile\PassiveInteractions\ColumnGpenAcc;
 use App\Rules\UploadFile\PassiveInteractions\ColumnGwat;
@@ -89,7 +89,7 @@ class UploadQueueConfigure extends Component
             ColumnDrugbank::class,
             ColumnComment::class,
             ColumnPrimaryReference::class,
-            ColumnSecondaryReference::class,
+            // ColumnSecondaryReference::class,
             ColumnLogP::class,
             ColumnXmin::class,
             ColumnXminAcc::class,
@@ -105,7 +105,7 @@ class UploadQueueConfigure extends Component
         'active' => [
             ColumnName::class,
             ColumnSmiles::class,
-            ColumnUniprot::class,
+            // ColumnUniprot::class,
             ColumnPubchem::class,
             ColumnPdb::class,
             ColumnChembl::class,
@@ -113,7 +113,7 @@ class UploadQueueConfigure extends Component
             ColumnDrugbank::class,
             ColumnComment::class,
             ColumnPrimaryReference::class,
-            ColumnSecondaryReference::class,
+            // ColumnSecondaryReference::class,
             ColumnLogP::class,
             ColumnTarget::class,
             ColumnEc50::class,

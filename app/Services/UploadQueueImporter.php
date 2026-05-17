@@ -268,9 +268,9 @@ class UploadQueueImporter
      */
     private function resolveProteinId(array $row): int
     {
-        $target = trim($row['uniprot'] ?? '');
+        $target = trim($row['active_target'] ?? '');
         if ($target === '') {
-            throw new RuntimeException('Unable to resolve protein: uniprot_id column is empty.');
+            throw new RuntimeException('Unable to resolve protein: target column is empty.');
         }
 
         $protein = Protein::withTrashed()

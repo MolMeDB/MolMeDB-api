@@ -17,6 +17,7 @@ use App\Enums\IconEnums;
 use App\Filament\Resources\Proteins\RelationManagers\IdentifiersRelationManager;
 use App\Models\Category;
 use App\Models\Protein;
+use App\Services\External\Chemical\Chebi\Chebi;
 use CodeWithDennis\FilamentSelectTree\SelectTree;
 use Filament\Resources\Resource;
 use Filament\Tables\Table;

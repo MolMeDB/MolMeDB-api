@@ -43,8 +43,16 @@ return [
     /**
      * External services configuration
      */
+    'chebi' => [
+        'base_api_url' => env('CHEBI_BASE_API_URL', 'https://www.ebi.ac.uk/chebi/backend/api/public'),
+    ],
+
     'unichem' => [
         'base_api_url' => env('UNICHEM_BASE_API_URL', 'https://www.ebi.ac.uk/unichem/api/v1/'),
+    ],
+
+    'uniprot' => [
+        'base_api_url' => env('UNIPROT_BASE_API_URL', 'https://rest.uniprot.org/'),
     ],
 
     'turnstile' => [
