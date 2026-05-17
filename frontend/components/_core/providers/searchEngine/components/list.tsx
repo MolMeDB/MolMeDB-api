@@ -18,30 +18,73 @@ export default function SearchListItems(props: {
 }) {
   const [isSearching, setIsSearching] = useState(false);
   const [records, setRecords] = useState<ISearchResult>();
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!props.searchOptions.query || !props.searchOptions.type) {
       return;
     }
-    setIsSearching(true);
 
-    getJson(`/api/search/${props.searchOptions.type.toLowerCase()}`, {
-      query: props.searchOptions.query,
-    }).then((response) => {
-      setIsSearching(false);
-      if (response?.code === 200 && response.data) {
-        setRecords(response.data);
-        return;
+    let isCurrentSearch = true;
+
+    setIsSearching(true);
+    setErrorMessage(null);
+
+    async function runSearch() {
+      try {
+        const response = await getJson(
+          `/api/search/${props.searchOptions.type.toLowerCase()}`,
+          {
+            query: props.searchOptions.query,
+          },
+        );
+
+        if (!isCurrentSearch) {
+          return;
+        }
+
+        if (response?.code === 200 && response.data) {
+          setRecords(response.data);
+          return;
+        }
+
+        console.warn(response);
+        setRecords(undefined);
+        setErrorMessage("Search failed. Please, try again.");
+        addToast({
+          title: "Error",
+          description: "Failed to load search results. Please, try again.",
+          color: "danger",
+          shouldShowTimeoutProgress: true,
+          timeout: 4500,
+        });
+      } catch (error) {
+        if (!isCurrentSearch) {
+          return;
+        }
+
+        console.error(error);
+        setRecords(undefined);
+        setErrorMessage("Search failed. Please, try again.");
+        addToast({
+          title: "Error",
+          description: "Failed to load search results. Please, try again.",
+          color: "danger",
+          shouldShowTimeoutProgress: true,
+          timeout: 4500,
+        });
+      } finally {
+        if (isCurrentSearch) {
+          setIsSearching(false);
+        }
       }
-      console.warn(response);
-      addToast({
-        title: "Error",
-        description: "Failed to load search results. Please, try again.",
-        color: "danger",
-        shouldShowTimeoutProgress: true,
-        timeout: 4500,
-      });
-    });
+    }
+
+    runSearch();
+
+    return () => {
+      isCurrentSearch = false;
+    };
   }, [props.searchOptions.query, props.searchOptions.type]);
 
   const total = records?.meta.total ?? 0;
@@ -58,7 +101,11 @@ export default function SearchListItems(props: {
           </p>
         </div>
         <Chip color="primary" size="sm" variant="flat">
-          {isSearching ? "Searching" : `${total} results`}
+          {isSearching
+            ? "Searching"
+            : errorMessage
+              ? "Error"
+              : `${total} results`}
         </Chip>
       </div>
 
@@ -68,6 +115,16 @@ export default function SearchListItems(props: {
           <span className="text-sm text-foreground-500">
             Searching MolMeDB...
           </span>
+        </div>
+      ) : errorMessage ? (
+        <div className="flex min-h-44 flex-col items-center justify-center gap-3 rounded-lg border border-danger-200 bg-danger-50 px-6 py-8 text-center text-danger-700 dark:bg-danger-950/20">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-danger-100 text-danger-600">
+            <MdSearchOff size={22} />
+          </div>
+          <div className="flex flex-col gap-1">
+            <h3 className="font-medium">Search error</h3>
+            <p className="max-w-sm text-sm">{errorMessage}</p>
+          </div>
         </div>
       ) : records?.data.length === 0 ? (
         <div className="flex min-h-44 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-default-300 bg-default-50 px-6 py-8 text-center dark:bg-background-dark-2">
@@ -115,13 +172,19 @@ export default function SearchListItems(props: {
                       <MdImageNotSupported size={22} />
                     </div>
                   )}
-                  <div className="flex min-w-0 flex-col items-start justify-center gap-1">
-                    <h3 className="line-clamp-1 text-sm font-semibold text-foreground">
-                      {record.title}
-                    </h3>
-                    <p className="line-clamp-2 text-left text-sm text-foreground-500">
-                      {record.subtitle}
-                    </p>
+                  <div className="flex min-w-0 flex-1 flex-col items-start justify-center gap-1 overflow-hidden">
+                    <div className="w-full overflow-x-auto pb-1">
+                      <h3 className="w-max max-w-none whitespace-nowrap text-sm font-semibold text-foreground">
+                        {record.title}
+                      </h3>
+                    </div>
+                    {record.subtitle ? (
+                      <div className="w-full overflow-x-auto pb-1">
+                        <p className="w-max max-w-none whitespace-nowrap text-left text-sm text-foreground-500">
+                          {record.subtitle}
+                        </p>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </Button>

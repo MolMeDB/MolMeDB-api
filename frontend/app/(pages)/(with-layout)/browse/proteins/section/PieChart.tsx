@@ -46,13 +46,44 @@ function addValueToCategory(
   };
 }
 
+function findPathToProtein(
+  items: PieChartItem[],
+  proteinId: string,
+  path: string[] = []
+): string[] | null {
+  for (const item of items) {
+    if (!item) {
+      continue;
+    }
+
+    const nextPath = [...path, item.model_id.toString()];
+
+    if (item.isFinal && item.model_id.toString() === proteinId) {
+      return nextPath;
+    }
+
+    const childPath = findPathToProtein(
+      item.children ?? [],
+      proteinId,
+      nextPath
+    );
+
+    if (childPath) {
+      return childPath;
+    }
+  }
+
+  return null;
+}
+
 export default function SectionPieChart(props: {
   categories: ICategory[];
+  selectedProteinId: string;
   setSelectedProteinId: (id: string) => void;
 }) {
   const viewerRef = useRef(null);
   const [isLoaded, setIsLoaded] = useState(false);
-  const [levels, setLevels] = useState<string[]>(["0"]);
+  const [levels, setLevels] = useState<string[]>([]);
   const [isDarkMode, setIsDarkMode] = useState<boolean | null>(null);
   const [proteinId, setProteinId] = useState("");
 
@@ -62,7 +93,9 @@ export default function SectionPieChart(props: {
         name: "Proteins",
         model_id: 0,
         // value: 0,
-        children: props.categories.map((c) => addValueToCategory(c)),
+        children: props.categories
+          .map((c) => addValueToCategory(c))
+          .filter((c: PieChartItem | null): c is PieChartItem => c !== null),
       },
     ],
     [props.categories]
@@ -71,6 +104,24 @@ export default function SectionPieChart(props: {
   useEffect(() => {
     props.setSelectedProteinId(proteinId);
   }, [proteinId]);
+
+  useEffect(() => {
+    if (!props.selectedProteinId) {
+      return;
+    }
+
+    const path = findPathToProtein(
+      categories[0].children as PieChartItem[],
+      props.selectedProteinId
+    );
+
+    if (!path) {
+      return;
+    }
+
+    setLevels(path);
+    setProteinId(props.selectedProteinId);
+  }, [categories, props.selectedProteinId]);
 
   useEffect(() => {
     const darkModeMedia = window.matchMedia("(prefers-color-scheme: dark)");
@@ -201,6 +252,11 @@ export default function SectionPieChart(props: {
 
     for (let i = 0; ; i++) {
       const childrenForLevel = currentChildren;
+
+      if (childrenForLevel.length === 0) {
+        break;
+      }
+
       const selected = childrenForLevel.find(
         (c) => c?.model_id.toString() === levels[i]
       );
@@ -214,9 +270,14 @@ export default function SectionPieChart(props: {
           aria-label={`Select level ${i}`}
           placeholder="Select category"
           disallowEmptySelection
-          selectedKeys={[levels[i]]}
+          selectedKeys={selected ? [levels[i]] : []}
           onSelectionChange={(e) => {
-            const value = Array.from(e)[0].toString();
+            const value = Array.from(e)[0]?.toString();
+
+            if (!value) {
+              return;
+            }
+
             const selectedOption = childrenForLevel.find(
               (c) => c?.model_id.toString() === value
             );

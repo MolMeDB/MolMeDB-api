@@ -22,6 +22,7 @@ export default function SectionWrapper(props: { categories: ICategory[] }) {
       <>
         <SectionPieChart
           categories={props.categories}
+          selectedProteinId={selectedProteinId}
           setSelectedProteinId={setSelectedProteinId}
         />
         <div className="h-1 w-full bg-zinc-100 dark:bg-background-dark-2" />
