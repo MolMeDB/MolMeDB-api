@@ -7,6 +7,8 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Spatie\TemporaryDirectory\TemporaryDirectory;
+use Symfony\Component\Process\Process;
+use Throwable;
 
 class BackupDb extends Command
 {
@@ -24,15 +26,16 @@ class BackupDb extends Command
      */
     protected $description = 'Creates a whole-database backup and saves it to the config specified location.';
 
-    public function datePath()
+    public function datePath(?string $date = null): string
     {
-        return date('Y').'/'.date('m').'/'.date('d').'/';
-    }   
+        $timestamp = $date ? strtotime($date) : time();
 
-    public function make_folder_structure($disk)
+        return date('Y', $timestamp).'/'.date('m', $timestamp).'/'.date('d', $timestamp).'/';
+    }
+
+    public function make_folder_structure($disk): void
     {
-        if($disk)
-        {
+        if ($disk) {
             // Make basic directories if not exists
             $disk->makeDirectory($this->datePath());
         }
@@ -41,7 +44,7 @@ class BackupDb extends Command
     /**
      * Execute the console command.
      */
-    public function handle()
+    public function handle(): int
     {
         $this->info('Making database backup...');
 
@@ -53,100 +56,179 @@ class BackupDb extends Command
 
         $filesystem = Filesystem::where('type', Filesystem::TYPE_DB_FULL_BACKUP)->first();
 
-        if(!$filesystem)
-        {
+        if (! $filesystem) {
             $this->error('No backup filesystem configured! Aborting.');
-            return 1;
+
+            return Command::FAILURE;
         }
 
-        if(!$filesystem->isDiskConnected())
-        {
+        if (! $filesystem->isDiskConnected()) {
             $this->error('Could not access backup filesystem "'.$filesystem->systemName.'"! Aborting.');
-            return 1;
+
+            return Command::FAILURE;
         }
 
         $disk = Storage::disk($filesystem->systemName);
-
-        // Make basic directories if not exists
         $this->make_folder_structure($disk);
 
-        $filename = $this->datePath().'backup-base-'.date('Y-m-d').'.sql';
+        $date = date('Y-m-d');
+        $targetFilename = $this->datePath($date).'backup-base-'.$date.'.sql.gz';
+        $exportTable = 'ssh_credentials_export_'.strtolower(bin2hex(random_bytes(6)));
+        $temporaryDirectory = TemporaryDirectory::make();
+        $tmpFile = $temporaryDirectory->path('backup-base-'.$date.'.sql');
+        $securedTmpFile = $temporaryDirectory->path('secured.sql');
+        $compressedTmpFile = $tmpFile.'.gz';
 
-        $tmpFile = TemporaryDirectory::make()->path($filename);
+        try {
+            // ---------------------------------------------------------
+            // 1) CREATE ANONYMIZATION TABLE
+            // ---------------------------------------------------------
+            DB::statement("DROP TABLE IF EXISTS {$exportTable}");
 
-        // ---------------------------------------------------------
-        // 1) CREATE ANONYMIZATION VIEW
-        // ---------------------------------------------------------
-        DB::statement('DROP TABLE IF EXISTS ssh_credentials_export');
+            DB::statement("
+                CREATE TABLE {$exportTable} AS
+                SELECT
+                    id,
+                    name,
+                    username,
+                    type,
+                    NULL::text AS password,
+                    NULL::text AS private_key,
+                    NULL::text AS passphrase,
+                    NULL AS created_by,
+                    created_at,
+                    updated_at
+                FROM ssh_credentials
+            ");
 
-        DB::statement("
-            CREATE TABLE ssh_credentials_export AS
-            SELECT 
-                id,
-                name,
-                username,
-                type,
-                NULL::text AS password,
-                NULL::text AS private_key,
-                NULL::text AS passphrase,
-                NULL as created_by,
-                created_at,
-                updated_at
-            FROM ssh_credentials
-        ");
+            $this->info('# Anonymization table created.');
 
-        $this->info('# Anonymization table created.');
+            $this->runPgDump([
+                'pg_dump',
+                '-U',
+                (string) $user,
+                '-p',
+                (string) $port,
+                '-h',
+                (string) $host,
+                '--exclude-table-data=public.ssh_credentials',
+                '--exclude-table=public.'.$exportTable,
+                (string) $db,
+            ], $tmpFile, (string) $pass);
 
-        $cmd = "PGPASSWORD=\"$pass\" pg_dump -U $user -p $port -h $host $db " .
-           "--exclude-table-data=public.ssh_credentials " .
-           "--exclude-table=public.ssh_credentials_export" .
-           " > $tmpFile";
+            $this->runPgDump([
+                'pg_dump',
+                '-U',
+                (string) $user,
+                '-p',
+                (string) $port,
+                '-h',
+                (string) $host,
+                '--data-only',
+                '--table=public.'.$exportTable,
+                (string) $db,
+            ], $securedTmpFile, (string) $pass);
 
-        exec($cmd);
+            file_put_contents(
+                $tmpFile,
+                "\n\n".str_replace($exportTable, 'ssh_credentials', file_get_contents($securedTmpFile) ?: ''),
+                FILE_APPEND
+            );
 
-        $tmpFile2 = TemporaryDirectory::make()->path('secured.sql');
+            $this->info('# Dump created.');
+            $this->info('# Archiving...');
 
-        $cmd = "PGPASSWORD=\"$pass\" pg_dump -U $user -p $port -h $host $db " .
-           "--data-only " .
-           "--table=public.ssh_credentials_export " .
-           " > $tmpFile2";
+            $this->gzipFile($tmpFile, $compressedTmpFile);
 
-        exec($cmd);
+            $this->info('# Dump archived. Uploading...');
 
-        $renameCmd = "perl -pi -e 's/ssh_credentials_export/ssh_credentials/g' \"$tmpFile2\"";
-        exec($renameCmd);
+            if ($disk->exists($targetFilename)) {
+                $disk->delete($targetFilename);
+                $this->warn('# Old backup deleted.');
+            }
 
-        DB::statement("DROP TABLE ssh_credentials_export;");
+            $stream = fopen($compressedTmpFile, 'rb');
+            if (! $stream) {
+                throw new \RuntimeException('Could not open compressed backup for upload.');
+            }
 
-        $this->info('# Dump created.');
+            try {
+                if (! $disk->put($targetFilename, $stream)) {
+                    throw new \RuntimeException('Could not upload backup to target filesystem.');
+                }
+            } finally {
+                if (is_resource($stream)) {
+                    fclose($stream);
+                }
+            }
 
-        $cmd = "cat $tmpFile2 >> $tmpFile";
-        exec($cmd);
+            $this->info('Backup created and uploaded.');
 
-        $this->info('# Dump extended.');
-        $this->info('# Archiving...');
+            return Command::SUCCESS;
+        } catch (Throwable $throwable) {
+            $this->error($throwable->getMessage());
 
-        $archiveCmd = "gzip $tmpFile";
-        $tmpFile .= '.gz';
-        $filename .= '.gz';
-        exec($archiveCmd);
+            return Command::FAILURE;
+        } finally {
+            try {
+                DB::statement("DROP TABLE IF EXISTS {$exportTable}");
+            } catch (Throwable) {
+                // Ignore cleanup failure.
+            }
 
-        $this->info('# Dump archived. Uploading...');
+            $temporaryDirectory->delete();
+        }
+    }
 
-        // Delete old backup if exists
-        if($disk->exists($filename))
-        {
-            $disk->delete($filename);
-            $this->warn('# Old backup deleted.');
+    /**
+     * @param  array<int, string>  $arguments
+     */
+    private function runPgDump(array $arguments, string $outputFile, string $password): void
+    {
+        $stream = fopen($outputFile, 'wb');
+        if (! $stream) {
+            throw new \RuntimeException("Could not open temporary dump file [{$outputFile}].");
         }
 
-        $stream = fopen($tmpFile, 'r+');
-        $disk->put($filename, $stream);
-        fclose($stream);
+        $stderr = '';
+        $process = new Process($arguments, null, ['PGPASSWORD' => $password]);
 
-        unlink($tmpFile);
-        unlink($tmpFile2);
+        try {
+            $process->setTimeout(null);
+            $process->run(function (string $type, string $buffer) use ($stream, &$stderr): void {
+                if ($type === Process::OUT) {
+                    fwrite($stream, $buffer);
 
-        $this->info('Backup created and uploaded.');
+                    return;
+                }
+
+                $stderr .= $buffer;
+            });
+        } finally {
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
+        }
+
+        if (! $process->isSuccessful()) {
+            throw new \RuntimeException(trim($stderr) ?: 'pg_dump failed.');
+        }
+    }
+
+    private function gzipFile(string $source, string $target): void
+    {
+        $input = fopen($source, 'rb');
+        $output = gzopen($target, 'wb9');
+
+        if (! $input || ! $output) {
+            throw new \RuntimeException('Could not create gzip archive.');
+        }
+
+        while (! feof($input)) {
+            gzwrite($output, fread($input, 1024 * 1024));
+        }
+
+        fclose($input);
+        gzclose($output);
     }
 }

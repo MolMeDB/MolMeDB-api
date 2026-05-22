@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers\Export;
 
 use App\Console\Commands\Database\BackupDbIdsm;
@@ -18,41 +19,37 @@ class ExportIdsmController extends Controller
 
         $fail = false;
 
-        if(!$filesystem || !$filesystem->isDiskConnected())
-        {
+        if (! $filesystem || ! $filesystem->isDiskConnected()) {
             $fail = true;
         }
 
         $last_update = Config::get('db_backup_idsm_last', null);
 
-        if($last_update)
-        {
+        if ($last_update) {
             $last_update = date('Y-m-d', strtotime($last_update));
-            $filename = BackupDbIdsm::datePath().'backup-idsm-'.$last_update.'.sql.gz';
+            $filename = BackupDbIdsm::datePath($last_update).'backup-idsm-'.$last_update.'.sql.gz';
         }
 
-        if($fail || !isset($filename))
-        {
+        if ($fail || ! isset($filename)) {
             return response()->json([
                 'last_backup' => null,
-                'is_available' => false
+                'is_available' => false,
             ], 404);
         }
 
         $disk = Storage::disk($filesystem->systemName);
 
-        if(!$disk->exists($filename))
-        {
+        if (! $disk->exists($filename)) {
             return response()->json([
                 'last_backup' => $last_update,
-                'is_available' => false
+                'is_available' => false,
             ], 404);
         }
 
         return response()->json([
             'last_backup' => $last_update,
             'is_available' => true,
-            'download_url' => route('export.dump.idsm.download')
+            'download_url' => route('export.dump.idsm.download'),
         ], 200);
     }
 
@@ -65,20 +62,18 @@ class ExportIdsmController extends Controller
 
         $fail = false;
 
-        if(!$filesystem || !$filesystem->isDiskConnected())
-        {
+        if (! $filesystem || ! $filesystem->isDiskConnected()) {
             $fail = true;
         }
 
         $last_update = Config::get('db_backup_idsm_last', null);
 
-        if($last_update)
-        {
+        if ($last_update) {
             $last_update = date('Y-m-d', strtotime($last_update));
-            $filename = BackupDbIdsm::datePath().'backup-idsm-'.$last_update.'.sql.gz';
+            $filename = BackupDbIdsm::datePath($last_update).'backup-idsm-'.$last_update.'.sql.gz';
         }
 
-        abort_unless(!$fail || isset($filename), 404);
+        abort_unless(! $fail && isset($filename), 404);
 
         $disk = Storage::disk($filesystem->systemName);
 
@@ -91,10 +86,10 @@ class ExportIdsmController extends Controller
                 fclose($stream);
             }
         }, basename($filename),
-        [
-            'Content-Type'        => 'application/gzip',
-            'Content-Encoding'    => 'identity', 
-            'Content-Disposition' => 'attachment; filename="'.basename($filename).'"',
-        ]);
+            [
+                'Content-Type' => 'application/gzip',
+                'Content-Encoding' => 'identity',
+                'Content-Disposition' => 'attachment; filename="'.basename($filename).'"',
+            ]);
     }
 }

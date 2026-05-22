@@ -5,9 +5,10 @@ namespace App\Console\Commands\Database;
 use App\Models\Config;
 use App\Models\Filesystem;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Spatie\TemporaryDirectory\TemporaryDirectory;
+use Symfony\Component\Process\Process;
+use Throwable;
 
 class BackupDbIdsm extends Command
 {
@@ -25,7 +26,7 @@ class BackupDbIdsm extends Command
      */
     protected $description = 'Creates a safe database backup for IDSM and saves it to the config specified location.';
 
-    private $exludedTables = [
+    private array $excludedTables = [
         'public.activity_log',
         'public.authors',
         'public.cache',
@@ -51,27 +52,28 @@ class BackupDbIdsm extends Command
         'public.ssh_credentials',
         'public.stats',
         'public.upload_queue',
-        'public.users'
+        'public.users',
     ];
 
-    public static function datePath()
+    public static function datePath(?string $date = null): string
     {
-        return date('Y').'/'.date('m').'/'.date('d').'/';
-    }   
+        $timestamp = $date ? strtotime($date) : time();
 
-    public function make_folder_structure($disk)
+        return date('Y', $timestamp).'/'.date('m', $timestamp).'/'.date('d', $timestamp).'/';
+    }
+
+    public function make_folder_structure($disk): void
     {
-        if($disk)
-        {
+        if ($disk) {
             // Make basic directories if not exists
-            $disk->makeDirectory($this->datePath());
+            $disk->makeDirectory(self::datePath());
         }
     }
 
     /**
      * Execute the console command.
      */
-    public function handle()
+    public function handle(): int
     {
         $this->info('Making IDSM database backup...');
 
@@ -83,63 +85,136 @@ class BackupDbIdsm extends Command
 
         $filesystem = Filesystem::where('type', Filesystem::TYPE_DB_PUBLIC_BACKUP)->first();
 
-        if(!$filesystem)
-        {
+        if (! $filesystem) {
             $this->error('No backup filesystem configured! Aborting.');
-            return 1;
+
+            return Command::FAILURE;
         }
 
-        if(!$filesystem->isDiskConnected())
-        {
+        if (! $filesystem->isDiskConnected()) {
             $this->error('Could not access backup filesystem "'.$filesystem->systemName.'"! Aborting.');
-            return 1;
+
+            return Command::FAILURE;
         }
 
         $disk = Storage::disk($filesystem->systemName);
-
-        // Make basic directories if not exists
         $this->make_folder_structure($disk);
 
-        $filename = self::datePath().'backup-idsm-'.date('Y-m-d').'.sql';
+        $date = date('Y-m-d');
+        $targetFilename = self::datePath($date).'backup-idsm-'.$date.'.sql.gz';
+        $temporaryDirectory = TemporaryDirectory::make();
+        $tmpFile = $temporaryDirectory->path('backup-idsm-'.$date.'.sql');
+        $compressedTmpFile = $tmpFile.'.gz';
 
-        $tmpFile = TemporaryDirectory::make()->path($filename);
+        try {
+            $arguments = [
+                'pg_dump',
+                '-U',
+                (string) $user,
+                '-p',
+                (string) $port,
+                '-h',
+                (string) $host,
+            ];
 
-        $cmd = "PGPASSWORD=\"$pass\" pg_dump -U $user -p $port -h $host $db ";
+            foreach ($this->excludedTables as $table) {
+                $arguments[] = '--exclude-table='.$table.'*';
+            }
 
-        foreach($this->exludedTables as $table)
-        {
-            $cmd .= "--exclude-table=$table* ";
+            $arguments[] = (string) $db;
+
+            $this->runPgDump($arguments, $tmpFile, (string) $pass);
+
+            $this->info('# Dump created.');
+            $this->info('# Archiving...');
+
+            $this->gzipFile($tmpFile, $compressedTmpFile);
+
+            $this->info('# Dump archived. Uploading...');
+
+            if ($disk->exists($targetFilename)) {
+                $disk->delete($targetFilename);
+                $this->warn('# Old backup deleted.');
+            }
+
+            $stream = fopen($compressedTmpFile, 'rb');
+            if (! $stream) {
+                throw new \RuntimeException('Could not open compressed backup for upload.');
+            }
+
+            try {
+                if (! $disk->put($targetFilename, $stream)) {
+                    throw new \RuntimeException('Could not upload backup to target filesystem.');
+                }
+            } finally {
+                if (is_resource($stream)) {
+                    fclose($stream);
+                }
+            }
+
+            Config::set('db_backup_idsm_last', date('Y-m-d H:i:s'));
+
+            $this->info('Backup created and uploaded.');
+
+            return Command::SUCCESS;
+        } catch (Throwable $throwable) {
+            $this->error($throwable->getMessage());
+
+            return Command::FAILURE;
+        } finally {
+            $temporaryDirectory->delete();
+        }
+    }
+
+    /**
+     * @param  array<int, string>  $arguments
+     */
+    private function runPgDump(array $arguments, string $outputFile, string $password): void
+    {
+        $stream = fopen($outputFile, 'wb');
+        if (! $stream) {
+            throw new \RuntimeException("Could not open temporary dump file [{$outputFile}].");
         }
 
-        $cmd .= " > $tmpFile";
+        $stderr = '';
+        $process = new Process($arguments, null, ['PGPASSWORD' => $password]);
 
-        exec($cmd);
+        try {
+            $process->setTimeout(null);
+            $process->run(function (string $type, string $buffer) use ($stream, &$stderr): void {
+                if ($type === Process::OUT) {
+                    fwrite($stream, $buffer);
 
-        $this->info('# Dump created.');
-        $this->info('# Archiving...');
+                    return;
+                }
 
-        $archiveCmd = "gzip $tmpFile";
-        $tmpFile .= '.gz';
-        $filename .= '.gz';
-        exec($archiveCmd);
-
-        $this->info('# Dump archived. Uploading...');
-
-        // Delete old backup if exists
-        if($disk->exists($filename))
-        {
-            $disk->delete($filename);
-            $this->warn('# Old backup deleted.');
+                $stderr .= $buffer;
+            });
+        } finally {
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
         }
 
-        $stream = fopen($tmpFile, 'r+');
-        $disk->put($filename, $stream);
-        fclose($stream);
+        if (! $process->isSuccessful()) {
+            throw new \RuntimeException(trim($stderr) ?: 'pg_dump failed.');
+        }
+    }
 
-        unlink($tmpFile);
+    private function gzipFile(string $source, string $target): void
+    {
+        $input = fopen($source, 'rb');
+        $output = gzopen($target, 'wb9');
 
-        Config::set('db_backup_idsm_last', date('Y-m-d H:i:s'));
-        
-        $this->info('Backup created and uploaded.');
+        if (! $input || ! $output) {
+            throw new \RuntimeException('Could not create gzip archive.');
+        }
+
+        while (! feof($input)) {
+            gzwrite($output, fread($input, 1024 * 1024));
+        }
+
+        fclose($input);
+        gzclose($output);
     }
 }
