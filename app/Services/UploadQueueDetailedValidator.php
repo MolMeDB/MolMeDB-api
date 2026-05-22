@@ -22,6 +22,12 @@ class UploadQueueDetailedValidator
 {
     private const IGNORE_COLUMN = 'ignore';
 
+    public function __construct(
+        private readonly UploadQueueInteractionPayloadBuilder $payloadBuilder,
+        private readonly UploadQueueDuplicateInteractionChecker $duplicateChecker,
+        private readonly UploadQueueColumnRegistry $columns,
+    ) {}
+
     public function validate(UploadQueue $record): array
     {
         $disk = $record->file?->storage;
@@ -29,6 +35,7 @@ class UploadQueueDetailedValidator
             return [
                 'ok' => false,
                 'errors' => ['Uploaded file storage is not configured.'],
+                'warnings' => [],
                 'config' => null,
             ];
         }
@@ -38,6 +45,7 @@ class UploadQueueDetailedValidator
             return [
                 'ok' => false,
                 'errors' => ['Uploaded file was not found on storage.'],
+                'warnings' => [],
                 'config' => null,
             ];
         }
@@ -47,6 +55,7 @@ class UploadQueueDetailedValidator
             return [
                 'ok' => false,
                 'errors' => ['Cannot open uploaded file.'],
+                'warnings' => [],
                 'config' => null,
             ];
         }
@@ -71,6 +80,7 @@ class UploadQueueDetailedValidator
             return [
                 'ok' => false,
                 'errors' => ['File must contain a header and at least one data row.'],
+                'warnings' => [],
                 'config' => null,
             ];
         }
@@ -98,6 +108,7 @@ class UploadQueueDetailedValidator
             return [
                 'ok' => false,
                 'errors' => ['File does not contain rows for validation.'],
+                'warnings' => [],
                 'config' => null,
             ];
         }
@@ -107,13 +118,19 @@ class UploadQueueDetailedValidator
             return [
                 'ok' => false,
                 'errors' => [$requiredError],
+                'warnings' => [],
                 'config' => null,
             ];
         }
 
         $validators = $this->validatorsByKey($record);
         $errors = [];
+        $rowErrors = [];
+        $warnings = [];
         $maxErrors = 20;
+        $maxRowErrors = 20;
+        $maxWarnings = 20;
+        $skippedDuplicateRows = 0;
         $rowIndex = $hasManualConfig
             ? ((int) ($configured['skip_first_row'] ?? 0) === 1 ? 1 : 0)
             : 1;
@@ -155,13 +172,41 @@ class UploadQueueDetailedValidator
                         break 2;
                     }
                 }
+
+                continue;
             }
+
+            $duplicate = $this->duplicateForRow($record, $row);
+            if ($duplicate === null) {
+                continue;
+            }
+
+            $skippedDuplicateRows++;
+
+            if ($duplicate['status'] === 'same') {
+                if (count($warnings) < $maxWarnings) {
+                    $warnings[] = $this->duplicateWarningMessage($rowIndex, $duplicate['existing_id']);
+                }
+
+                continue;
+            }
+
+            if (count($rowErrors) < $maxRowErrors) {
+                $rowErrors[] = $this->duplicateConflictMessage($rowIndex, $duplicate['existing_id'], $duplicate['differences']);
+            }
+        }
+
+        if ($skippedDuplicateRows === count($dataLines)) {
+            $errors[] = 'All rows would be skipped because they already exist in the database. There is nothing to import.';
+            $errors = array_values(array_unique(array_merge($errors, $rowErrors, $warnings)));
         }
 
         if (count($errors) > 0) {
             return [
                 'ok' => false,
                 'errors' => $errors,
+                'row_errors' => $rowErrors,
+                'warnings' => $warnings,
                 'config' => null,
             ];
         }
@@ -169,6 +214,8 @@ class UploadQueueDetailedValidator
         return [
             'ok' => true,
             'errors' => [],
+            'row_errors' => $rowErrors,
+            'warnings' => $warnings,
             'config' => UploadQueueConfig::configured(
                 $separator,
                 $hasManualConfig ? ((int) ($configured['skip_first_row'] ?? 0) === 1 ? 1 : 0) : 1,
@@ -290,6 +337,44 @@ class UploadQueueDetailedValidator
 
     private function validatorClasses(UploadQueue $record): array
     {
-        return app(UploadQueueColumnRegistry::class)->validatorClasses($record);
+        return $this->columns->validatorClasses($record);
+    }
+
+    /**
+     * @param  array<string, string>  $row
+     * @return array{status: 'same'|'conflict', existing_id: int, differences: array<string, array{database: mixed, upload: mixed}>}|null
+     */
+    private function duplicateForRow(UploadQueue $record, array $row): ?array
+    {
+        $payload = $record->type === UploadQueue::TYPE_ACTIVE_DATASET
+            ? $this->payloadBuilder->activePayload($record, $row, false)
+            : $this->payloadBuilder->passivePayload($record, $row, false);
+
+        return $this->duplicateChecker->check($record, $payload, $this->interactionValueColumns($record));
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function interactionValueColumns(UploadQueue $record): array
+    {
+        return array_values($this->columns->interactionValueColumns($record));
+    }
+
+    private function duplicateWarningMessage(int $rowIndex, int $existingId): string
+    {
+        return "Line {$rowIndex}: interaction already exists in database as ID {$existingId} with the same values. Row will be skipped during import.";
+    }
+
+    /**
+     * @param  array<string, array{database: mixed, upload: mixed}>  $differences
+     */
+    private function duplicateConflictMessage(int $rowIndex, int $existingId, array $differences): string
+    {
+        $values = collect($differences)
+            ->map(fn (array $difference, string $column): string => "{$column}: DB={$difference['database']}, upload={$difference['upload']}")
+            ->implode('; ');
+
+        return "Line {$rowIndex}: interaction already exists in database as ID {$existingId}, but has different values after rounding to 2 decimals ({$values}). Row will be skipped.";
     }
 }

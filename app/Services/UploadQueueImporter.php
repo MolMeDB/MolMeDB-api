@@ -2,24 +2,22 @@
 
 namespace App\Services;
 
-use App\Models\Category;
-use App\Models\Dataset;
-use App\Models\Identifier;
 use App\Models\InteractionActive;
 use App\Models\InteractionPassive;
-use App\Models\Protein;
-use App\Models\Structure;
 use App\Models\UploadQueue;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Modules\Rdkit\Rdkit;
 use RuntimeException;
 
 class UploadQueueImporter
 {
     private const IGNORE_COLUMN = 'ignore';
 
-    private const DEFAULT_ACTIVE_CATEGORY_TITLE = 'Unassigned';
+    public function __construct(
+        private readonly UploadQueueInteractionPayloadBuilder $payloadBuilder,
+        private readonly UploadQueueDuplicateInteractionChecker $duplicateChecker,
+        private readonly UploadQueueColumnRegistry $columns,
+    ) {}
 
     /**
      * @return array<int, array<string, string>>
@@ -71,21 +69,23 @@ class UploadQueueImporter
             'record_id' => $record->id,
             'dataset_id' => $record->dataset_id,
             'type' => $record->type,
+            'prepared_rows' => 0,
             'created_rows' => 0,
             'skipped_rows' => 0,
+            'duplicate_rows' => 0,
+            'duplicate_conflict_rows' => 0,
+            'duplicate_warnings' => [],
+            'duplicate_errors' => [],
             'sample_rows' => [],
         ];
 
         $result = DB::transaction(function () use ($record, &$summary): array {
             return $this->forEachMappedRow($record, function (array $row) use ($record, &$summary): void {
-                $columns = app(UploadQueueColumnRegistry::class);
-                $payload = [
-                    'dataset_id' => $record->dataset_id,
-                    'structure_id' => $this->resolveStructureId($row, $record),
-                    'publication_id' => $this->resolvePublicationId($record, $row),
-                    ...$this->interactionValues($row, $columns->commonValueColumns()),
-                    ...$this->interactionValues($row, $columns->interactionValueColumns($record)),
-                ];
+                $payload = $this->payloadBuilder->passivePayload($record, $row);
+
+                if ($this->skipDuplicate($record, $payload, $summary)) {
+                    return;
+                }
 
                 InteractionPassive::query()->create($payload);
 
@@ -96,7 +96,9 @@ class UploadQueueImporter
             });
         });
 
-        $summary['skipped_rows'] = $result['skipped_rows'];
+        $summary['prepared_rows'] = $result['prepared_rows'];
+        $summary['skipped_rows'] += $result['skipped_rows'];
+        $this->failIfNothingWasImported($summary);
 
         return $summary;
     }
@@ -116,23 +118,23 @@ class UploadQueueImporter
             'record_id' => $record->id,
             'dataset_id' => $record->dataset_id,
             'type' => $record->type,
+            'prepared_rows' => 0,
             'created_rows' => 0,
             'skipped_rows' => 0,
+            'duplicate_rows' => 0,
+            'duplicate_conflict_rows' => 0,
+            'duplicate_warnings' => [],
+            'duplicate_errors' => [],
             'sample_rows' => [],
         ];
 
         $result = DB::transaction(function () use ($record, &$summary): array {
             return $this->forEachMappedRow($record, function (array $row) use ($record, &$summary): void {
-                $columns = app(UploadQueueColumnRegistry::class);
-                $payload = [
-                    'dataset_id' => $record->dataset_id,
-                    'structure_id' => $this->resolveStructureId($row, $record),
-                    'protein_id' => $this->resolveProteinId($row),
-                    'category_id' => $this->defaultActiveCategoryId(),
-                    'publication_id' => $this->resolvePublicationId($record, $row),
-                    ...$this->interactionValues($row, $columns->commonValueColumns()),
-                    ...$this->interactionValues($row, $columns->interactionValueColumns($record)),
-                ];
+                $payload = $this->payloadBuilder->activePayload($record, $row);
+
+                if ($this->skipDuplicate($record, $payload, $summary)) {
+                    return;
+                }
 
                 InteractionActive::query()->create($payload);
 
@@ -143,7 +145,9 @@ class UploadQueueImporter
             });
         });
 
-        $summary['skipped_rows'] = $result['skipped_rows'];
+        $summary['prepared_rows'] = $result['prepared_rows'];
+        $summary['skipped_rows'] += $result['skipped_rows'];
+        $this->failIfNothingWasImported($summary);
 
         return $summary;
     }
@@ -158,162 +162,64 @@ class UploadQueueImporter
     }
 
     /**
-     * @param  array<string, string>  $row
-     * @param  array<int|string, string>  $columns
-     * @return array<string, mixed>
+     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $summary
      */
-    private function interactionValues(array $row, array $columns): array
+    private function skipDuplicate(UploadQueue $record, array $payload, array &$summary): bool
     {
-        $values = [];
-
-        foreach ($columns as $source => $target) {
-            if (is_int($source)) {
-                $source = $target;
-            }
-
-            $value = $row[$source] ?? null;
-            if (! is_string($value) || trim($value) === '') {
-                continue;
-            }
-
-            $values[$target] = $this->normalizeInteractionValue($target, $value);
+        $duplicate = $this->duplicateChecker->check($record, $payload, $this->interactionValueColumns($record));
+        if ($duplicate === null) {
+            return false;
         }
 
-        return $values;
-    }
+        $summary['skipped_rows']++;
 
-    private function normalizeInteractionValue(string $column, string $value): float|string
-    {
-        $value = trim($value);
+        if ($duplicate['status'] === 'same') {
+            $summary['duplicate_rows']++;
+            $summary['duplicate_warnings'][] = $this->duplicateWarningMessage($duplicate['existing_id']);
 
-        if (in_array($column, ['charge', 'note'], true)) {
-            return $value;
+            return true;
         }
 
-        return (float) str_replace(',', '.', $value);
+        $summary['duplicate_conflict_rows']++;
+        $summary['duplicate_errors'][] = $this->duplicateConflictMessage($duplicate['existing_id'], $duplicate['differences']);
+
+        return true;
     }
 
     /**
-     * @param  array<string, string>  $row
+     * @return array<int, string>
      */
-    private function resolveStructureId(array $row, ?UploadQueue $record): int
+    private function interactionValueColumns(UploadQueue $record): array
     {
-        $structure = null;
+        return array_values($this->columns->interactionValueColumns($record));
+    }
 
-        $smiles = trim($row['smiles'] ?? '');
-
-        if ($smiles !== '') {
-            $rdkit = new Rdkit;
-            $canonical_smiles = $rdkit->canonize_smiles($smiles);
-            if ($canonical_smiles) {
-                $smiles = $canonical_smiles;
-            }
-        }
-
-        if (! empty($smiles)) {
-            $structure = Structure::withTrashed()
-                ->where('canonical_smiles', $smiles)
-                ->first();
-        }
-
-        $identifierColumns = [
-            'pubchem' => Identifier::TYPE_PUBCHEM,
-            'chembl' => Identifier::TYPE_CHEMBL,
-            'pdb' => Identifier::TYPE_PDB,
-            'drugbank' => Identifier::TYPE_DRUGBANK,
-            'chebi' => Identifier::TYPE_CHEBI,
-            'name' => Identifier::TYPE_NAME,
-        ];
-
-        foreach ($identifierColumns as $column => $type) {
-            if ($structure || ! isset($row[$column])) {
-                continue;
-            }
-
-            $identifier = Identifier::withTrashed()
-                ->where('type', $type)
-                ->where('value', trim($row[$column]))
-                ->first();
-
-            $structure = $identifier?->structure;
-        }
-
-        if (! $structure && empty($smiles ?? null)) {
-            throw new RuntimeException('Unable to resolve structure for imported row. Fill SMILES column or provide at least one valid structure identifier (PubChem CID, ChEMBL ID, PDB ID, DrugBank ID, ChEBI ID).');
-        }
-
-        if (! $structure) {
-            // If no existing structure could be resolved, create a new one from the provided SMILES.
-            $structure = Structure::create([
-                'canonical_smiles' => trim($smiles),
-            ]);
-
-            $structure->identifiers()->createMany(array_map(
-                fn (string $column) => [
-                    'type' => $identifierColumns[$column],
-                    'value' => trim($row[$column]),
-                    'state' => Identifier::STATE_NEW,
-                    'source_id' => $record?->dataset_id,
-                    'source_type' => $record ? Dataset::class : null,
-                ],
-                array_filter(array_keys($identifierColumns), fn (string $column) => ! empty($row[$column] ?? null))
-            ));
-        }
-
-        return (int) $structure->id;
+    private function duplicateWarningMessage(int $existingId): string
+    {
+        return "Interaction already exists in database as ID {$existingId} with the same values. Row was skipped.";
     }
 
     /**
-     * @param  array<string, string>  $row
+     * @param  array<string, array{database: mixed, upload: mixed}>  $differences
      */
-    private function resolveProteinId(array $row): int
+    private function duplicateConflictMessage(int $existingId, array $differences): string
     {
-        $target = trim($row['active_target'] ?? '');
-        if ($target === '') {
-            throw new RuntimeException('Unable to resolve protein: target column is empty.');
-        }
+        $values = collect($differences)
+            ->map(fn (array $difference, string $column): string => "{$column}: DB={$difference['database']}, upload={$difference['upload']}")
+            ->implode('; ');
 
-        $protein = Protein::withTrashed()
-            ->whereRaw('LOWER(uniprot_id) = ?', [mb_strtolower($target)])
-            ->first();
-
-        if (! $protein) {
-            // Add new record to proteins table if it does not exist, to maintain referential integrity.
-            $protein = Protein::create([
-                'uniprot_id' => $target,
-            ]);
-        }
-
-        return (int) $protein->id;
-    }
-
-    private function defaultActiveCategoryId(): int
-    {
-        return (int) Category::query()
-            ->firstOrCreate([
-                'title' => self::DEFAULT_ACTIVE_CATEGORY_TITLE,
-                'type' => Category::TYPE_ACTIVE_INTERACTION,
-            ], [
-                'parent_id' => -1,
-                'order' => 0,
-            ])
-            ->id;
+        return "Interaction already exists in database as ID {$existingId}, but has different values after rounding to 2 decimals ({$values}). Row was skipped.";
     }
 
     /**
-     * @param  array<string, string>  $row
+     * @param  array<string, mixed>  $summary
      */
-    private function resolvePublicationId(UploadQueue $record, array $row): ?int
+    private function failIfNothingWasImported(array $summary): void
     {
-        $resolver = app(PublicationReferenceResolver::class);
-        $reference = $resolver->normalizeReference($row['primaryReference'] ?? '');
-        if ($reference !== '') {
-            return (int) $resolver->resolveOrCreatePublication($reference)->id;
+        if (($summary['prepared_rows'] ?? 0) > 0 && ($summary['created_rows'] ?? 0) === 0 && ($summary['skipped_rows'] ?? 0) >= ($summary['prepared_rows'] ?? 0)) {
+            throw new RuntimeException('All upload rows were skipped. There is nothing to import.');
         }
-
-        $sourcePublicationId = $record->config['source_publication_id'] ?? null;
-
-        return is_numeric($sourcePublicationId) ? (int) $sourcePublicationId : null;
     }
 
     /**

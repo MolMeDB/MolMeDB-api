@@ -98,7 +98,7 @@ class ProcessUploadQueueRecord implements ShouldBeUnique, ShouldQueue
                 UploadQueueLogContextEnums::INFO,
                 UploadQueueLogTypeEnums::UPLOAD_RUN,
                 null,
-                $record->user_id
+                null
             );
         }
 
@@ -107,7 +107,7 @@ class ProcessUploadQueueRecord implements ShouldBeUnique, ShouldQueue
                 ->info('Starting upload processing', [
                     'record_id' => $this->recordId,
                     'file_path' => $record->file?->path,
-            ]);
+                ]);
 
             if (! $record->config->detailedValidationPassed()) {
                 if ($this->shouldWaitForUnichem($record)) {
@@ -129,7 +129,7 @@ class ProcessUploadQueueRecord implements ShouldBeUnique, ShouldQueue
                     UploadQueueLogContextEnums::SUCCESS,
                     UploadQueueLogTypeEnums::UPLOAD_RUN,
                     $summary,
-                    $record->user_id
+                    null
                 );
 
                 Log::channel('upload')
@@ -146,7 +146,7 @@ class ProcessUploadQueueRecord implements ShouldBeUnique, ShouldQueue
                 UploadQueueLogContextEnums::SUCCESS,
                 UploadQueueLogTypeEnums::UPLOAD_RUN,
                 $summary,
-                $record->user_id
+                null
             );
 
             Log::channel('upload')
@@ -161,7 +161,7 @@ class ProcessUploadQueueRecord implements ShouldBeUnique, ShouldQueue
                     UploadQueueLogContextEnums::ERROR,
                     UploadQueueLogTypeEnums::UPLOAD_RUN,
                     null,
-                    $record->user_id
+                    null
                 );
             }
 
@@ -180,7 +180,7 @@ class ProcessUploadQueueRecord implements ShouldBeUnique, ShouldQueue
                 UploadQueueLogContextEnums::ERROR,
                 UploadQueueLogTypeEnums::UPLOAD_RUN,
                 null,
-                $record->user_id
+                null
             );
         }
     }
@@ -195,7 +195,7 @@ class ProcessUploadQueueRecord implements ShouldBeUnique, ShouldQueue
             UploadQueueLogTypeEnums::VALIDATION_RUN,
             $record->state,
             null,
-            $record->user_id
+            null
         );
 
         $result = $validator->validate($record);
@@ -208,8 +208,12 @@ class ProcessUploadQueueRecord implements ShouldBeUnique, ShouldQueue
                 $message,
                 UploadQueueLogContextEnums::ERROR,
                 UploadQueueLogTypeEnums::VALIDATION_RUN,
-                ['errors' => $errors],
-                $record->user_id
+                [
+                    'errors' => array_values(array_merge($errors, $result['row_errors'] ?? [])),
+                    'row_errors' => $result['row_errors'] ?? [],
+                    'warnings' => $result['warnings'] ?? [],
+                ],
+                null
             );
 
             throw new RuntimeException($message);
@@ -225,13 +229,34 @@ class ProcessUploadQueueRecord implements ShouldBeUnique, ShouldQueue
             );
         $record->save();
 
+        if (! empty($result['row_errors'] ?? [])) {
+            $record->addStructuredLog(
+                'Some upload rows contain duplicate interactions with different values and will be skipped during import.',
+                UploadQueueLogContextEnums::ERROR,
+                UploadQueueLogTypeEnums::VALIDATION_RUN,
+                $record->state,
+                [
+                    'errors' => $result['row_errors'],
+                    'row_errors' => $result['row_errors'],
+                ],
+                null
+            );
+        }
+
         $record->addStructuredLog(
             'Detailed validation passed. Record is ready for import.',
-            UploadQueueLogContextEnums::SUCCESS,
+            empty($result['warnings'] ?? []) && empty($result['row_errors'] ?? [])
+                ? UploadQueueLogContextEnums::SUCCESS
+                : UploadQueueLogContextEnums::WARNING,
             UploadQueueLogTypeEnums::VALIDATION_RUN,
             $record->state,
-            ['validated_rows' => $result['config']['validated_rows'] ?? null],
-            $record->user_id
+            [
+                'validated_rows' => $result['config']['validated_rows'] ?? null,
+                'errors' => $result['row_errors'] ?? [],
+                'row_errors' => $result['row_errors'] ?? [],
+                'warnings' => $result['warnings'] ?? [],
+            ],
+            null
         );
     }
 
@@ -274,7 +299,7 @@ class ProcessUploadQueueRecord implements ShouldBeUnique, ShouldQueue
                 'retry_delay_seconds' => self::UNICHEM_RETRY_DELAY_SECONDS,
                 'retry_at' => now()->addSeconds(self::UNICHEM_RETRY_DELAY_SECONDS)->toISOString(),
             ],
-            $record->user_id
+            null
         );
 
         $this->release(self::UNICHEM_RETRY_DELAY_SECONDS);

@@ -73,6 +73,13 @@ class UploadQueueLogsTable extends TableWidget implements HasForms, HasTable
                     ->label('State'),
                 TextColumn::make('message')
                     ->html()
+                    ->formatStateUsing(fn (?string $state): string => nl2br(e($state ?? '')))
+                    ->wrap()
+                    ->limit(220)
+                    ->tooltip(fn (UploadQueueLog $record): string => $record->message)
+                    ->extraCellAttributes([
+                        'class' => 'max-w-xl whitespace-normal break-words',
+                    ])
                     ->color(fn (UploadQueueLog $record) => match ($record->context) {
                         UploadQUeueLogContextEnums::ERROR => 'danger',
                         UploadQUeueLogContextEnums::INFO => 'primary',
