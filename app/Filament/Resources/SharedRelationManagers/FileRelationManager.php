@@ -2,16 +2,24 @@
 
 namespace App\Filament\Resources\SharedRelationManagers;
 
+use Filament\Schemas\Schema;
+use Filament\Forms\Components\TextInput;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\ImageColumn;
+use Filament\Actions\Action;
+use Filament\Forms\Components\Select;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Forms\Components\FileUpload;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
 use App\Enums\IconEnums;
 use App\Models\File;
 use App\Models\FileRestrictionType;
 use App\Models\Membrane;
 use App\Models\Method;
-use Filament\Forms;
-use Filament\Forms\Form;
-use Filament\Forms\Get;
 use Filament\Resources\RelationManagers\RelationManager;
-use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
@@ -19,13 +27,13 @@ use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 class FileRelationManager extends RelationManager
 {
     protected static string $relationship = 'files';
-    protected static ?string $icon = IconEnums::FILES->value;
+    protected static string | \BackedEnum | null $icon = IconEnums::FILES->value;
 
-    public function form(Form $form): Form
+    public function form(Schema $schema): Schema
     {
-        return $form
-            ->schema([
-                Forms\Components\TextInput::make('name')
+        return $schema
+            ->components([
+                TextInput::make('name')
                     ->required()
                     ->maxLength(255),
             ]);
@@ -40,9 +48,9 @@ class FileRelationManager extends RelationManager
             ->emptyStateDescription($this->getEmptyStateDescription())
             ->emptyStateIcon(IconEnums::MEMBRANE->value)
             ->columns([
-                Tables\Columns\TextColumn::make('name')
+                TextColumn::make('name')
                     ->sortable(),
-                Tables\Columns\IconColumn::make('type')
+                IconColumn::make('type')
                     ->alignCenter()
                     ->icon(fn (File $record) => match ($record->type) {
                         File::TYPE_EXPORT_INTERACTIONS_ACTIVE_PUBLICATION => IconEnums::DATASET->value,
@@ -53,7 +61,7 @@ class FileRelationManager extends RelationManager
                         default => IconEnums::FILE_DOCUMENT->value
                     })
                     ->tooltip(fn (File $record) => File::enumType($record->type)),
-                Tables\Columns\ImageColumn::make('user_id')
+                ImageColumn::make('user_id')
                     ->label('Uploaded by')
                     ->alignCenter()
                     ->getStateUsing(fn (File $record) => $record->user?->getFilamentAvatarUrl())
@@ -62,7 +70,7 @@ class FileRelationManager extends RelationManager
                     ->tooltip(function (File $record) {
                         return $record->user?->name;
                     }),
-                Tables\Columns\TextColumn::make('created_at')
+                TextColumn::make('created_at')
                     ->since()
                     ->dateTimeTooltip()
                     ->sortable(),
@@ -71,11 +79,11 @@ class FileRelationManager extends RelationManager
                 //
             ])
             ->headerActions([
-                Tables\Actions\Action::make('addNewFile')
+                Action::make('addNewFile')
                     ->label('Add new file')
                     ->icon(IconEnums::ADD->value)
-                    ->form([
-                        Forms\Components\Select::make('type')
+                    ->schema([
+                        Select::make('type')
                             ->label('File type')
                             ->required()
                             ->reactive()
@@ -84,13 +92,13 @@ class FileRelationManager extends RelationManager
                                 Membrane::class => File::enumTypes(FileRestrictionType::MEMBRANE),
                                 default => File::enumTypes()
                             }),
-                        Forms\Components\TextInput::make('name')
+                        TextInput::make('name')
                             ->label('Alternative name')
                             ->hint(fn(Get $get) => $get('type') == File::TYPE_COSMO_MEMBRANE ? 'Not available for structure files' : 'If set, will be used instead of file name when downloaded. Max 30 characters.')
                             ->rule('regex:/^[a-zA-Z0-9-_]+$/') 
                             ->disabled(fn (Get $get) => $get('type') == File::TYPE_COSMO_MEMBRANE)
                             ->maxLength(30),
-                        Forms\Components\FileUpload::make('path')
+                        FileUpload::make('path')
                             ->label('File')
                             ->required()
                             ->reactive()
@@ -122,20 +130,20 @@ class FileRelationManager extends RelationManager
                         ]);
                     })
             ])
-            ->actions([
-                Tables\Actions\Action::make('download')
+            ->recordActions([
+                Action::make('download')
                     ->label('Download')
                     ->color('success')
                     ->icon(IconEnums::DOWNLOAD->value)
                     ->disabled(fn (File $record) => !$record->hash)
                     ->openUrlInNewTab()
                     ->url(fn (File $record) => $record->hash ? route('public.download', ['hash' => $record->hash]) : null),
-                Tables\Actions\DeleteAction::make()
+                DeleteAction::make()
                     ->successNotificationTitle('File deleted'),
             ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
                 ]),
             ]);
     }

@@ -1,5 +1,9 @@
 <?php
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\PermissionRegistrar;
+use Tests\TestCase;
+
 /*
 |--------------------------------------------------------------------------
 | Test Case
@@ -11,12 +15,30 @@
 |
 */
 
-pest()->extend(Tests\TestCase::class)
-    ->use(Illuminate\Foundation\Testing\RefreshDatabase::class)
+pest()->extend(TestCase::class)
+    ->use(RefreshDatabase::class)
     ->in(
-        'Feature', 
+        'Feature',
         '../modules/*/tests/Feature'
     );
+
+beforeEach(function () {
+    if (! gc_enabled()) {
+        gc_enable();
+    }
+});
+
+afterEach(function () {
+    if (class_exists(PermissionRegistrar::class)) {
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+    }
+
+    gc_collect_cycles();
+
+    if (function_exists('gc_mem_caches')) {
+        gc_mem_caches();
+    }
+});
 
 /*
 |--------------------------------------------------------------------------

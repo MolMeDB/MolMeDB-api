@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Structure;
 use Illuminate\Console\Command;
 use Modules\Rdkit\Rdkit;
 
@@ -28,8 +29,8 @@ class JoinStructureRecords extends Command
     {
         $this->info('Checking structures...');
 
-        $substance_1 = \App\Models\Structure::where('id', $this->argument('id1'))->first();
-        $substance_2 = \App\Models\Structure::where('id', $this->argument('id2'))->first();
+        $substance_1 = Structure::where('id', $this->argument('id1'))->first();
+        $substance_2 = Structure::where('id', $this->argument('id2'))->first();
 
         if (!$substance_1 || !$substance_2) {
             $this->error('One of the structures does not exist.');
@@ -58,7 +59,7 @@ class JoinStructureRecords extends Command
             return;
         }
 
-        \App\Models\Structure::join_structures($substance_1, $substance_2);
+        Structure::join_structures($substance_1, $substance_2);
 
         $this->info('Done.');
     }

@@ -14,11 +14,11 @@ export default function Body(props: { children: React.ReactNode }) {
       className={cn(
         `${geistSans.className} min-h-dvh antialiased`,
         "text-foreground",
-        "bg-[#f0f1f5] dark:bg-[#111111]"
+        "bg-[#f0f1f5] dark:bg-[#111111]",
       )}
     >
       <HeroUIProvider>
-        <ToastProvider placement="top-right" toastOffset={60} />
+        <ToastProvider placement="top-right" toastOffset={80} />
         <div className="flex flex-col w-full min-h-dvh">{props.children}</div>
       </HeroUIProvider>
     </body>

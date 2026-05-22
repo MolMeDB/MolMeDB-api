@@ -22,4 +22,6 @@ export interface IDatasetPassive extends IDataset {
 
 export interface IDatasetActive extends IDataset {
   type: IDatasetType.ACTIVE;
+  membrane: null;
+  method: null;
 }

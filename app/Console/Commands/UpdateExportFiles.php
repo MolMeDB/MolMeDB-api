@@ -2,8 +2,8 @@
 
 namespace App\Console\Commands;
 
-use App\Libraries\ExportFileHeader;
-use App\Libraries\ExportToFile;
+use App\Libraries\Export\ExportFileHeader;
+use App\Libraries\Export\ExportToFile;
 use App\Models\Config;
 use App\Models\Dataset;
 use App\Models\File;

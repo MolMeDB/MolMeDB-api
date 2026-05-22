@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\ProteinFactory;
 use EloquentFilter\Filterable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -11,7 +12,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Protein extends Model
 {
-    /** @use HasFactory<\Database\Factories\ProteinFactory> */
+    /** @use HasFactory<ProteinFactory> */
     use HasFactory, SoftDeletes;
     use Filterable;
 

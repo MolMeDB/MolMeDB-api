@@ -37,6 +37,28 @@ return [
     'cdk_depict_url' => env('CDK_DEPICT_URL'),
 
     'rdkit' => [
-        'url' => rtrim(env('RDKIT_HOST') ?? "", '/')
+        'url' => rtrim(env('RDKIT_HOST') ?? '', '/'),
+    ],
+
+    /**
+     * External services configuration
+     */
+    'chebi' => [
+        'base_api_url' => env('CHEBI_BASE_API_URL', 'https://www.ebi.ac.uk/chebi/backend/api/public'),
+    ],
+
+    'unichem' => [
+        'base_api_url' => env('UNICHEM_BASE_API_URL', 'https://www.ebi.ac.uk/unichem/api/v1/'),
+    ],
+
+    'uniprot' => [
+        'base_api_url' => env('UNIPROT_BASE_API_URL', 'https://rest.uniprot.org/'),
+    ],
+
+    'turnstile' => [
+        'enabled' => env('TURNSTILE_ENABLED', true),
+        'site_key' => env('TURNSTILE_SITE_KEY'),
+        'secret_key' => env('TURNSTILE_SECRET_KEY'),
+        'verify_url' => env('TURNSTILE_VERIFY_URL', 'https://challenges.cloudflare.com/turnstile/v0/siteverify'),
     ],
 ];

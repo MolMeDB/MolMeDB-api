@@ -3,11 +3,10 @@ import DetailSection from "../components/section";
 import FilterSelect from "../components/interactions/filterSelect";
 import PassiveInteractionTable from "../components/tables/passiveInteractions";
 import IStructure from "@/lib/api/admin/interfaces/Structure";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { ISelectSetting } from "@/lib/api/admin/interfaces/SelectData";
 import { getJson } from "@/lib/api/admin";
-import { addToast, Button, cn, Spinner } from "@heroui/react";
-import { IInteractionPassive } from "@/lib/api/admin/interfaces/Interaction";
+import { addToast, Button, cn, Link, Spinner } from "@heroui/react";
 import { MdClose, MdSearch } from "react-icons/md";
 
 export default function CompoundPassiveInteractions(props: {
@@ -18,14 +17,14 @@ export default function CompoundPassiveInteractions(props: {
   >(null);
 
   const [methodSelects, setMethodSelects] = useState<ISelectSetting[] | null>(
-    null
+    null,
   );
 
   const [selectedMembraneIds, setSelectedMembraneIds] = useState<Set<string>>(
-    new Set()
+    new Set(),
   );
   const [selectedMethodIds, setSelectedMethodIds] = useState<Set<string>>(
-    new Set()
+    new Set(),
   );
 
   const [membraneIdsToTable, setMembraneIdsToTable] = useState<string[]>([]);
@@ -35,7 +34,7 @@ export default function CompoundPassiveInteractions(props: {
 
   useEffect(() => {
     getJson(
-      "/api/structure/" + props.compound.identifier + "/form/select/membranes"
+      "/api/structure/" + props.compound.identifier + "/form/select/membranes",
     ).then((res) => {
       if (res?.code === 200 && res.data) {
         setMembraneSelects(res.data);
@@ -59,7 +58,7 @@ export default function CompoundPassiveInteractions(props: {
       "/api/structure/" + props.compound.identifier + "/form/select/methods",
       {
         "membraneIds[]": Array.from(selectedMembraneIds),
-      }
+      },
     ).then((res) => {
       if (res?.code === 200 && res.data) {
         setMethodSelects(res.data);
@@ -139,7 +138,7 @@ export default function CompoundPassiveInteractions(props: {
                   "flex flex-row flex-wrap gap-2 items-center pl-2",
                   {
                     hidden: loadingMethod,
-                  }
+                  },
                 )}
               >
                 {methodSelects?.map((item, i) => (
@@ -192,6 +191,20 @@ export default function CompoundPassiveInteractions(props: {
             membraneIds={Array.from(membraneIdsToTable)}
             methodIds={Array.from(methodIdsToTable)}
           />
+        </div>
+        <div className="flex flex-row justify-end">
+          <Button
+            as={Link}
+            href={
+              "/api/export/structure/" +
+              props.compound.id +
+              "/passiveInteractions"
+            }
+            variant="bordered"
+            color="success"
+          >
+            Export data
+          </Button>
         </div>
       </>
     </DetailSection>

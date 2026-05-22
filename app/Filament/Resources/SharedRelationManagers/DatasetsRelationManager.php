@@ -2,25 +2,27 @@
 
 namespace App\Filament\Resources\SharedRelationManagers;
 
+use Filament\Schemas\Schema;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TrashedFilter;
+use Filament\Actions\ViewAction;
+use Filament\Actions\EditAction;
 use App\Enums\IconEnums;
-use App\Filament\Resources\DatasetResource;
+use App\Filament\Resources\Datasets\DatasetResource;
 use App\Models\Dataset;
 use App\Models\Membrane;
 use App\Models\Method;
-use Filament\Forms\Form;
 use Filament\Resources\RelationManagers\RelationManager;
-use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 
 class DatasetsRelationManager extends RelationManager
 {
     protected static string $relationship = 'datasets';
-    protected static ?string $icon = IconEnums::DATASET->value;
+    protected static string | \BackedEnum | null $icon = IconEnums::DATASET->value;
 
-    public function form(Form $form): Form
+    public function form(Schema $schema): Schema
     {
-        return DatasetResource::form($form);
+        return DatasetResource::form($schema);
     }
 
     public function table(Table $table): Table
@@ -31,15 +33,15 @@ class DatasetsRelationManager extends RelationManager
             ->description($this->getTableDescriptions())
             ->query(null)
             ->filters([
-                Tables\Filters\SelectFilter::make('type')
+                SelectFilter::make('type')
                     ->options(Dataset::enumType()),
-                Tables\Filters\TrashedFilter::make()
+                TrashedFilter::make()
                     ->default($isParentTrashed ? 1 : null),
             ])
-            ->actions([
+            ->recordActions([
                 // ...$table->getActions(),
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make()
+                ViewAction::make(),
+                EditAction::make()
                     ->url(fn (Dataset $record) => DatasetResource::getUrl('edit', ['record' => $record]))
                     ->icon(IconEnums::NEWTAB->value)
                     ->openUrlInNewTab()

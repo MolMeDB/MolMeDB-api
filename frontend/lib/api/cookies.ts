@@ -3,7 +3,8 @@ import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 
 const SECRET_KEY = process.env.JWT_SECRET || "SECRET";
-const USER_SESSION_KEY = process.env.COOKIES_BACKEND_SESSION_USER_KEY as string;
+const USER_SESSION_KEY = process.env
+  .COOKIES_FRONTEND_SESSION_USER_KEY as string;
 
 export const DEFAULT_COOKIES_CONFIG = {
   httpOnly: true, // Not accesible from javascript if true

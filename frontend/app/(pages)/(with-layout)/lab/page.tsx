@@ -4,8 +4,15 @@ import SiteContent from "@/components/_core/layout/SiteContent";
 import { MdOutlineComputer } from "react-icons/md";
 import SectionComputationButtons from "./section/computationButton";
 import SectionUpload from "./section/upload";
+import { UserSession } from "@/lib/api/admin/interfaces/User";
+import { Cookie } from "@/lib/api/cookies";
 
 export default async function LabPage() {
+  const user: UserSession | undefined =
+    (await Cookie.getUserData()) as UserSession;
+
+  const isLoggedIn = user && user.id ? true : false;
+
   return (
     <>
       <SimpleSiteHeader>
@@ -18,16 +25,13 @@ export default async function LabPage() {
           </div>
         </div>
       </SimpleSiteHeader>
-      {/* <SiteContent> */}
       <div className="min-h-screen pb-16">
-        {/* <StatsContent /> */}
         <SiteContent classNameChildren="flex flex-col gap-16 ">
-          <SectionComputationButtons />
+          <SectionComputationButtons isLoggedIn={isLoggedIn} isDisabled />
           <div className="h-1 w-full bg-gradient-to-r from-transparent via-zinc-100 to-transparent my-8" />
-          <SectionUpload />
+          <SectionUpload isLoggedIn={isLoggedIn} />
         </SiteContent>
       </div>
-      {/* </SiteContent> */}
       <SiteFooter />
     </>
   );

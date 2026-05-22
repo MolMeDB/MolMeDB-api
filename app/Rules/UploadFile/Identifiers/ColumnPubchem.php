@@ -2,6 +2,7 @@
 namespace App\Rules\UploadFile\Identifiers;
 
 use App\Rules\UploadFile\ColumnTypeInterface;
+use App\Services\External\Chemical\Unichem\Unichem;
 use Closure;
 
 class ColumnPubchem implements ColumnTypeInterface
@@ -18,14 +19,26 @@ class ColumnPubchem implements ColumnTypeInterface
 
     public function validate(string $attribute, $value, Closure $fail): void
     {
-        $maxLength = self::$maxLength;
-        if (!is_string($value) || empty($value) || strlen($value) > $maxLength || strlen($value) <= 2) {
-            $fail("Column " . self::$label . " must be a string between 3 and $maxLength characters.");
-        }
+        $this->validate_fast($attribute, $value, $fail);
 
-        $value = trim($value);
-        if(!preg_match('/^\d+$/', $value)) {
-            $fail("Column " . self::$label . " must be a valid PubChem ID. Valid format: numeric value.");
+        if(!$this->exists_remotely($value)) {
+            $fail('Column '.self::$label." contains unknown ID '{$value}'.");
         }
+    }
+
+    public function validate_fast(string $attribute, mixed $value, Closure $fail): void
+    {
+        $maxLength = self::$maxLength;
+        $value = trim($value);
+        if (! is_string($value) || empty($value) || strlen($value) > $maxLength || ! preg_match('/^\d+$/', $value)) {
+            $fail('Column '.self::$label." must be a numeric value with a maximum length of $maxLength characters.");
+        }
+    }
+
+    public function exists_remotely(string $value): bool
+    {
+        $unichem = new Unichem;
+
+        return $unichem->getChemicalBySourceId(Unichem::SOURCE_PUBCHEM, $value)?->inchi !== null;
     }
 }

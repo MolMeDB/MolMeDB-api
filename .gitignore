@@ -24,6 +24,17 @@ yarn-error.log
 /.idea
 /.vscode
 /.zed
+
+/.agents
+/.gemini
+/.codex
+/AGENTS.md
+/GEMINI.md
+/boost.json
+/opencode.json
+
+/*.csv
+
 **/*.DS_Store
 **/*.composer
 **__pycache__

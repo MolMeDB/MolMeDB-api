@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Export;
 
 use App\Http\Controllers\Controller;
 use App\Models\UploadQueue;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 
 class ExportUploadQueueController extends Controller
@@ -16,10 +17,16 @@ class ExportUploadQueueController extends Controller
     public function raw(UploadQueue $record)
     {
         $file = $record->file;
+        $user = Auth::user();
 
         if(!Storage::disk($file->storage)->exists($file->path))
         {
             abort(404, 'File not found');
+        }
+
+        if(!$user->hasAdminRole() && $record->user_id !== $user->id)
+        {
+            abort(401, 'Unathenticated');   
         }
 
         return Storage::disk($file->storage)->download($file->path);

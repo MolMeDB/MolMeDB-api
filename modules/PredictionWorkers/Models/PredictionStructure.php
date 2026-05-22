@@ -1,6 +1,7 @@
 <?php
 namespace Modules\PredictionWorkers\Models;
 
+use EloquentFilter\Filterable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
@@ -8,7 +9,7 @@ use Modules\PredictionWorkers\Traits\HasRemoteConformers;
 
 class PredictionStructure extends PredictionBaseModel
 {
-    use HasRemoteConformers;
+    use HasRemoteConformers, Filterable;
 
     protected $connection = 'predictions';
     protected $table = 'structures';
@@ -25,6 +26,11 @@ class PredictionStructure extends PredictionBaseModel
         return $this->belongsTo(\App\Models\Structure::class, 'remote_id');
     }
 
+    /**
+     * @deprecated
+     * 
+     * Wrong relationship 
+     */
     public function predictionDatasets() : HasManyThrough
     {
         return $this->hasManyThrough(

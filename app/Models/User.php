@@ -3,7 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
-
+use Database\Factories\UserFactory;
 use App\Enums\RoleEnums;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasAvatar;
@@ -21,7 +21,7 @@ use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable implements MustVerifyEmail, FilamentUser, HasName, HasAvatar
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
+    /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable, SoftDeletes;
     use HasRoles, CausesActivity;
 
@@ -56,6 +56,11 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser, Has
     }
 
     public function canAccessPanel(Panel $panel): bool
+    {
+        return $this->hasRole(RoleEnums::ADMIN->value);
+    }
+
+    public function hasAdminRole(): bool 
     {
         return $this->hasRole(RoleEnums::ADMIN->value);
     }

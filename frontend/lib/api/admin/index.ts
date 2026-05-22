@@ -3,16 +3,18 @@ import { cookies as Cookies } from "next/headers";
 import { DEFAULT_COOKIES_CONFIG } from "../cookies";
 import { selectedValuesToSearchParamsString } from "@/utils/searchParams";
 import HttpJsonResponse from "./interfaces/http/jsonResponse";
+import { redirect } from "next/navigation";
 
 const baseUrl = process.env.NEXT_BACKEND_URL as string;
 const XSRF_KEY = process.env.COOKIES_BACKEND_XSRF_KEY as string;
-const SESSION_KEY = process.env.COOKIES_BACKEND_SESSION_KEY as string;
+const BE_SESSION_KEY = process.env.COOKIES_BACKEND_SESSION_KEY as string;
+const FE_SESSION_KEY = process.env.COOKIES_FRONTEND_SESSION_KEY as string;
 
 async function updateCookies(res: Response) {
   const cookies = res.headers.get("set-cookie") || "";
 
   const match = cookies?.toString().match(/XSRF-TOKEN=[^\%;]+/);
-  const matchSession = cookies?.toString().match(/pokusnice_session=[^;]+/);
+  const matchSession = cookies?.toString().match(/molmedb_session=[^;]+/);
 
   if (!match || !matchSession) {
     console.error("No match in set-cookies response"); // TODO
@@ -25,14 +27,14 @@ async function updateCookies(res: Response) {
   const XSRF_TOKEN = match[0].split("=")[1];
 
   // console.log("Setting new cookies");
-
   // console.log("XSRF_TOKEN", XSRF_TOKEN);
   // console.log("SESSION", SESSION);
 
   // Set new cookies
   const cookiesStore = await Cookies();
   cookiesStore.set(XSRF_KEY, XSRF_TOKEN, DEFAULT_COOKIES_CONFIG);
-  cookiesStore.set(SESSION_KEY, SESSION, DEFAULT_COOKIES_CONFIG);
+  cookiesStore.set(FE_SESSION_KEY, SESSION, DEFAULT_COOKIES_CONFIG);
+  // console.log("Cookies updated");
 }
 
 async function refreshCSRF() {
@@ -48,14 +50,12 @@ async function refreshCSRF() {
 async function _post(uri: string, data = {}, method = "POST") {
   const cks = await Cookies();
 
-  const SESSION = cks.get(SESSION_KEY)?.value as string;
+  const SESSION = cks.get(FE_SESSION_KEY)?.value as string;
   const XSRF_TOKEN = cks.get(XSRF_KEY)?.value as string;
 
   // console.log("POST", uri);
   // console.log("COOK", SESSION);
   // console.log("COOK2", XSRF_TOKEN);
-
-  console.log("POST", baseUrl + uri, data);
 
   // Přidáme credentials a X-XSRF-TOKEN
   const result = await fetch(`${baseUrl}${uri}`, {
@@ -65,10 +65,37 @@ async function _post(uri: string, data = {}, method = "POST") {
       "Content-Type": "application/json",
       Accept: "application/json",
       Referer: process.env.FRONTEND_URL as string,
-      Cookie: `${XSRF_KEY}=${XSRF_TOKEN}; ${SESSION_KEY}=${SESSION}`,
+      Cookie: `${XSRF_KEY}=${XSRF_TOKEN}; ${BE_SESSION_KEY}=${SESSION}`,
       "X-XSRF-TOKEN": XSRF_TOKEN,
     },
     body: JSON.stringify(data),
+  });
+
+  if (result.status == 419) {
+    return false;
+  }
+
+  await updateCookies(result);
+
+  return result;
+}
+
+async function _postForm(uri: string, data: FormData, method = "POST") {
+  const cks = await Cookies();
+
+  const SESSION = cks.get(FE_SESSION_KEY)?.value as string;
+  const XSRF_TOKEN = cks.get(XSRF_KEY)?.value as string;
+
+  const result = await fetch(`${baseUrl}${uri}`, {
+    method,
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      Referer: process.env.FRONTEND_URL as string,
+      Cookie: `${XSRF_KEY}=${XSRF_TOKEN}; ${BE_SESSION_KEY}=${SESSION}`,
+      "X-XSRF-TOKEN": XSRF_TOKEN,
+    },
+    body: data,
   });
 
   if (result.status == 419) {
@@ -94,9 +121,25 @@ export async function post(uri: string, data = {}, method = "POST") {
   return result;
 }
 
+export async function postForm(
+  uri: string,
+  data: FormData,
+  method = "POST",
+) {
+  let result = await _postForm(uri, data, method);
+  if (result === false) {
+    await refreshCSRF();
+    result = await _postForm(uri, data, method);
+    if (result === false) {
+      throw new Error("Cannot refresh CSRF.");
+    }
+  }
+  return result;
+}
+
 export async function postJson(
   uri: string,
-  data = {}
+  data = {},
 ): Promise<HttpJsonResponse | null> {
   const result = await post(uri, data);
 
@@ -116,7 +159,7 @@ export async function postJson(
 
 export async function deleteJson(
   uri: string,
-  data = {}
+  data = {},
 ): Promise<HttpJsonResponse | null> {
   const result = await post(uri, data, "DELETE");
 
@@ -136,7 +179,7 @@ export async function deleteJson(
 
 function handleBackendException(
   jsonContent: any,
-  response: Response
+  response: Response,
 ): HttpJsonResponse {
   if (jsonContent.error && response.status !== 200) {
     return {
@@ -181,11 +224,11 @@ async function _get(
     | {
         [key: string]: Set<string | number>;
       } = {},
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ) {
   const cks = await Cookies();
 
-  const SESSION = cks.get(SESSION_KEY)?.value as string;
+  const SESSION = cks.get(FE_SESSION_KEY)?.value as string;
   const XSRF_TOKEN = cks.get(XSRF_KEY)?.value as string;
   // Filter data
   // data = Object.fromEntries(
@@ -205,7 +248,7 @@ async function _get(
     uri = `${uri}?${queryString}`;
   }
 
-  console.log("TO BE", uri);
+  // console.log("TO BE", uri);
 
   // Přidáme credentials a X-XSRF-TOKEN
   const result = await fetch(`${baseUrl}${uri}`, {
@@ -215,7 +258,7 @@ async function _get(
       "Content-Type": "application/json",
       Accept: "application/json",
       Referer: process.env.FRONTEND_URL as string,
-      Cookie: `${XSRF_KEY}=${XSRF_TOKEN}; ${SESSION_KEY}=${SESSION}`,
+      Cookie: `${XSRF_KEY}=${XSRF_TOKEN}; ${BE_SESSION_KEY}=${SESSION}`,
       "X-XSRF-TOKEN": XSRF_TOKEN,
     },
   });
@@ -236,12 +279,12 @@ export async function get(
     | {
         [key: string]: Set<string | number>;
       } = {},
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ) {
   "use server";
   let result = await _get(uri, data, signal);
   if (result === false) {
-    console.log("Repeating request");
+    // console.log("Repeating request");
     // refresh CSRF
     await refreshCSRF();
     result = await _get(uri, data, signal);
@@ -256,7 +299,7 @@ export async function get(
 export async function getJson(
   uri: string,
   data = {},
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<HttpJsonResponse | null> {
   const result = await get(uri, data, signal);
 

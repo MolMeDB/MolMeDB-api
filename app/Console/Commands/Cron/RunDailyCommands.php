@@ -2,6 +2,9 @@
 
 namespace App\Console\Commands\Cron;
 
+use App\Console\Commands\UpdateStatistics;
+use App\Console\Commands\UpdateExportFiles;
+use App\Console\Commands\CheckStructureInternalIdentifiers;
 use App\Models\Config;
 use Exception;
 use Illuminate\Console\Command;
@@ -28,9 +31,9 @@ class RunDailyCommands extends Command
     public function handle()
     {
         $commands = [
-            \App\Console\Commands\UpdateStatistics::class => [],
-            \App\Console\Commands\UpdateExportFiles::class => [],
-            \App\Console\Commands\CheckStructureInternalIdentifiers::class => [
+            UpdateStatistics::class => [],
+            UpdateExportFiles::class => [],
+            CheckStructureInternalIdentifiers::class => [
                 'startId' => Config::get('cron:daily:check_structure_identifier:start_id', 1)
             ]
         ];

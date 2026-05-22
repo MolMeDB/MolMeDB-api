@@ -2,6 +2,15 @@
 
 namespace App\Console\Commands;
 
+use App\DTO\Stats\Counts;
+use App\Models\InteractionPassive;
+use App\Models\Membrane;
+use App\Models\Method;
+use App\Models\Stats;
+use App\DTO\Stats\LineChart;
+use App\DTO\Stats\BarChart;
+use App\Models\Protein;
+use App\Models\Publication;
 use App\Models\Category;
 use App\Models\Config;
 use App\Models\Identifier;
@@ -49,19 +58,19 @@ class UpdateStatistics extends Command
 
         // Update counts 
         $this->warn('... 1) Updating counts statistics');
-        $counts = \App\DTO\Stats\Counts::from([
-            'total_passive_interactions' => \App\Models\InteractionPassive::count(),
-            'total_active_interactions' => \App\Models\InteractionActive::count(),
-            'total_structures' => \App\Models\Structure::count(),
-            'total_membranes' => \App\Models\Membrane::count(),
-            'total_methods' => \App\Models\Method::count(),
+        $counts = Counts::from([
+            'total_passive_interactions' => InteractionPassive::count(),
+            'total_active_interactions' => InteractionActive::count(),
+            'total_structures' => Structure::count(),
+            'total_membranes' => Membrane::count(),
+            'total_methods' => Method::count(),
         ]);
-        \App\Models\Stats::setCountStats($counts);
+        Stats::setCountStats($counts);
         $this->info('... 1) Finished.');
 
         // Update interaction substance history
         $this->warn('... 2) Updating interaction substance chart counts');
-        $minDate = Date::parse(\App\Models\Structure::min('created_at'))->addMonth()->startOfMonth();
+        $minDate = Date::parse(Structure::min('created_at'))->addMonth()->startOfMonth();
         $maxDate = now()->startOfMonth();
 
         $totalMonths = $minDate->diffInMonths($maxDate) + 1;
@@ -75,20 +84,20 @@ class UpdateStatistics extends Command
         {
             $date = $minDate->copy()->addMonths($i);
             $this->info('... ## Processing date: ' . $date->format('m/Y'));
-            $data[] = \App\DTO\Stats\LineChart::makeItem(
+            $data[] = LineChart::makeItem(
                 $date->valueOf(),
-                \App\Models\Structure::where('created_at', '<=', $date->endOfMonth())
+                Structure::where('created_at', '<=', $date->endOfMonth())
                     ->count(),
-                \App\Models\InteractionActive::where('created_at', '<=', $date->endOfMonth())
+                InteractionActive::where('created_at', '<=', $date->endOfMonth())
                     ->count() 
-                + \App\Models\InteractionPassive::where('created_at', '<=', $date->endOfMonth())
+                + InteractionPassive::where('created_at', '<=', $date->endOfMonth())
                     ->count()
                 
             );
         }
 
-        \App\Models\Stats::setInteractionSubstanceHistory(
-            \App\DTO\Stats\LineChart::from($data)
+        Stats::setInteractionSubstanceHistory(
+            LineChart::from($data)
         );
         $this->info('... 2) Finished.');
 
@@ -108,20 +117,20 @@ class UpdateStatistics extends Command
             $count = Identifier::where('type', $type)
                 ->select('structure_id')
                 ->distinct()->count();
-            $data[] = \App\DTO\Stats\BarChart::makeItem(
+            $data[] = BarChart::makeItem(
                 $name,
                 $count
             );
         }
 
-        \App\Models\Stats::setDatabasesBarData(
-            \App\DTO\Stats\BarChart::from($data)
+        Stats::setDatabasesBarData(
+            BarChart::from($data)
         );
         $this->info('... 3) Finished.');
 
         // Update proteins bar counts
         $this->warn('... 4) Updating proteins bar counts');
-        $proteinGroups = \App\Models\Category::where('type', Category::TYPE_PROTEIN)
+        $proteinGroups = Category::where('type', Category::TYPE_PROTEIN)
             ->where('parent_id', -1)
             ->get();
 
@@ -134,33 +143,33 @@ class UpdateStatistics extends Command
 
             while (count($subcats) > $last) {
                 $last = count($subcats);
-                $subcats = array_unique(array_merge($subcats, \App\Models\Category::whereIn('parent_id', $subcats)
+                $subcats = array_unique(array_merge($subcats, Category::whereIn('parent_id', $subcats)
                     ->pluck('id')
                     ->toArray()));
             }
 
-            $proteins = \App\Models\Protein::whereHas('categories', function ($query) use ($subcats) { 
+            $proteins = Protein::whereHas('categories', function ($query) use ($subcats) { 
                     $query->whereIn('category_id', $subcats);})
                 ->get();
 
             $total_interactions = InteractionActive::whereIn('protein_id', $proteins->pluck('id'))
                 ->count();
 
-            $data[] = \App\DTO\Stats\BarChart::makeItem(
+            $data[] = BarChart::makeItem(
                 $group->title,
                 $proteins->count(),
                 $total_interactions
             );
         }
 
-        \App\Models\Stats::setProteinBarData(
-            \App\DTO\Stats\BarChart::from($data)
+        Stats::setProteinBarData(
+            BarChart::from($data)
         );
         $this->info('... 4) Finished.');
 
         // Update publication by year stats
         $this->warn('... 5) Updating publication by year stats');
-        $minYear = \App\Models\Publication::min('year');
+        $minYear = Publication::min('year');
         $minYear =  $minYear - ($minYear % 5);
         $maxYear = date('Y');
 
@@ -169,13 +178,13 @@ class UpdateStatistics extends Command
         foreach(range($minYear, $maxYear, 5) as $year)
         {
             $this->info('... ## Processing year: ' . $year);
-            $data[] = \App\DTO\Stats\LineChart::makeItem(
+            $data[] = LineChart::makeItem(
                 "$year - " . $year + 4,
-                \App\Models\InteractionActive::whereHas('publication', function ($query) use ($year) 
+                InteractionActive::whereHas('publication', function ($query) use ($year) 
                 { 
                     $query->whereBetween('year', [$year, $year + 4]); 
                 })->count()
-                + \App\Models\InteractionPassive::whereHas('publication', function ($query) use ($year) 
+                + InteractionPassive::whereHas('publication', function ($query) use ($year) 
                 { 
                     $query->whereBetween('year', [$year, $year + 4]);
                 })->count(),
@@ -183,8 +192,8 @@ class UpdateStatistics extends Command
             );
         }
 
-        \App\Models\Stats::setPublicationByYearStatsData(
-            \App\DTO\Stats\LineChart::from($data)
+        Stats::setPublicationByYearStatsData(
+            LineChart::from($data)
         );
         $this->info('... 5) Finished.');
 
@@ -193,7 +202,7 @@ class UpdateStatistics extends Command
         
         $data = [];
 
-        $journals = \App\Models\Publication::select('journal')
+        $journals = Publication::select('journal')
             ->whereNotNull('journal')
             ->distinct()
             ->get();
@@ -201,13 +210,13 @@ class UpdateStatistics extends Command
         foreach ($journals as $journal)
         {
             $this->info('... ## Processing journal: ' . $journal->journal);
-            $data[] = \App\DTO\Stats\BarChart::makeItem(
+            $data[] = BarChart::makeItem(
                 $journal->journal,
-                \App\Models\InteractionActive::whereHas('publication', function ($query) use ($journal) 
+                InteractionActive::whereHas('publication', function ($query) use ($journal) 
                 { 
                     $query->where('journal', $journal->journal); 
                 })->count()
-                + \App\Models\InteractionPassive::whereHas('publication', function ($query) use ($journal) 
+                + InteractionPassive::whereHas('publication', function ($query) use ($journal) 
                 { 
                     $query->where('journal', $journal->journal); 
                 })->count(),
@@ -222,8 +231,8 @@ class UpdateStatistics extends Command
             return $item->value1 > 100;
         });
 
-        \App\Models\Stats::setPublicationByJournalStatsData(
-            \App\DTO\Stats\BarChart::from($data)
+        Stats::setPublicationByJournalStatsData(
+            BarChart::from($data)
         );
 
         $this->info('... 6) Finished.');

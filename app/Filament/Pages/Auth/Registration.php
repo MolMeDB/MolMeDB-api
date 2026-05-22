@@ -2,10 +2,10 @@
 
 namespace App\Filament\Pages\Auth;
 
+use Filament\Auth\Pages\Register;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Auth\Login;
-use Filament\Pages\Auth\Register;
 use Filament\Pages\Page;
 
 class Registration extends Register

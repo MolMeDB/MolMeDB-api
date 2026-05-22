@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Rules\UploadFile;
 
 use Closure;
@@ -7,11 +8,12 @@ use Illuminate\Support\Facades\Validator;
 class ColumnPh implements ColumnTypeInterface
 {
     public static string $key = 'ph';
+
     public static string $label = 'pH';
 
     public static function make(): static
     {
-        return new static();
+        return new static;
     }
 
     public function validate(string $attribute, $value, Closure $fail): void
@@ -19,11 +21,16 @@ class ColumnPh implements ColumnTypeInterface
         // use native numeric validator
         $validator = Validator::make(
             [$attribute => $value],
-            [$attribute => 'numeric;min:0;max:14']
+            [$attribute => 'numeric|min:0|max:14']
         );
 
         if ($validator->fails()) {
-            $fail("Column " . self::$label . " must be a number between 0 and 14.");
+            $fail('Column '.self::$label.' must be a number between 0 and 14.');
         }
+    }
+
+    public function validate_fast(string $attribute, mixed $value, Closure $fail): void
+    {
+        $this->validate($attribute, $value, $fail);
     }
 }

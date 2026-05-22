@@ -2,6 +2,9 @@
 
 namespace App\Console\Commands;
 
+use Modules\PredictionWorkers\Models\PredictionStructure;
+use Modules\PredictionWorkers\Models\PredictionMembrane;
+use Modules\PredictionWorkers\Models\PredictionDataset;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -78,7 +81,7 @@ class UpdatePredictions extends Command
                 foreach($ions as $ion)
                 {
                     // Make structure
-                    $s = \Modules\PredictionWorkers\Models\PredictionStructure::firstOrCreate([
+                    $s = PredictionStructure::firstOrCreate([
                         // 'id' => $ion->id
                         'canonical_smiles' => $ion->smiles,
                     ], [
@@ -104,7 +107,7 @@ class UpdatePredictions extends Command
                 }
 
                 // Make structure
-                $s = \Modules\PredictionWorkers\Models\PredictionStructure::firstOrCreate([
+                $s = PredictionStructure::firstOrCreate([
                     'canonical_smiles' => $fragment->smiles
                 ], [
                     'base_path' => $this->old_conformer_folder($prediction->id_fragment)
@@ -113,14 +116,14 @@ class UpdatePredictions extends Command
                 $structures[] = $s;
             }
 
-            $membrane = \Modules\PredictionWorkers\Models\PredictionMembrane::find($prediction->id_membrane);
+            $membrane = PredictionMembrane::find($prediction->id_membrane);
             if(!$membrane)
             {
                 $membrane_remote = $old_db->table('membranes')
                     ->where('id', $prediction->id_membrane)
                     ->first();
 
-                $membrane = \Modules\PredictionWorkers\Models\PredictionMembrane::firstOrCreate([
+                $membrane = PredictionMembrane::firstOrCreate([
                     'id' => $membrane_remote->id
                 ], [
                     'id' => $membrane_remote->id,
@@ -134,7 +137,7 @@ class UpdatePredictions extends Command
             $predictions = [];
 
             // Create record
-            /** @var \Modules\PredictionWorkers\Models\PredictionStructure[] $structures */
+            /** @var PredictionStructure[] $structures */
             foreach($structures as $structure)
             {
                 if($structure->predictions()
@@ -147,7 +150,7 @@ class UpdatePredictions extends Command
                     continue;
                 }
 
-                $p = \Modules\PredictionWorkers\Models\Prediction::create([
+                $p = Prediction::create([
                     // 'id' => $prediction->id,
                     'structure_id' => $structure->id,
                     'membrane_id' => $membrane->id,
@@ -175,8 +178,7 @@ class UpdatePredictions extends Command
                 /** Use the same filesystem */
                 $structure->remote($filesystem);
 
-                /** @var \Modules\PredictionWorkers\Models\Prediction $p */
-
+                /** @var Prediction $p */
                 $step = Prediction::STEP_PENDING;
                 $state = Prediction::STATE_PREPARED;
 
@@ -243,7 +245,7 @@ class UpdatePredictions extends Command
             // Check if datasets exists
             foreach($remote_datasets as $o_dataset)
             {
-                $dataset = \Modules\PredictionWorkers\Models\PredictionDataset::firstOrCreate([
+                $dataset = PredictionDataset::firstOrCreate([
                     'id' => $o_dataset->id
                 ], [
                     'token' => $o_dataset->token,

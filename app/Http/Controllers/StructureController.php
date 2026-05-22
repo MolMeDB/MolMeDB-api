@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Category;
 use App\Http\Requests\StoreStructureRequest;
 use App\Http\Requests\UpdateStructureRequest;
 use App\Http\Resources\StructureResource;
@@ -101,6 +102,23 @@ class StructureController extends Controller
         ]);
     }
 
+    public function molCanonizeSmiles(string $smiles)
+    {
+        $rdkit = new Rdkit();
+
+        if(!$rdkit->is_connected())
+        {
+            return response()->json([
+                'message' => 'Rdkit disconnected'
+            ], 503);
+        }
+
+        return response()->json([
+            'request_smiles' => $smiles,
+            'canonized_smiles' => $rdkit->canonize_smiles($smiles)
+        ]);
+    }
+
     public function formSelectMembranes(string $identifier)
     {
         $structure = Structure::where('identifier', $identifier)
@@ -125,7 +143,7 @@ class StructureController extends Controller
         $tree = [];
 
         foreach ($membranes as $membrane) {
-            /** @var \App\Models\Category $subcategory */
+            /** @var Category $subcategory */
             $subcategory = $membrane->categories->first(); 
 
             if (!$subcategory) {
@@ -196,7 +214,7 @@ class StructureController extends Controller
         $tree = [];
 
         foreach ($methods as $method) {
-            /** @var \App\Models\Category $subcategory */
+            /** @var Category $subcategory */
             $subcategory = $method->categories->first(); 
 
             if (!$subcategory) {

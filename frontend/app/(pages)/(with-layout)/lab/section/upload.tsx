@@ -1,10 +1,10 @@
 "use client";
-import { Button } from "@heroui/react";
-import { motion } from "framer-motion";
+import { Alert, Button } from "@heroui/react";
 import Image from "next/image";
+import Link from "next/link";
 import { MdOutlineCloudUpload } from "react-icons/md";
 
-export default function SectionUpload() {
+export default function SectionUpload(props: { isLoggedIn: boolean }) {
   return (
     <>
       <div className="flex flex-col lg:flex-row gap-16 lg:gap-32 ">
@@ -19,15 +19,25 @@ export default function SectionUpload() {
               DOI.
             </b>
           </p>
-          <Button
-            endContent={<MdOutlineCloudUpload size={25} />}
-            size="lg"
-            variant="solid"
-            color="primary"
-            className="text-white"
-          >
-            Upload
-          </Button>
+          <div className="flex flex-col justify-center gap-1">
+            <Button
+              as={Link}
+              href="/lab/upload"
+              endContent={<MdOutlineCloudUpload size={25} />}
+              size="lg"
+              isDisabled={!props.isLoggedIn}
+              variant="solid"
+              color="primary"
+              className="text-white"
+            >
+              Upload
+            </Button>
+            {!props.isLoggedIn && (
+              <Alert color="warning" className="mt-2">
+                Please log in to upload new datasets.
+              </Alert>
+            )}
+          </div>
         </div>
         <div className="w-full lg:w-1/2 lg:h-[350px] flex justify-center">
           <Image

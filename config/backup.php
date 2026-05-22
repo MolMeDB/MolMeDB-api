@@ -215,7 +215,7 @@ return [
 
             'from' => [
                 'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
-                'name' => env('MAIL_FROM_NAME', 'Pokusnice backup'),
+                'name' => env('MAIL_FROM_NAME', 'MolMeDB backup'),
             ],
         ],
 

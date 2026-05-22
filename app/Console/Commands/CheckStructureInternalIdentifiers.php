@@ -4,6 +4,8 @@ namespace App\Console\Commands;
 
 use App\Libraries\Identifiers;
 use App\Models\Config;
+use App\Models\Structure;
+use App\Services\Structures\LegacyStructureLinksPreprocessor;
 use Illuminate\Console\Command;
 
 class CheckStructureInternalIdentifiers extends Command
@@ -13,7 +15,7 @@ class CheckStructureInternalIdentifiers extends Command
      *
      * @var string
      */
-    protected $signature = 'structures:check-internal-identifiers {startId=1} {--force}';
+    protected $signature = 'structures:check-internal-identifiers {--startId=0} {--force} {--preprocess-legacy-links}';
 
     /**
      * The console command description.
@@ -27,48 +29,70 @@ class CheckStructureInternalIdentifiers extends Command
      */
     public function handle()
     {
-        $this->info('Checking structures identifiers...');
+        if ($this->option('preprocess-legacy-links')) {
+            $this->warn('Running legacy structure_links preprocessing...');
 
-        $startId = $this->option('force') ? 1 : (int) $this->argument('startId');
+            $result = app(LegacyStructureLinksPreprocessor::class)->process();
 
-        $total = \App\Models\Structure::where('id', '>=', $startId)->count();
+            $this->table(['Metric', 'Value'], collect($result)
+                ->map(fn (int $value, string $key): array => [$key, $value])
+                ->values()
+                ->all());
 
-        if(!$total)
-        {
-            Config::set('cron:daily:check_structure_identifier:start_id', 1);
-            $this->info('###### REWIND ##### - All structures processed');
-            $total = \App\Models\Structure::where('id', '>=', $startId)->count();
+            $this->info('Legacy preprocessing finished. You can now validate data before removing structure_links.');
+
+            return self::SUCCESS;
         }
 
-        $this->warn('Total ' . $total . ' structures will be processed.');
+        $this->info('Checking structures identifiers...');
+        if($this->option('force'))
+        {
+            $startId = 1;   
+        }
+        else if(((int) $this->option('startId')) > 0) 
+        {
+            $startId = (int) $this->option('startId');
+        }
+        else
+        {
+            $startId = (int) Config::get('cron:daily:check_structure_identifier:start_id');
+        }
 
-        $structures = \App\Models\Structure::where('id', '>=', $startId)
+        $total = Structure::where('id', '>=', $startId)->count();
+
+        if (! $total) {
+            $startId = 1;
+            Config::set('cron:daily:check_structure_identifier:start_id', $startId);
+            $this->info('###### REWIND ##### - All structures processed');
+            $total = Structure::where('id', '>=', $startId)->count();
+        }
+
+        $this->warn('Total '.$total.' structures will be processed.');
+
+        $structures = Structure::where('id', '>=', $startId)
             ->orderBy('id')
             ->cursor();
 
         $i = 1;
-        foreach ($structures as $structure) 
-        {
-            $percent = round(($i++ / $total) * 100,2);
-            $this->info('# ' . $percent . '% - Processing structure ID: ' . $structure->id);
+        foreach ($structures as $structure) {
+            $percent = round(($i++ / $total) * 100, 2);
+            $this->info('# '.$percent.'% - Processing structure ID: '.$structure->id);
 
             Config::set('cron:daily:check_structure_identifier:start_id', $structure->id);
 
             // At first, check parent identifier
-            if($structure->parent)
-            {
+            if ($structure->parent) {
                 $identifier = Identifiers::generate($structure->parent);
 
-                if(!$identifier)
-                {
-                    $this->error('Failed to generate identifier for parent structure ID: ' . $structure->parent_id);
+                if (! $identifier) {
+                    $this->error('Failed to generate identifier for parent structure ID: '.$structure->parent_id);
+
                     return;
                 }
 
-                if($identifier != $structure->parent->identifier)
-                {
+                if ($identifier != $structure->parent->identifier) {
                     $structure->parent->changeMainIdentifier($identifier);
-                    $this->warn('Parent identifier was changed for structure ID: ' . $structure->id);
+                    $this->warn('Parent identifier was changed for structure ID: '.$structure->id);
                 }
             }
 
@@ -77,16 +101,16 @@ class CheckStructureInternalIdentifiers extends Command
 
             $identifier = Identifiers::generate($structure);
 
-            if(!$identifier)
-            {
-                $this->error('Failed to generate identifier for structure ID: ' . $structure->id);
+            if (! $identifier) {
+                $this->error('Failed to generate identifier for structure ID: '.$structure->id);
+
                 return;
             }
 
-            if($identifier != $structure->identifier)
-            {
+            if ($identifier != $structure->identifier) {
                 $structure->changeMainIdentifier($identifier);
-                $this->warn('Identifier was changed for structure ID: ' . $structure->id);
+                $this->warn('Identifier was changed for structure ID: '.$structure->id);
+
                 continue;
             }
 

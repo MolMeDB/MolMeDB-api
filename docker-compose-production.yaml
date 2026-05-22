@@ -66,6 +66,28 @@ services:
     command: php artisan schedule:work
     restart: unless-stopped 
 
+  app-queue-worker:
+    image: molmedb-backend
+    container_name: molmedb-queue-worker
+    tty: true
+    env_file:
+      - .env
+    environment:
+      - SERVICE_TAGS=dev
+      - SERVICE_NAME=molmedb-queue-worker
+    working_dir: /var/www
+    volumes:
+      - ./:/var/www
+      - molmedb-storage-production:/var/www/storage
+      - /var/www/bootstrap
+    networks:
+      - molmedb-network
+    depends_on:
+      - app
+      - redis
+    command: php artisan queue:work --queue=upload,default --sleep=3 --tries=3 --timeout=3600 --memory=512
+    restart: unless-stopped 
+
   # frontend:
   #   container_name: molmedb-frontend
   #   build:
@@ -191,5 +213,4 @@ volumes:
 
 networks:
   molmedb-network:
-
 

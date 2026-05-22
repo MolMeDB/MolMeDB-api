@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\MembraneFactory;
 use EloquentFilter\Filterable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -11,7 +12,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Membrane extends BaseModel
 {
-    /** @use HasFactory<\Database\Factories\MembraneFactory> */
+    /** @use HasFactory<MembraneFactory> */
     use HasFactory, SoftDeletes;
     use Filterable;
 

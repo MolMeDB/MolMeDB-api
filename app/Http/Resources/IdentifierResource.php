@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Models\Identifier;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -13,6 +14,7 @@ class IdentifierResource extends JsonResource
     public function withoutSource(): self
     {
         $this->includeSource = false;
+
         return $this;
     }
 
@@ -30,24 +32,30 @@ class IdentifierResource extends JsonResource
             'enum_type' => Identifier::enumType($this->type),
             'state' => $this->state,
             'enum_state' => Identifier::enumState($this->state),
-            'source' => $this->includeSource ? $this->getSourceResource($this->source) : null,
+            'source' => $this->getSourceResource(),
         ];
     }
 
-    protected function getSourceResource($source) {
-        if(!$source)
+    protected function getSourceResource(): mixed
+    {
+        if (! $this->includeSource || ! $this->source_id || ! $this->source_type) {
             return null;
+        }
 
-        return match(get_class($source)) {
-            \App\Models\Identifier::class => [
-                'type' => 'identifier', 
-                'data' => IdentifierResource::make($source)->withoutSource()
+        return match ($this->source_type) {
+            Identifier::class => [
+                'type' => 'identifier',
+                'data' => IdentifierResource::make(
+                    Identifier::query()->find($this->source_id)
+                )->withoutSource(),
             ],
-            \App\Models\User::class => [
+            User::class => [
                 'type' => 'user',
-                'data' => UserResource::make($source),
+                'data' => UserResource::make(
+                    User::query()->find($this->source_id)
+                ),
             ],
-            default => null
+            default => null,
         };
     }
 }

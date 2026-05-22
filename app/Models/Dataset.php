@@ -2,19 +2,19 @@
 
 namespace App\Models;
 
+use Database\Factories\DatasetFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
-use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Models\Activity;
 
 class Dataset extends Model
 {
-    /** @use HasFactory<\Database\Factories\DatasetFactory> */
+    /** @use HasFactory<DatasetFactory> */
     use HasFactory, SoftDeletes;
 
     protected $guarded = [];
@@ -44,33 +44,37 @@ class Dataset extends Model
     }
 
     const TYPE_PASSIVE = 1;
+
     const TYPE_ACTIVE = 2;
+
     const TYPE_PASSIVE_INTERNAL_COSMO = 3;
 
     private static $enum_types = [
         self::TYPE_PASSIVE => 'Passive interactions',
         self::TYPE_ACTIVE => 'Active interactions',
-        self::TYPE_PASSIVE_INTERNAL_COSMO => 'Internal cosmo interactions'
+        self::TYPE_PASSIVE_INTERNAL_COSMO => 'Internal cosmo interactions',
     ];
 
     private static $enum_types_selectable = [
         self::TYPE_PASSIVE => 'Passive interactions',
-        self::TYPE_ACTIVE => 'Active interactions'
+        self::TYPE_ACTIVE => 'Active interactions',
     ];
 
-    public static function enumType(?int $type = null) : string|array|null
+    public static function enumType(?int $type = null): string|array|null
     {
-        if($type)
+        if ($type) {
             return isset(self::$enum_types[$type]) ? self::$enum_types[$type] : null;
+        }
+
         return self::$enum_types;
     }
 
-    public static function enumTypesSelectable() : array
+    public static function enumTypesSelectable(): array
     {
         return self::$enum_types_selectable;
     }
 
-    public function membrane() : BelongsTo
+    public function membrane(): BelongsTo
     {
         return $this->belongsTo(Membrane::class);
     }
@@ -78,7 +82,7 @@ class Dataset extends Model
     /**
      * Returns assigned method
      */
-    public function method() : BelongsTo
+    public function method(): BelongsTo
     {
         return $this->belongsTo(Method::class);
     }
@@ -86,27 +90,32 @@ class Dataset extends Model
     /**
      * Returns assigned publication
      */
-    public function publications() : BelongsToMany
+    public function publications(): BelongsToMany
     {
         return $this->belongsToMany(Publication::class, 'model_has_publications', 'model_id', 'publication_id')
             ->withPivot('model_type', 'model_id')
             ->wherePivot('model_type', Dataset::class);
     }
 
-    public function identifiers() : MorphMany
+    public function identifiers(): MorphMany
     {
         return $this->morphMany(Identifier::class, 'source');
     }
 
-    public function group() : BelongsTo
+    public function group(): BelongsTo
     {
         return $this->belongsTo(DatasetGroup::class, 'dataset_group_id');
+    }
+
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     /**
      * Returns record author
      */
-    public function name() : ?string
+    public function name(): ?string
     {
         return $this->name;
     }
@@ -114,7 +123,7 @@ class Dataset extends Model
     /**
      * Returns all related substance identifiers
      */
-    public function substanceIdentifiers() : BelongsToMany
+    public function substanceIdentifiers(): BelongsToMany
     {
         return $this->belongsToMany(Identifier::class, 'substance_identifier_dataset');
     }
@@ -122,19 +131,24 @@ class Dataset extends Model
     /**
      * Retuens all assigned passive interactions
      */
-    public function interactionsPassive() : HasMany
+    public function interactionsPassive(): HasMany
     {
         return $this->hasMany(InteractionPassive::class);
     }
 
-    public function interactionsActive() : HasMany
+    public function interactionsActive(): HasMany
     {
         return $this->hasMany(InteractionActive::class);
     }
 
-    public function isRestoreable() {
-        if(!$this?->id)
-        {
+    public function uploadQueues(): HasMany
+    {
+        return $this->hasMany(UploadQueue::class);
+    }
+
+    public function isRestoreable()
+    {
+        if (! $this?->id) {
             return false;
         }
 
@@ -148,11 +162,12 @@ class Dataset extends Model
 
     public function getAuthorNameAttribute()
     {
-        return $this->activityLogs()
-            ->where('event', 'created')
-            ->where('causer_type', User::class)
-            ->orderby('created_at', 'asc')
-            ->first()
-            ?->causer?->name;
+        return $this->createdBy?->name
+            ?? $this->activityLogs()
+                ->where('event', 'created')
+                ->where('causer_type', User::class)
+                ->orderby('created_at', 'asc')
+                ->first()
+                ?->causer?->name;
     }
 }

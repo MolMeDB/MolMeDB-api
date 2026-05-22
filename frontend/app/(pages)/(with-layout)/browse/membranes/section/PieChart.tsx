@@ -14,49 +14,95 @@ type PieChartItem = {
   model_id: number;
   children?: PieChartItem[];
   mems?: PieChartItem[];
+  isFinal?: boolean;
 };
 
-function addValueToCategory(category: any): PieChartItem {
+function addValueToCategory(category: any, isFinal?: boolean): PieChartItem {
   const t = {
     name: category.title ?? category.name,
     model_id: category.id,
+    isFinal: !!isFinal,
     value:
       !category.membranes?.length && !category.children?.length ? 1 : undefined,
     children:
       category.children?.length > 0
-        ? category.children?.map(addValueToCategory)
-        : category.membranes?.map(addValueToCategory),
-    mems: category.membranes?.map(addValueToCategory),
+        ? category.children?.map((c: any) => addValueToCategory(c))
+        : category.membranes?.map((m: any) => addValueToCategory(m, true)),
+    mems: category.membranes?.map((m: any) => addValueToCategory(m, true)),
   };
 
   return t;
 }
 
+function findPathToMembrane(
+  items: PieChartItem[],
+  membraneId: string,
+  path: string[] = []
+): string[] | null {
+  for (const item of items) {
+    const nextPath = [...path, item.model_id.toString()];
+
+    if (item.isFinal && item.model_id.toString() === membraneId) {
+      return nextPath;
+    }
+
+    const childPath = findPathToMembrane(
+      item.children ?? [],
+      membraneId,
+      nextPath
+    );
+
+    if (childPath) {
+      return childPath;
+    }
+  }
+
+  return null;
+}
+
 export default function SectionPieChart(props: {
   categories: ICategory[];
+  selectedMembraneId: string;
   setSelectedMembraneId: (id: string) => void;
 }) {
   const viewerRef = useRef(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState<boolean | null>(null);
-  const [level1, setLevel1] = useState<string>("");
-  const [level2, setLevel2] = useState<string>("");
-  const [level3, setLevel3] = useState<string>("");
+  const [levels, setLevels] = useState<string[]>([]);
+  const [membraneId, setMembraneId] = useState("");
 
   const categories: PieChartItem[] = useMemo(
     () => [
       {
         name: "Membranes",
         model_id: 0,
-        children: props.categories.map(addValueToCategory),
+        children: props.categories.map((c) => addValueToCategory(c)),
       },
     ],
     [props.categories]
   );
 
   useEffect(() => {
-    props.setSelectedMembraneId(level3);
-  }, [level3]);
+    props.setSelectedMembraneId(membraneId);
+  }, [membraneId]);
+
+  useEffect(() => {
+    if (!props.selectedMembraneId) {
+      return;
+    }
+
+    const path = findPathToMembrane(
+      categories[0].children as PieChartItem[],
+      props.selectedMembraneId
+    );
+
+    if (!path) {
+      return;
+    }
+
+    setLevels(path);
+    setMembraneId(props.selectedMembraneId);
+  }, [categories, props.selectedMembraneId]);
 
   useEffect(() => {
     const darkModeMedia = window.matchMedia("(prefers-color-scheme: dark)");
@@ -124,39 +170,24 @@ export default function SectionPieChart(props: {
       });
 
       series.slices.template.events.on("click", (ev) => {
-        const item = ev.target.dataItem as any;
-        const inputData = item?.dataContext as PieChartItem;
-        const model_id = inputData.model_id;
+        const levels: string[] = [];
+        let selectedMembraneId = "";
+        let currentItem = ev.target.dataItem as any;
 
-        if (!model_id) return;
-        else {
-          // Check, if has parent
-          const parentItem = item.get("parent") as any;
-          const parent = parentItem?.dataContext as PieChartItem;
-          const parent_id = parent?.model_id;
-
-          if (parent_id) {
-            const gparentItem = parentItem?.get("parent") as any;
-            const gparent = gparentItem?.dataContext as PieChartItem;
-            const gparent_id = gparent?.model_id;
-
-            if (gparent_id) {
-              setLevel1(gparent_id.toString());
-              setLevel2(parent_id.toString());
-              setLevel3(model_id.toString());
-            } else {
-              setLevel1(parent_id.toString());
-              setLevel2(model_id.toString());
-              setLevel3("");
+        while (currentItem) {
+          const ctx = currentItem.dataContext as PieChartItem;
+          if (ctx?.model_id != null && ctx.model_id !== 0) {
+            levels.unshift(ctx.model_id.toString());
+            if (ctx?.isFinal) {
+              selectedMembraneId = ctx.model_id.toString();
             }
-          } else {
-            setLevel1(model_id.toString());
-            setLevel2("");
-            setLevel3("");
           }
-
-          return false;
+          currentItem = currentItem.get("parent") as any;
         }
+
+        setLevels(levels);
+        setMembraneId(selectedMembraneId);
+        return false;
       });
 
       // Breadcrumbs
@@ -228,7 +259,68 @@ export default function SectionPieChart(props: {
     };
   }, [isDarkMode]);
 
-  const options = categories[0].children as PieChartItem[];
+  const renderSelects = () => {
+    const selects = [];
+    let currentChildren = categories[0].children as PieChartItem[];
+
+    for (let i = 0; ; i++) {
+      const childrenForLevel = currentChildren;
+
+      if (childrenForLevel.length === 0) {
+        break;
+      }
+
+      const selected = childrenForLevel.find(
+        (c) => c?.model_id.toString() === levels[i]
+      );
+
+      selects.push(
+        <Select
+          key={`level-${i}`}
+          color="primary"
+          variant="bordered"
+          className="max-w-xs"
+          aria-label={`Membrane category selector level ${i}`}
+          placeholder={i === 0 ? "Select category" : "Select membrane"}
+          disallowEmptySelection
+          selectedKeys={selected ? [levels[i]] : []}
+          onSelectionChange={(e) => {
+            const value = Array.from(e)[0]?.toString();
+
+            if (!value) {
+              return;
+            }
+
+            const selectedOption = childrenForLevel.find(
+              (c) => c?.model_id.toString() === value
+            );
+
+            if (selectedOption?.isFinal) {
+              setMembraneId(value);
+            } else {
+              setMembraneId("");
+            }
+
+            setLevels([...levels.slice(0, i), value]);
+          }}
+        >
+          {childrenForLevel.map((option) => (
+            <SelectItem textValue={option.name} key={option.model_id}>
+              {option.name}
+            </SelectItem>
+          ))}
+        </Select>
+      );
+
+      if (!selected || !selected.children || selected.children.length === 0) {
+        break;
+      }
+
+      currentChildren = selected.children;
+    }
+
+    return selects;
+  };
 
   return (
     <>
@@ -242,88 +334,7 @@ export default function SectionPieChart(props: {
         </div>
       </div>
       <div className="flex flex-col md:flex-row justify-start items-center gap-1 md:gap-4">
-        <Select
-          color="primary"
-          variant="bordered"
-          className="max-w-xs"
-          aria-label="Membrane category selector"
-          placeholder="Select category"
-          disallowEmptySelection
-          selectedKeys={[level1]}
-          onSelectionChange={(e) => {
-            setLevel3("");
-            setLevel2("");
-            setLevel1(Array.from(e)[0].toString());
-          }}
-        >
-          {options.map((option) => {
-            return (
-              <SelectItem textValue={option.name} key={option.model_id}>
-                {option.name}
-              </SelectItem>
-            );
-          })}
-        </Select>
-        <label className="text-zinc-400 text-xl rotate-90 md:rotate-0">
-          {">"}
-        </label>
-        <Select
-          color="primary"
-          isDisabled={level1 === ""}
-          variant="bordered"
-          className="max-w-xs"
-          placeholder={level1 === "" ? "" : "Select subcategory"}
-          aria-label="Membrane category selector"
-          selectedKeys={[level2]}
-          disallowEmptySelection
-          onSelectionChange={(e) => {
-            setLevel3("");
-            setLevel2(Array.from(e)[0].toString());
-          }}
-        >
-          {level1 !== ""
-            ? options
-                .find((option) => option.model_id?.toString() == level1)
-                ?.children?.map((option) => {
-                  return (
-                    <SelectItem textValue={option.name} key={option.model_id}>
-                      {option.name}
-                    </SelectItem>
-                  );
-                }) ?? null
-            : null}
-        </Select>
-        <label className="text-zinc-400 text-xl  rotate-90 md:rotate-0">
-          {">"}
-        </label>
-        <Select
-          color="primary"
-          isDisabled={level2 === ""}
-          variant="bordered"
-          disallowEmptySelection
-          className="max-w-xs"
-          placeholder={level2 === "" ? "" : "Select membrane"}
-          aria-label="Membrane category selector"
-          selectedKeys={[level3]}
-          onSelectionChange={(e) => {
-            setLevel3(Array.from(e)[0].toString());
-          }}
-        >
-          {level2 !== ""
-            ? options
-                .find((option) => option.model_id?.toString() == level1)
-                ?.children?.find(
-                  (option) => option.model_id?.toString() == level2
-                )
-                ?.children?.map((option) => {
-                  return (
-                    <SelectItem textValue={option.name} key={option.model_id}>
-                      {option.name}
-                    </SelectItem>
-                  );
-                }) ?? null
-            : null}
-        </Select>
+        {renderSelects()}
       </div>
     </>
   );
