@@ -2,13 +2,13 @@
 
 namespace App\Models;
 
-use Throwable;
 use Exception;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
+use Throwable;
 
 class Filesystem extends BaseModel
 {
@@ -16,21 +16,31 @@ class Filesystem extends BaseModel
 
     /** Supported drivers */
     const DRIVER_SSH = 'ssh';
+
     const DRIVER_FTP = 'ftp';
+
     const DRIVER_SFTP = 'sftp';
+
     const DRIVER_LOCAL = 'local';
 
     /** Special service types */
     const TYPE_PUBLIC = -1;
-    const TYPE_PRIVATE = -2;
-    const TYPE_PREDICTIONS_METACENTRUM = 1;
-    const TYPE_EXPORTS = 2;
-    const TYPE_BACKUPS = 3;
-    const TYPE_UPLOAD_STORAGE = 4;
-    const TYPE_STRUCTURE_STORAGE = 5;
-    const TYPE_PREDICTIONS_STORAGE = 6;
-    const TYPE_RDF_STORAGE = 7;
 
+    const TYPE_PRIVATE = -2;
+
+    const TYPE_PREDICTIONS_METACENTRUM = 1;
+
+    const TYPE_EXPORTS = 2;
+
+    const TYPE_BACKUPS = 3;
+
+    const TYPE_UPLOAD_STORAGE = 4;
+
+    const TYPE_STRUCTURE_STORAGE = 5;
+
+    const TYPE_PREDICTIONS_STORAGE = 6;
+
+    const TYPE_RDF_STORAGE = 7;
 
     public static $types = [
         self::TYPE_PUBLIC => 'Public',
@@ -41,7 +51,7 @@ class Filesystem extends BaseModel
         self::TYPE_UPLOAD_STORAGE => 'Uploaded files storage',
         self::TYPE_STRUCTURE_STORAGE => 'Structures (sdf) storage',
         self::TYPE_PREDICTIONS_STORAGE => 'Prediction results storage',
-        self::TYPE_RDF_STORAGE => 'RDF related-files storage'
+        self::TYPE_RDF_STORAGE => 'RDF related-files storage',
     ];
 
     public static function drivers(): array
@@ -50,75 +60,74 @@ class Filesystem extends BaseModel
             self::DRIVER_SSH => self::DRIVER_SSH,
             self::DRIVER_FTP => self::DRIVER_FTP,
             self::DRIVER_SFTP => self::DRIVER_SFTP,
-            self::DRIVER_LOCAL => self::DRIVER_LOCAL
+            self::DRIVER_LOCAL => self::DRIVER_LOCAL,
         ];
     }
 
-
-    public static function types() : array
+    public static function types(): array
     {
         return self::$types;
     }
 
-    public function sshCredential() : BelongsTo
+    public function sshCredential(): BelongsTo
     {
         return $this->belongsTo(SshCredential::class);
     }
 
-    public function scope() : BelongsTo
+    public function scope(): BelongsTo
     {
         return $this->belongsTo(self::class, 'scope_id');
     }
 
-    public function isConfigured() : bool 
+    public function isConfigured(): bool
     {
-        if(filled($this->scope_id) && $this->scope?->isConfigured())
-        {
+        if (filled($this->scope_id) && $this->scope?->isConfigured()) {
             return filled($this->root_path);
         }
 
-        if(!$this->scope && $this->driver !== self::DRIVER_LOCAL)
-        {
+        if (! $this->scope && $this->driver !== self::DRIVER_LOCAL) {
             return $this->sshCredential()->exists();
         }
 
         return $this->driver === self::DRIVER_LOCAL && filled($this->root_path);
     }
 
-    public function isInitialized() : bool 
+    public function isInitialized(): bool
     {
-        try
-        {
-            if(!Config::has('filesystems.disks.' . $this->systemName))
-            {
+        try {
+            if (! Config::has('filesystems.disks.'.$this->systemName)) {
                 return false;
             }
 
             return true;
-        }
-        catch(Exception $e)
-        {
+        } catch (Exception $e) {
             return false;
         }
     }
 
-    public function getSystemNameAttribute() : string
+    public function getSystemNameAttribute(): string
     {
-        if($this->type == self::TYPE_PRIVATE)
+        if ($this->type == self::TYPE_PRIVATE) {
             return 'private';
-        
-        if($this->type == self::TYPE_PUBLIC)
-            return 'public';
+        }
 
-        return 'disk-' . $this->id;
+        if ($this->type == self::TYPE_PUBLIC) {
+            return 'public';
+        }
+
+        if ($this->type == self::TYPE_BACKUPS) {
+            return 'backups';
+        }
+
+        return 'disk-'.$this->id;
     }
 
-    public function getIsInitializedAttribute() : bool 
+    public function getIsInitializedAttribute(): bool
     {
         return $this->isInitialized();
     }
 
-    public function testConnection() : bool 
+    public function testConnection(): bool
     {
         try {
             $diskName = $this->systemName;
@@ -126,14 +135,13 @@ class Filesystem extends BaseModel
             Storage::forgetDisk($diskName);
             $disk = Storage::disk($diskName);
 
-            $testFile = 'connection_test_' . uniqid() . '.txt';
+            $testFile = 'connection_test_'.uniqid().'.txt';
 
-            $disk->put($testFile, 'Test connection at ' . now());
+            $disk->put($testFile, 'Test connection at '.now());
 
             $exists = $disk->exists($testFile);
 
-            if(!$exists)
-            {
+            if (! $exists) {
                 throw new Exception('File does not exist.');
             }
 
@@ -142,6 +150,7 @@ class Filesystem extends BaseModel
             return $exists;
         } catch (Throwable $e) {
             throw $e;
+
             return false;
         }
     }
@@ -160,7 +169,7 @@ class Filesystem extends BaseModel
                 'port',
                 'root_path',
                 'ssh_credential_id',
-                'sshCredential.name'
+                'sshCredential.name',
             ])
             ->dontSubmitEmptyLogs()
             ->logOnlyDirty();
