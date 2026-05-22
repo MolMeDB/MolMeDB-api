@@ -17,7 +17,6 @@ Route::prefix('/export')->group(function () {
         ->name('export.upload-queue');
 });
 
-
 Route::get('/download/public/{hash}', function (string $hash) {
     $file = File::where('hash', $hash)->first();
     if (! $file || ! Storage::disk($file->storage)->exists($file->path)) {
@@ -30,15 +29,19 @@ Route::get('/download/public/{hash}', function (string $hash) {
         function () use ($disk, $file) {
             echo $disk->get($file->path);
         },
-        $file->downloadName()
+        $file->downloadName(),
+        [
+            'Content-Type' => 'application/octet-stream',
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate',
+            'Pragma' => 'no-cache',
+        ]
     );
 })->middleware('throttle:6,1')
     ->withoutMiddleware('auth')
     ->name('public.download');
 
-
-Route::prefix("/api/dump")->group(function() 
-{ 
+Route::prefix('/api/dump')->group(function () {
     Route::get('/idsm/info', [Export\ExportIdsmController::class, 'info'])
         ->middleware(['throttle:6,1'])
         ->name('export.dump.idsm.info');
@@ -48,7 +51,7 @@ Route::prefix("/api/dump")->group(function()
         ->name('export.dump.idsm.download');
 })
     ->withoutMiddleware('auth');
-    
+
 Route::get('/download/prediction/{hash}', function (string $hash) {
 
     $file = PredictionFile::where('hash', $hash)->first();

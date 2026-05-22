@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { Button } from "@heroui/react";
+import { Button, Link } from "@heroui/react";
 import { JSX } from "react";
 
 export default function LabSection() {
@@ -90,7 +90,7 @@ export default function LabSection() {
           </div>
         </div>
         <div className="flex justify-end">
-          <Button radius="full" variant="flat" color="warning" size="lg">
+          <Button radius="full" variant="flat" color="warning" size="lg" as={Link} href="/lab">
             Start now!
           </Button>
         </div>

@@ -19,8 +19,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
-
 export default function PublicationModalContent(props: {
   id: number;
   onClose: () => void;
@@ -154,7 +152,11 @@ export default function PublicationModalContent(props: {
                 <div className="flex flex-col justify-center items-center gap-1">
                   <Button
                     as={Link}
-                    href={`${BACKEND_URL}/download/public/${lastPassiveExport?.hash}`}
+                    href={
+                      lastPassiveExport?.hash
+                        ? `/api/export/files/${lastPassiveExport.hash}`
+                        : "#"
+                    }
                     isDisabled={!lastPassiveExport || !lastPassiveExport.hash}
                     color="secondary"
                     size="lg"
@@ -174,7 +176,11 @@ export default function PublicationModalContent(props: {
                 <div className="flex flex-col justify-center items-center gap-1">
                   <Button
                     as={Link}
-                    href={`${BACKEND_URL}/download/public/${lastActiveExport?.hash}`}
+                    href={
+                      lastActiveExport?.hash
+                        ? `/api/export/files/${lastActiveExport.hash}`
+                        : "#"
+                    }
                     isDisabled={!lastActiveExport || !lastActiveExport.hash}
                     color="secondary"
                     size="lg"

@@ -85,7 +85,7 @@ export default function IntroductionSection() {
             , offering an integrated resource for researchers.
           </p>
           <div className="mt-4 flex flex-row justify-end lg:justify-start">
-            <Button
+            {/* <Button
               as={Link}
               radius="full"
               variant="flat"
@@ -94,7 +94,7 @@ export default function IntroductionSection() {
               href="/browse/membranes"
             >
               Discover
-            </Button>
+            </Button> */}
           </div>
         </div>
 
@@ -165,7 +165,7 @@ export default function IntroductionSection() {
               />
             </div>
             <div className="flex flex-row justify-end lg:mt-4 w-full lg:max-w-xl">
-              <Button
+              {/* <Button
                 as={Link}
                 radius="full"
                 variant="flat"
@@ -174,7 +174,7 @@ export default function IntroductionSection() {
                 href="/browse/proteins"
               >
                 Discover
-              </Button>
+              </Button> */}
             </div>
           </div>
         </div>

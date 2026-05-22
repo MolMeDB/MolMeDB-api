@@ -16,8 +16,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
-
 export default function MethodModalContent(props: {
   data: IMethod;
   onClose: () => void;
@@ -109,7 +107,11 @@ export default function MethodModalContent(props: {
               <div className="flex flex-col gap-1">
                 <Button
                   as={Link}
-                  href={`${BACKEND_URL}/download/public/${lastExport?.hash}`}
+                  href={
+                    lastExport?.hash
+                      ? `/api/export/files/${lastExport.hash}`
+                      : "#"
+                  }
                   isDisabled={!lastExport || !lastExport.hash}
                   color="secondary"
                   size="lg"

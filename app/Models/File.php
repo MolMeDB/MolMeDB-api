@@ -24,6 +24,13 @@ class File extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected function casts(): array
+    {
+        return [
+            'type' => 'integer',
+        ];
+    }
+
     protected $guarded = [];
 
     /** SPECIAL TYPES OF FILES FOR EASY FINDING */
@@ -240,7 +247,7 @@ class File extends Model
         if ($membrane && $membrane->abbreviation) {
             return match ($this->type) {
                 self::TYPE_COSMO_MEMBRANE => $membrane->abbreviation.'_'.'cosmo.inp',
-                self::TYPE_EXPORT_INTERACTIONS_MEMBRANE => $membrane->abbreviation.'_'.$this->name(),
+                self::TYPE_EXPORT_INTERACTIONS_MEMBRANE => 'molmedb_'.$membrane->abbreviation.'_'.$this->name(),
                 default => $this->name()
             };
         }
@@ -248,7 +255,7 @@ class File extends Model
         $method = $this->methods()->first();
         if ($method && $method->abbreviation) {
             return match ($this->type) {
-                self::TYPE_EXPORT_INTERACTIONS_METHOD => $method->abbreviation.'_'.$this->name(),
+                self::TYPE_EXPORT_INTERACTIONS_METHOD => 'molmedb_'.$method->abbreviation.'_'.$this->name(),
                 default => $this->name()
             };
         }

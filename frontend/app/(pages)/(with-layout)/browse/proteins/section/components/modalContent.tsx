@@ -15,8 +15,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
-
 export default function ProteinModalContent(props: {
   data: IProtein;
   onClose: () => void;
@@ -107,7 +105,7 @@ export default function ProteinModalContent(props: {
               <div className="flex flex-col gap-1">
                 <Button
                   as={Link}
-                  href={`${BACKEND_URL}/api/protein/${props.data.id}/download/interactions`}
+                  href={`/api/export/protein/${props.data.id}/interactions`}
                   isDisabled={!stats?.interactions_count}
                   color="secondary"
                   size="lg"
