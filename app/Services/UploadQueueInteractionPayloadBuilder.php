@@ -106,9 +106,11 @@ class UploadQueueInteractionPayloadBuilder
         if ($smiles !== '') {
             $rdkit = new Rdkit;
             $canonicalSmiles = $rdkit->canonize_smiles($smiles);
-            if ($canonicalSmiles) {
-                $smiles = $canonicalSmiles;
+            if (! $canonicalSmiles) {
+                throw new RuntimeException('Unable to canonize SMILES for imported row. Check RDKit service availability and SMILES validity.');
             }
+
+            $smiles = $canonicalSmiles;
         }
 
         if ($smiles !== '') {

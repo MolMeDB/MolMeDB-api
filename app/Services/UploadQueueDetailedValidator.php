@@ -99,7 +99,7 @@ class UploadQueueDetailedValidator
             $dataLines = $skipFirstRow === 1 ? array_slice($rows, 1) : $rows;
         } else {
             $separator = $this->detectSeparator($rows[0]);
-            $headerRow = str_getcsv($rows[0], $separator);
+            $headerRow = str_getcsv($rows[0], $separator, '"', '\\');
             $columnKeys = $this->buildColumnMapping($record, $headerRow);
             $dataLines = array_slice($rows, 1);
         }
@@ -136,7 +136,7 @@ class UploadQueueDetailedValidator
             : 1;
         foreach ($dataLines as $line) {
             $rowIndex++;
-            $rawValues = str_getcsv($line, $separator);
+            $rawValues = str_getcsv($line, $separator, '"', '\\');
 
             if (count($rawValues) !== count($columnKeys)) {
                 $errors[] = "Line {$rowIndex}: number of values does not match header column count.";
@@ -246,7 +246,7 @@ class UploadQueueDetailedValidator
         $bestColumns = 1;
 
         foreach ($candidates as $candidate) {
-            $columns = count(str_getcsv($headerLine, $candidate));
+            $columns = count(str_getcsv($headerLine, $candidate, '"', '\\'));
             if ($columns > $bestColumns) {
                 $bestColumns = $columns;
                 $bestSeparator = $candidate;

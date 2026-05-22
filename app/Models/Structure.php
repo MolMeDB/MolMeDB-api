@@ -58,7 +58,7 @@ class Structure extends BaseModel
 
     public function identifiers(): HasMany
     {
-        return $this->hasMany(Identifier::class)
+        return $this->hasMany(Identifier::class, 'structure_id', 'id')
             ->orderBy('id', 'asc');
     }
 

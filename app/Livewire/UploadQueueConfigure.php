@@ -194,7 +194,7 @@ class UploadQueueConfigure extends Component
                 $line = mb_convert_encoding($line, 'UTF-8', 'auto');
 
                 if (count($this->previewRows) < 6) {
-                    $this->previewRows[] = str_getcsv($line, $this->separator);
+                    $this->previewRows[] = str_getcsv($line, $this->separator, '"', '\\');
                 }
             }
 
@@ -315,7 +315,7 @@ class UploadQueueConfigure extends Component
                     continue;
                 }
 
-                $row = array_combine($this->columnMapping, str_getcsv($line, $this->separator));
+                $row = array_combine($this->columnMapping, str_getcsv($line, $this->separator, '"', '\\'));
 
                 $validator = $this->defineValidator($row);
 

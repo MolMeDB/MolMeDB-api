@@ -2,20 +2,6 @@
 
 namespace App\Filament\Resources\SharedRelationManagers;
 
-use Filament\Schemas\Schema;
-use Filament\Forms\Components\TextInput;
-use Filament\Schemas\Components\Utilities\Get;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Hidden;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Columns\IconColumn;
-use Filament\Tables\Filters\TrashedFilter;
-use Filament\Actions\CreateAction;
-use Filament\Actions\EditAction;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\Action;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use App\Enums\IconEnums;
 use App\Filament\Resources\Structures\StructureResource;
 use App\Models\Dataset;
@@ -24,16 +10,31 @@ use App\Models\Structure;
 use App\Models\User;
 use App\Rules\SubstanceIdentifier as RulesIdentifier;
 use Closure;
+use Filament\Actions\Action;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\CreateAction;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
+use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Schema;
+use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 
 class IdentifiersRelationManager extends RelationManager
 {
     protected static string $relationship = 'identifiers';
-    protected static string | \BackedEnum | null $icon = IconEnums::IDENTIFIERS->value;
+
+    protected static string|\BackedEnum|null $icon = IconEnums::IDENTIFIERS->value;
+
     protected static ?string $title = 'Identifiers';
 
     public function form(Schema $schema): Schema
@@ -49,7 +50,7 @@ class IdentifiersRelationManager extends RelationManager
                             $rule = new RulesIdentifier($this->ownerRecord, $get('type'));
                             $rule->validate($attribute, $value, $fail);
                         },
-                        
+
                     ])
                     ->maxLength(255),
                 Select::make('type')
@@ -64,9 +65,9 @@ class IdentifiersRelationManager extends RelationManager
                     ->default(Identifier::STATE_VALIDATED)
                     ->disabled(),
                 Hidden::make('source_id')
-                        ->default(Auth::user()->id),
+                    ->default(Auth::user()->id),
                 Hidden::make('source_type')
-                        ->default(User::class),
+                    ->default(User::class),
                 Hidden::make('state')
                     ->default(Identifier::STATE_VALIDATED),
             ]);
@@ -75,23 +76,24 @@ class IdentifiersRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         static $isParentTrashed = $this->ownerRecord->trashed();
+
         return $table
             ->recordTitleAttribute('value')
-            ->description(fn() : ?string => $this->getDescription())
+            ->description(fn (): ?string => $this->getDescription())
             // ->query(null)
             ->columns([
                 TextColumn::make('id')
-                    ->color(fn(Identifier $record) => $record->trashed() ? 'danger' : null)
-                    ->tooltip(fn(Identifier $record) => $record->trashed() ? 'Deleted record' : null)
+                    ->color(fn (Identifier $record) => $record->trashed() ? 'danger' : null)
+                    ->tooltip(fn (Identifier $record) => $record->trashed() ? 'Deleted record' : null)
                     ->sortable(),
                 TextColumn::make('structure.identifier')
                     ->label('Structure')
                     ->sortable()
-                    ->visible(fn (): bool => !$this->isSourceTypeOwner())
+                    ->visible(fn (): bool => ! $this->isSourceTypeOwner())
                     ->color('warning'),
                 TextColumn::make('type')
                     ->badge()
-                    ->formatStateUsing(fn (string $state) : string => Identifier::enumType($state))
+                    ->formatStateUsing(fn (string $state): string => Identifier::enumType($state))
                     ->sortable()
                     ->color('primary'),
                 TextColumn::make('value')
@@ -105,8 +107,8 @@ class IdentifiersRelationManager extends RelationManager
                     ->sortable()
                     ->wrap()
                     ->tooltip('The source of the identifier.')
-                    ->formatStateUsing(fn (Model $record) : string => Str::limit($record->source->name(), 20))
-                    ->visible(fn (): bool => !$this->isSourceTypeOwner())
+                    ->formatStateUsing(fn (Identifier $record): string => Str::limit($record->source?->name() ?? 'System', 20))
+                    ->visible(fn (): bool => ! $this->isSourceTypeOwner())
                     ->color('success')
                     ->toggleable(isToggledHiddenByDefault: false),
                 IconColumn::make('state')
@@ -146,7 +148,7 @@ class IdentifiersRelationManager extends RelationManager
             ])
             ->headerActions([
                 CreateAction::make()
-                    ->visible(fn (): bool => $this->createButtonVisible())
+                    ->visible(fn (): bool => $this->createButtonVisible()),
             ])
             ->recordActions([
                 EditAction::make()
@@ -157,12 +159,12 @@ class IdentifiersRelationManager extends RelationManager
                     ->label('Structure')
                     ->icon(IconEnums::VIEW->value)
                     ->url(fn ($record) => StructureResource::getUrl('edit', ['record' => $record->structure]))
-                    ->visible(fn() : bool => $this->isSourceTypeOwner()),
+                    ->visible(fn (): bool => $this->isSourceTypeOwner()),
                 Action::make('activate')
                     ->label('Set as primary')
                     ->icon(IconEnums::CHECK->value)
                     ->action(fn (Identifier $record) => $record->activate())
-                    ->visible(fn(Identifier $record) : bool => !$this->isSourceTypeOwner() 
+                    ->visible(fn (Identifier $record): bool => ! $this->isSourceTypeOwner()
                         && $record->type == Identifier::TYPE_NAME
                         && $record->state !== Identifier::STATE_ACTIVE),
             ])
@@ -173,24 +175,25 @@ class IdentifiersRelationManager extends RelationManager
             ]);
     }
 
-    private function createButtonVisible() : bool
+    private function createButtonVisible(): bool
     {
-        return !in_array($this->ownerRecord::class, [
-            Dataset::class
+        return ! in_array($this->ownerRecord::class, [
+            Dataset::class,
         ]);
     }
 
-    private function isSourceTypeOwner() : bool
+    private function isSourceTypeOwner(): bool
     {
-        return !in_array($this->ownerRecord::class, [
-            Structure::class
+        return ! in_array($this->ownerRecord::class, [
+            Structure::class,
         ]);
     }
 
-    private function getDescription() : ?string {
-        return match($this->ownerRecord::class) {
+    private function getDescription(): ?string
+    {
+        return match ($this->ownerRecord::class) {
             Dataset::class => 'Structure identifiers added from current dataset',
-            default => null  
+            default => null
         };
     }
 }

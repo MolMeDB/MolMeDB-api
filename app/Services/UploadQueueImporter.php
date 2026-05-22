@@ -4,7 +4,9 @@ namespace App\Services;
 
 use App\Models\InteractionActive;
 use App\Models\InteractionPassive;
+use App\Models\Structure;
 use App\Models\UploadQueue;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
@@ -79,8 +81,10 @@ class UploadQueueImporter
             'sample_rows' => [],
         ];
 
-        $result = DB::transaction(function () use ($record, &$summary): array {
-            return $this->forEachMappedRow($record, function (array $row) use ($record, &$summary): void {
+        $importedStructureIds = [];
+
+        $result = DB::transaction(function () use ($record, &$summary, &$importedStructureIds): array {
+            return $this->forEachMappedRow($record, function (array $row) use ($record, &$summary, &$importedStructureIds): void {
                 $payload = $this->payloadBuilder->passivePayload($record, $row);
 
                 if ($this->skipDuplicate($record, $payload, $summary)) {
@@ -89,6 +93,7 @@ class UploadQueueImporter
 
                 InteractionPassive::query()->create($payload);
 
+                $importedStructureIds[] = (int) $payload['structure_id'];
                 $summary['created_rows']++;
                 if (count($summary['sample_rows']) < 5) {
                     $summary['sample_rows'][] = $payload;
@@ -99,6 +104,7 @@ class UploadQueueImporter
         $summary['prepared_rows'] = $result['prepared_rows'];
         $summary['skipped_rows'] += $result['skipped_rows'];
         $this->failIfNothingWasImported($summary);
+        $this->checkInternalIdentifiers($importedStructureIds, $summary);
 
         return $summary;
     }
@@ -128,8 +134,10 @@ class UploadQueueImporter
             'sample_rows' => [],
         ];
 
-        $result = DB::transaction(function () use ($record, &$summary): array {
-            return $this->forEachMappedRow($record, function (array $row) use ($record, &$summary): void {
+        $importedStructureIds = [];
+
+        $result = DB::transaction(function () use ($record, &$summary, &$importedStructureIds): array {
+            return $this->forEachMappedRow($record, function (array $row) use ($record, &$summary, &$importedStructureIds): void {
                 $payload = $this->payloadBuilder->activePayload($record, $row);
 
                 if ($this->skipDuplicate($record, $payload, $summary)) {
@@ -138,6 +146,7 @@ class UploadQueueImporter
 
                 InteractionActive::query()->create($payload);
 
+                $importedStructureIds[] = (int) $payload['structure_id'];
                 $summary['created_rows']++;
                 if (count($summary['sample_rows']) < 5) {
                     $summary['sample_rows'][] = $payload;
@@ -148,8 +157,48 @@ class UploadQueueImporter
         $summary['prepared_rows'] = $result['prepared_rows'];
         $summary['skipped_rows'] += $result['skipped_rows'];
         $this->failIfNothingWasImported($summary);
+        $this->checkInternalIdentifiers($importedStructureIds, $summary);
 
         return $summary;
+    }
+
+    /**
+     * @param  array<int, int>  $structureIds
+     * @param  array<string, mixed>  $summary
+     */
+    private function checkInternalIdentifiers(array $structureIds, array &$summary): void
+    {
+        $ids = collect($structureIds)
+            ->filter(fn (int $id): bool => $id > 0)
+            ->unique()
+            ->values();
+
+        if ($ids->isEmpty()) {
+            $summary['internal_identifier_rows'] = 0;
+
+            return;
+        }
+
+        $missingIdentifierIds = Structure::query()
+            ->whereIn('id', $ids)
+            ->whereNull('identifier')
+            ->pluck('id')
+            ->map(fn (int|string $id): int => (int) $id)
+            ->all();
+
+        $summary['internal_identifier_rows'] = count($missingIdentifierIds);
+
+        if ($missingIdentifierIds === []) {
+            return;
+        }
+
+        $exitCode = Artisan::call('structures:check-internal-identifiers', [
+            '--ids' => $missingIdentifierIds,
+        ]);
+
+        if ($exitCode !== 0) {
+            throw new RuntimeException('Imported interactions were saved, but internal structure identifiers could not be generated.');
+        }
     }
 
     /**
@@ -263,7 +312,7 @@ class UploadQueueImporter
                     continue;
                 }
 
-                $mappedRow = $this->mapRow(str_getcsv($line, $separator), $attributes);
+                $mappedRow = $this->mapRow(str_getcsv($line, $separator, '"', '\\'), $attributes);
                 if ($mappedRow === []) {
                     $skippedRows++;
 

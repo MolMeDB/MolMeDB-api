@@ -138,7 +138,7 @@ class ExportToFile
         }
 
         if (is_array($row)) {
-            fputcsv($this->fileHandler, $row, $separator);
+            fputcsv($this->fileHandler, $row, $separator, '"', '\\');
         } elseif (is_string($row)) {
             fwrite($this->fileHandler, $row.PHP_EOL);
         } else {
@@ -314,7 +314,7 @@ class ExportToFile
                 throw new Exception('Could not open output stream.');
             }
 
-            fputcsv($output, $header->as_array(), $separator);
+            fputcsv($output, $header->as_array(), $separator, '"', '\\');
 
             foreach ($rows as $row) {
                 $toWrite = [];
@@ -322,7 +322,7 @@ class ExportToFile
                     $toWrite[] = $column->getValue($row);
                 }
 
-                fputcsv($output, $toWrite, $separator);
+                fputcsv($output, $toWrite, $separator, '"', '\\');
             }
 
             fclose($output);

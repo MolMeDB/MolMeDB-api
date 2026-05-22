@@ -5,12 +5,10 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreProteinRequest;
 use App\Http\Requests\UpdateProteinRequest;
 use App\Http\Resources\CategoryCollection;
-use App\Http\Resources\InteractionActiveResource;
 use App\Http\Resources\ProteinResource;
 use App\Http\Resources\Public\InteractionActivePublicResource;
 use App\Models\Category;
 use App\Models\Protein;
-use Illuminate\Support\Str;
 use Spatie\TemporaryDirectory\TemporaryDirectory;
 
 class ProteinController extends Controller
@@ -38,7 +36,7 @@ class ProteinController extends Controller
                 'protein' => ProteinResource::make($protein),
                 'interactions_count' => $protein->interactionsActive()->count(),
                 'structures_count' => $protein->structures()->count(),
-            ]
+            ],
         ]);
     }
 
@@ -63,17 +61,17 @@ class ProteinController extends Controller
         $interactions = $protein->interactionsActive()->get();
 
         $csv_rows = InteractionActivePublicResource::collection($interactions)->resolve();
-        
-        $filename = 'molmedb_' . $protein->uniprot_id . '_' . date('Y-m-d') . '.csv';
+
+        $filename = 'molmedb_'.$protein->uniprot_id.'_'.date('Y-m-d').'.csv';
 
         $tmpDir = TemporaryDirectory::make();
-        
+
         $handle = fopen($tmpDir->path($filename), 'w');
 
-        fputcsv($handle, array_keys($csv_rows[0]), separator:";");
+        fputcsv($handle, array_keys($csv_rows[0]), separator: ';', escape: '\\');
 
         foreach ($csv_rows as $row) {
-            fputcsv($handle, $row, separator:";");
+            fputcsv($handle, $row, separator: ';', escape: '\\');
         }
 
         fclose($handle);

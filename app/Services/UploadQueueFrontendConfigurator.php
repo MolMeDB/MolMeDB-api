@@ -80,7 +80,7 @@ class UploadQueueFrontendConfigurator
                 continue;
             }
 
-            $previewRows[] = str_getcsv(mb_convert_encoding($line, 'UTF-8', 'auto'), $separator);
+            $previewRows[] = str_getcsv(mb_convert_encoding($line, 'UTF-8', 'auto'), $separator, '"', '\\');
             if (count($previewRows) >= $limit) {
                 break;
             }
@@ -165,7 +165,7 @@ class UploadQueueFrontendConfigurator
             }
 
             $line = mb_convert_encoding($line, 'UTF-8', 'auto');
-            $rawValues = str_getcsv($line, $separator);
+            $rawValues = str_getcsv($line, $separator, '"', '\\');
 
             if (count($rawValues) !== count($columnMapping)) {
                 $errors[] = "Line {$lineNumber}: number of values does not match configured column count.";

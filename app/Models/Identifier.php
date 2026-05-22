@@ -257,7 +257,7 @@ class Identifier extends Model
      */
     public function structure(): BelongsTo
     {
-        return $this->belongsTo(Structure::class);
+        return $this->belongsTo(Structure::class, 'structure_id', 'id');
     }
 
     public function activate(): void
@@ -281,29 +281,29 @@ class Identifier extends Model
 
     public function source(): MorphTo
     {
-        return $this->morphTo();
+        return $this->morphTo(__FUNCTION__, 'source_type', 'source_id', 'id');
     }
 
     public function children(): MorphMany
     {
-        return $this->morphMany(Identifier::class, 'source');
+        return $this->morphMany(Identifier::class, 'source', 'source_type', 'source_id', 'id');
     }
 
     public function childIdentifiers(): MorphMany
     {
-        return $this->morphMany(self::class, 'source');
+        return $this->morphMany(self::class, 'source', 'source_type', 'source_id', 'id');
     }
 
     public function sourceIdentifier(): BelongsTo
     {
-        return $this->belongsTo(self::class, 'source_id')
-            ->wherePivot('source_model_type', self::class);
+        return $this->belongsTo(self::class, 'source_id', 'id')
+            ->where('source_type', self::class);
     }
 
     public function sourceUser(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'source_id')
-            ->where('source_model_type', User::class);
+        return $this->belongsTo(User::class, 'source_id', 'id')
+            ->where('source_type', User::class);
     }
 
     public function name(): ?string
