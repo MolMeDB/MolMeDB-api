@@ -12,14 +12,14 @@ import Link from "next/link";
 
 function formatDateTime(value: string) {
   const match = value.match(
-    /^(?<year>\d{4})\/(?<month>\d{2})\/(?<day>\d{2}) (?<hour>\d{2}):(?<minute>\d{2})/,
+    /^(\d{4})\/(\d{2})\/(\d{2}) (\d{2}):(\d{2})/,
   );
 
-  if (!match?.groups) {
+  if (!match) {
     return value;
   }
 
-  const { day, hour, minute, month, year } = match.groups;
+  const [, year, month, day, hour, minute] = match;
 
   return `${day}. ${month}. ${year} ${hour}:${minute}`;
 }
