@@ -10,21 +10,28 @@ const XSRF_KEY = process.env.COOKIES_BACKEND_XSRF_KEY as string;
 const BE_SESSION_KEY = process.env.COOKIES_BACKEND_SESSION_KEY as string;
 const FE_SESSION_KEY = process.env.COOKIES_FRONTEND_SESSION_KEY as string;
 
+function getSetCookieValue(cookies: string, name: string): string | null {
+  const match = cookies.match(new RegExp(`${name}=([^;]+)`));
+
+  if (!match?.[1]) {
+    return null;
+  }
+
+  return decodeURIComponent(match[1]);
+}
+
 async function updateCookies(res: Response) {
   const cookies = res.headers.get("set-cookie") || "";
 
-  const match = cookies?.toString().match(/XSRF-TOKEN=[^\%;]+/);
-  const matchSession = cookies?.toString().match(/molmedb_session=[^;]+/);
+  const XSRF_TOKEN = getSetCookieValue(cookies, XSRF_KEY);
+  const SESSION = getSetCookieValue(cookies, BE_SESSION_KEY);
 
-  if (!match || !matchSession) {
+  if (!XSRF_TOKEN || !SESSION) {
     console.error("No match in set-cookies response"); // TODO
     // console.log("SET-COOKIES", cookies?.toString());
     // console.log(res.headers.getSetCookie());
     return {};
   }
-
-  const SESSION = matchSession[0].split("=")[1];
-  const XSRF_TOKEN = match[0].split("=")[1];
 
   // console.log("Setting new cookies");
   // console.log("XSRF_TOKEN", XSRF_TOKEN);
