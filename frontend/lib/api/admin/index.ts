@@ -10,6 +10,11 @@ const XSRF_KEY = process.env.COOKIES_BACKEND_XSRF_KEY as string;
 const BE_SESSION_KEY = process.env.COOKIES_BACKEND_SESSION_KEY as string;
 const FE_SESSION_KEY = process.env.COOKIES_FRONTEND_SESSION_KEY as string;
 
+type BackendCookies = {
+  session: string;
+  xsrfToken: string;
+};
+
 function getSetCookieValue(cookies: string, name: string): string | null {
   const match = cookies.match(new RegExp(`${name}=([^;]+)`));
 
@@ -17,10 +22,18 @@ function getSetCookieValue(cookies: string, name: string): string | null {
     return null;
   }
 
-  return decodeURIComponent(match[1]);
+  return match[1];
 }
 
-async function updateCookies(res: Response) {
+function decodeCookieValue(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+async function updateCookies(res: Response): Promise<BackendCookies | null> {
   const cookies = res.headers.get("set-cookie") || "";
 
   const XSRF_TOKEN = getSetCookieValue(cookies, XSRF_KEY);
@@ -30,7 +43,7 @@ async function updateCookies(res: Response) {
     console.error("No match in set-cookies response"); // TODO
     // console.log("SET-COOKIES", cookies?.toString());
     // console.log(res.headers.getSetCookie());
-    return {};
+    return null;
   }
 
   // console.log("Setting new cookies");
@@ -42,6 +55,11 @@ async function updateCookies(res: Response) {
   cookiesStore.set(XSRF_KEY, XSRF_TOKEN, DEFAULT_COOKIES_CONFIG);
   cookiesStore.set(FE_SESSION_KEY, SESSION, DEFAULT_COOKIES_CONFIG);
   // console.log("Cookies updated");
+
+  return {
+    session: SESSION,
+    xsrfToken: XSRF_TOKEN,
+  };
 }
 
 async function refreshCSRF() {
@@ -49,16 +67,27 @@ async function refreshCSRF() {
   const res = await fetch(`${baseUrl}/sanctum/csrf-cookie`, {
     method: "GET",
     credentials: "include",
+    headers: {
+      Accept: "application/json",
+      Referer: process.env.FRONTEND_URL as string,
+    },
   });
 
-  await updateCookies(res);
+  return await updateCookies(res);
 }
 
-async function _post(uri: string, data = {}, method = "POST") {
+async function _post(
+  uri: string,
+  data = {},
+  method = "POST",
+  backendCookies?: BackendCookies | null,
+) {
   const cks = await Cookies();
 
-  const SESSION = cks.get(FE_SESSION_KEY)?.value as string;
-  const XSRF_TOKEN = cks.get(XSRF_KEY)?.value as string;
+  const SESSION = backendCookies?.session ?? (cks.get(FE_SESSION_KEY)?.value as string);
+  const XSRF_TOKEN =
+    backendCookies?.xsrfToken ?? (cks.get(XSRF_KEY)?.value as string);
+  const XSRF_HEADER = XSRF_TOKEN ? decodeCookieValue(XSRF_TOKEN) : "";
 
   // console.log("POST", uri);
   // console.log("COOK", SESSION);
@@ -73,7 +102,7 @@ async function _post(uri: string, data = {}, method = "POST") {
       Accept: "application/json",
       Referer: process.env.FRONTEND_URL as string,
       Cookie: `${XSRF_KEY}=${XSRF_TOKEN}; ${BE_SESSION_KEY}=${SESSION}`,
-      "X-XSRF-TOKEN": XSRF_TOKEN,
+      "X-XSRF-TOKEN": XSRF_HEADER,
     },
     body: JSON.stringify(data),
   });
@@ -87,11 +116,18 @@ async function _post(uri: string, data = {}, method = "POST") {
   return result;
 }
 
-async function _postForm(uri: string, data: FormData, method = "POST") {
+async function _postForm(
+  uri: string,
+  data: FormData,
+  method = "POST",
+  backendCookies?: BackendCookies | null,
+) {
   const cks = await Cookies();
 
-  const SESSION = cks.get(FE_SESSION_KEY)?.value as string;
-  const XSRF_TOKEN = cks.get(XSRF_KEY)?.value as string;
+  const SESSION = backendCookies?.session ?? (cks.get(FE_SESSION_KEY)?.value as string);
+  const XSRF_TOKEN =
+    backendCookies?.xsrfToken ?? (cks.get(XSRF_KEY)?.value as string);
+  const XSRF_HEADER = XSRF_TOKEN ? decodeCookieValue(XSRF_TOKEN) : "";
 
   const result = await fetch(`${baseUrl}${uri}`, {
     method,
@@ -100,7 +136,7 @@ async function _postForm(uri: string, data: FormData, method = "POST") {
       Accept: "application/json",
       Referer: process.env.FRONTEND_URL as string,
       Cookie: `${XSRF_KEY}=${XSRF_TOKEN}; ${BE_SESSION_KEY}=${SESSION}`,
-      "X-XSRF-TOKEN": XSRF_TOKEN,
+      "X-XSRF-TOKEN": XSRF_HEADER,
     },
     body: data,
   });
@@ -118,8 +154,8 @@ export async function post(uri: string, data = {}, method = "POST") {
   let result = await _post(uri, data, method);
   if (result === false) {
     // refresh CSRF
-    await refreshCSRF();
-    result = await _post(uri, data, method);
+    const backendCookies = await refreshCSRF();
+    result = await _post(uri, data, method, backendCookies);
     if (result === false) {
       // Cannot refresch CSRF? Error!
       throw new Error("Cannot refresh CSRF."); // TODO RemoteServerError?
@@ -135,8 +171,8 @@ export async function postForm(
 ) {
   let result = await _postForm(uri, data, method);
   if (result === false) {
-    await refreshCSRF();
-    result = await _postForm(uri, data, method);
+    const backendCookies = await refreshCSRF();
+    result = await _postForm(uri, data, method, backendCookies);
     if (result === false) {
       throw new Error("Cannot refresh CSRF.");
     }
