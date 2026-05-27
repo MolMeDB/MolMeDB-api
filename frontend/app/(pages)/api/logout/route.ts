@@ -5,11 +5,12 @@ import { cookies } from "next/headers";
 const SESSION_KEY = process.env.COOKIES_FRONTEND_SESSION_KEY as string;
 const USER_KEY = process.env.COOKIES_FRONTEND_SESSION_USER_KEY as string;
 const XSRF_KEY = process.env.COOKIES_BACKEND_XSRF_KEY as string;
+const FRONTEND_URL = process.env.FRONTEND_URL as string;
 
 export async function GET(request: Request) {
   await post("/logout");
 
-  const res = NextResponse.redirect(new URL("/login", request.url));
+  const res = NextResponse.redirect(new URL("/login", FRONTEND_URL || request.url));
 
   const cookieStore = await cookies();
   cookieStore.delete(SESSION_KEY);
