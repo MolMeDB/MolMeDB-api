@@ -2,12 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Category;
 use App\Http\Requests\StoreStructureRequest;
 use App\Http\Requests\UpdateStructureRequest;
 use App\Http\Resources\StructureResource;
+use App\Models\Category;
 use App\Models\Structure;
-use Illuminate\Support\Facades\Http;
 use Modules\Rdkit\Rdkit;
 
 class StructureController extends Controller
@@ -30,30 +29,32 @@ class StructureController extends Controller
 
     public function mol3D(string $identifier)
     {
-        $structure = Structure::where('identifier',$identifier)->first();
+        $structure = Structure::where('identifier', $identifier)->first();
 
-        if(!$structure?->id)
-        {
+        if (! $structure?->id) {
             return response()->json([
-                'message' => 'Structure not found'
+                'message' => 'Structure not found',
             ], 404);
         }
 
-        if($structure->molfile_3d)
-        {
+        if ($this->isValidMolfile($structure->molfile_3d)) {
             return response($structure->molfile_3d)
                 ->header('Content-Type', 'chemical/x-mdl-sdfile');
         }
 
-        $rdkit = new Rdkit();
+        if ($structure->molfile_3d !== null) {
+            $structure->molfile_3d = null;
+            $structure->save();
+        }
+
+        $rdkit = new Rdkit;
 
         $molContent = $rdkit->get_3d_structure($structure->canonical_smiles);
 
-        if(!$molContent)
-        {
+        if (! $this->isValidMolfile($molContent)) {
             return response()->json([
-                'message' => 'Structure not found'
-            ], 404);
+                'message' => '3D structure could not be generated.',
+            ], 422);
         }
 
         $structure->molfile_3d = $molContent;
@@ -63,32 +64,70 @@ class StructureController extends Controller
             ->header('Content-Type', 'chemical/x-mdl-sdfile');
     }
 
+    private function isValidMolfile(?string $molfile): bool
+    {
+        if (! $molfile || trim($molfile) === '') {
+            return false;
+        }
+
+        $lines = preg_split('/\R/', trim($molfile));
+
+        if (! is_array($lines) || count($lines) < 4) {
+            return false;
+        }
+
+        $endLineExists = collect($lines)->contains(fn (string $line): bool => trim($line) === 'M  END');
+
+        if (! $endLineExists) {
+            return false;
+        }
+
+        foreach ($lines as $index => $line) {
+            if (str_contains($line, 'V3000')) {
+                return collect($lines)->contains(fn (string $line): bool => str_contains($line, 'M  V30 BEGIN CTAB'))
+                    && collect($lines)->contains(fn (string $line): bool => str_contains($line, 'M  V30 END CTAB'));
+            }
+
+            if (! str_contains($line, 'V2000')) {
+                continue;
+            }
+
+            if (preg_match('/^\s*(\d+)\s+(\d+).*V2000/', $line, $matches) !== 1) {
+                return false;
+            }
+
+            $atomCount = (int) $matches[1];
+            $bondCount = (int) $matches[2];
+
+            return count($lines) >= $index + $atomCount + $bondCount + 2;
+        }
+
+        return false;
+    }
+
     /**
      * Display the specified resource.
      */
     public function show(string $identifier)
     {
-        $structure = Structure::where('identifier',$identifier)->first();
+        $structure = Structure::where('identifier', $identifier)->first();
 
-        if(!$structure?->id)
-        {
+        if (! $structure?->id) {
             return response()->json([
-                'message' => 'Structure not found'
+                'message' => 'Structure not found',
             ], 404);
         }
 
         return StructureResource::make($structure);
     }
 
-
     public function similarities(string $identifier)
     {
-        $structure = Structure::where('identifier',$identifier)->first();
+        $structure = Structure::where('identifier', $identifier)->first();
 
-        if(!$structure?->id)
-        {
+        if (! $structure?->id) {
             return response()->json([
-                'message' => 'Structure not found'
+                'message' => 'Structure not found',
             ], 404);
         }
 
@@ -98,24 +137,23 @@ class StructureController extends Controller
 
         return response()->json([
             'related_structures' => StructureResource::collection(collect($related)),
-            'similar_structures' => StructureResource::collection(collect($similar))
+            'similar_structures' => StructureResource::collection(collect($similar)),
         ]);
     }
 
     public function molCanonizeSmiles(string $smiles)
     {
-        $rdkit = new Rdkit();
+        $rdkit = new Rdkit;
 
-        if(!$rdkit->is_connected())
-        {
+        if (! $rdkit->is_connected()) {
             return response()->json([
-                'message' => 'Rdkit disconnected'
+                'message' => 'Rdkit disconnected',
             ], 503);
         }
 
         return response()->json([
             'request_smiles' => $smiles,
-            'canonized_smiles' => $rdkit->canonize_smiles($smiles)
+            'canonized_smiles' => $rdkit->canonize_smiles($smiles),
         ]);
     }
 
@@ -123,14 +161,13 @@ class StructureController extends Controller
     {
         $structure = Structure::where('identifier', $identifier)
             ->with([
-                'interactionsPassive.dataset.membrane.categories.parent'
+                'interactionsPassive.dataset.membrane.categories.parent',
             ])
             ->first();
 
-        if(!$structure?->id)
-        {
+        if (! $structure?->id) {
             return response()->json([
-                'message' => 'Structure not found'
+                'message' => 'Structure not found',
             ], 404);
         }
 
@@ -139,14 +176,14 @@ class StructureController extends Controller
             ->filter()
             ->unique('id')
             ->values();
-        
+
         $tree = [];
 
         foreach ($membranes as $membrane) {
             /** @var Category $subcategory */
-            $subcategory = $membrane->categories->first(); 
+            $subcategory = $membrane->categories->first();
 
-            if (!$subcategory) {
+            if (! $subcategory) {
                 continue;
             }
 
@@ -155,18 +192,18 @@ class StructureController extends Controller
             $mainId = $mainCategory?->id ?? null;
             $subId = $subcategory?->id ?? null;
 
-            if ($mainId && !isset($tree[$mainId])) {
+            if ($mainId && ! isset($tree[$mainId])) {
                 $tree[$mainId] = [
                     'placeholder' => $mainCategory->title,
-                    'items' => []
+                    'items' => [],
                 ];
             }
 
-            if ($subId && !isset($tree[$mainId]['items'][$subId])) {
+            if ($subId && ! isset($tree[$mainId]['items'][$subId])) {
                 $tree[$mainId]['items'][$subId] = [
                     'type' => 'category',
                     'category' => $subcategory->title,
-                    'children' => []
+                    'children' => [],
                 ];
             }
 
@@ -174,7 +211,7 @@ class StructureController extends Controller
                 'type' => 'item',
                 'value' => $membrane->id,
                 'label' => $membrane->abbreviation,
-                'totalInteractions' => $structure->interactionsPassive->where('dataset.membrane_id', $membrane->id)->count()
+                'totalInteractions' => $structure->interactionsPassive->where('dataset.membrane_id', $membrane->id)->count(),
             ];
         }
 
@@ -189,14 +226,13 @@ class StructureController extends Controller
     {
         $structure = Structure::where('identifier', $identifier)
             ->with([
-                'interactionsPassive.dataset.method.categories.parent'
+                'interactionsPassive.dataset.method.categories.parent',
             ])
             ->first();
 
-        if(!$structure?->id)
-        {
+        if (! $structure?->id) {
             return response()->json([
-                'message' => 'Structure not found'
+                'message' => 'Structure not found',
             ], 404);
         }
 
@@ -215,9 +251,9 @@ class StructureController extends Controller
 
         foreach ($methods as $method) {
             /** @var Category $subcategory */
-            $subcategory = $method->categories->first(); 
+            $subcategory = $method->categories->first();
 
-            if (!$subcategory) {
+            if (! $subcategory) {
                 continue;
             }
 
@@ -226,18 +262,18 @@ class StructureController extends Controller
             $mainId = $mainCategory?->id ?? null;
             $subId = $subcategory?->id ?? null;
 
-            if ($mainId && !isset($tree[$mainId])) {
+            if ($mainId && ! isset($tree[$mainId])) {
                 $tree[$mainId] = [
                     'placeholder' => $mainCategory->title,
-                    'items' => []
+                    'items' => [],
                 ];
             }
 
-            if ($subId && !isset($tree[$mainId]['items'][$subId])) {
+            if ($subId && ! isset($tree[$mainId]['items'][$subId])) {
                 $tree[$mainId]['items'][$subId] = [
                     'type' => 'category',
                     'category' => $subcategory->title,
-                    'children' => []
+                    'children' => [],
                 ];
             }
 
@@ -245,7 +281,7 @@ class StructureController extends Controller
                 'type' => 'item',
                 'value' => $method->id,
                 'label' => $method->abbreviation,
-                'totalInteractions' => $structure->interactionsPassive->where('dataset.method_id', $method->id)->count()
+                'totalInteractions' => $structure->interactionsPassive->where('dataset.method_id', $method->id)->count(),
             ];
         }
 
