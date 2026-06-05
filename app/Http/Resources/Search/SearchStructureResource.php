@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Resources\Search;
 
 use Illuminate\Http\Request;
@@ -14,15 +15,17 @@ class SearchStructureResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $cdk = new CdkDepict();
+        $cdk = new CdkDepict;
+        $isAvailable = filled($this->identifier);
 
-        return array 
-        (
+        return [
             'title' => $this->matched_identifier ?? $this->identifier,
             'subtitle' => $this->identifier,
             'description' => null,
-            'link' => "/mol/$this->identifier",
-            'imageUrl' => $cdk->get2dStructureUrl($this->canonical_smiles, 1)
-        );
+            'link' => $isAvailable ? "/mol/$this->identifier" : null,
+            'imageUrl' => $cdk->get2dStructureUrl($this->canonical_smiles, 1),
+            'isAvailable' => $isAvailable,
+            'availabilityMessage' => $isAvailable ? null : 'This molecule record is being prepared.',
+        ];
     }
 }

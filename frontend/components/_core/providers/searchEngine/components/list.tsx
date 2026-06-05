@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import {
   MdArrowForward,
   MdImageNotSupported,
+  MdOutlineHourglassEmpty,
   MdSearchOff,
 } from "react-icons/md";
 
@@ -141,11 +142,71 @@ export default function SearchListItems(props: {
       ) : records?.data ? (
         <div className="flex max-h-[30rem] flex-col gap-2 overflow-y-auto pr-1">
           {records.data.map((record, index) => {
+            const recordTitle = record.title ?? "Molecule record";
+            const recordLink = record.link ?? "";
+            const isAvailable = record.isAvailable !== false && recordLink;
+            const content = (
+              <div className="flex min-w-0 flex-1 items-center gap-4">
+                {record.imageUrl ? (
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-md border border-default-200 bg-default-50 p-1 dark:bg-background-dark">
+                    <img
+                      src={record.imageUrl ?? "todo"}
+                      alt={recordTitle}
+                      width={80}
+                      height={80}
+                      className="max-h-full max-w-full object-contain"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-md border border-default-200 bg-default-50 text-foreground-400 dark:bg-background-dark">
+                    <MdImageNotSupported size={22} />
+                  </div>
+                )}
+                <div className="flex min-w-0 flex-1 flex-col items-start justify-center gap-1 overflow-hidden">
+                  <div className="w-full overflow-x-auto pb-1">
+                    <h3 className="w-max max-w-none whitespace-nowrap text-sm font-semibold text-foreground">
+                      {recordTitle}
+                    </h3>
+                  </div>
+                  {record.subtitle ? (
+                    <div className="w-full overflow-x-auto pb-1">
+                      <p className="w-max max-w-none whitespace-nowrap text-left text-sm text-foreground-500">
+                        {record.subtitle}
+                      </p>
+                    </div>
+                  ) : null}
+                  {!isAvailable ? (
+                    <Chip
+                      size="sm"
+                      variant="flat"
+                      color="warning"
+                      startContent={<MdOutlineHourglassEmpty size={14} />}
+                    >
+                      {record.availabilityMessage ??
+                        "This molecule record is being prepared."}
+                    </Chip>
+                  ) : null}
+                </div>
+              </div>
+            );
+
+            if (!isAvailable) {
+              return (
+                <div
+                  key={`pending-${recordTitle}-${index}`}
+                  className="flex min-h-24 cursor-not-allowed items-center justify-between gap-3 rounded-lg border border-default-200 bg-white px-3 py-3 text-left opacity-80 shadow-sm dark:bg-background-dark-2"
+                  aria-disabled="true"
+                >
+                  {content}
+                </div>
+              );
+            }
+
             return (
               <Button
-                key={`${record.link}-${index}`}
+                key={`${recordLink}-${index}`}
                 as={Link}
-                href={record.link}
+                href={recordLink}
                 className="h-auto min-h-24 justify-start border-default-200 bg-white px-3 py-3 text-left shadow-sm dark:bg-background-dark-2"
                 variant="bordered"
                 size="lg"
@@ -156,37 +217,7 @@ export default function SearchListItems(props: {
                   />
                 }
               >
-                <div className="flex min-w-0 flex-1 items-center gap-4">
-                  {record.imageUrl ? (
-                    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-md border border-default-200 bg-default-50 p-1 dark:bg-background-dark">
-                      <img
-                        src={record.imageUrl ?? "todo"}
-                        alt={record.title}
-                        width={80}
-                        height={80}
-                        className="max-h-full max-w-full object-contain"
-                      />
-                    </div>
-                  ) : (
-                    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-md border border-default-200 bg-default-50 text-foreground-400 dark:bg-background-dark">
-                      <MdImageNotSupported size={22} />
-                    </div>
-                  )}
-                  <div className="flex min-w-0 flex-1 flex-col items-start justify-center gap-1 overflow-hidden">
-                    <div className="w-full overflow-x-auto pb-1">
-                      <h3 className="w-max max-w-none whitespace-nowrap text-sm font-semibold text-foreground">
-                        {record.title}
-                      </h3>
-                    </div>
-                    {record.subtitle ? (
-                      <div className="w-full overflow-x-auto pb-1">
-                        <p className="w-max max-w-none whitespace-nowrap text-left text-sm text-foreground-500">
-                          {record.subtitle}
-                        </p>
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
+                {content}
               </Button>
             );
           })}
