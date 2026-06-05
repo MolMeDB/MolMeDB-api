@@ -12,8 +12,8 @@ import {
   Spinner,
 } from "@heroui/react";
 import Image from "next/image";
-import Link from "next/link";
 import { useEffect, useState } from "react";
+import { MdDownload } from "react-icons/md";
 
 export default function ProteinModalContent(props: {
   data: IProtein;
@@ -21,6 +21,53 @@ export default function ProteinModalContent(props: {
 }) {
   const [stats, setStats] = useState<IProteinStats | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const downloadFilename = (contentDisposition: string | null) => {
+    const match = contentDisposition?.match(/filename="?([^"]+)"?/);
+
+    return match?.[1] || `protein-${props.data.uniprot_id}-interactions.csv`;
+  };
+
+  const handleExport = async () => {
+    if (!stats?.interactions_count || isExporting) {
+      return;
+    }
+
+    setIsExporting(true);
+
+    try {
+      const response = await fetch(
+        `/api/export/protein/${props.data.id}/interactions`,
+      );
+
+      if (!response.ok) {
+        throw new Error("Export failed.");
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = downloadFilename(response.headers.get("content-disposition"));
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      addToast({
+        title: "Export failed",
+        description:
+          "An error occurred while preparing the file. Please try again later.",
+        color: "danger",
+        shouldShowTimeoutProgress: true,
+        timeout: 6000,
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   useEffect(() => {
     getJson("/api/protein/" + props.data.id + "/stats").then((response) => {
@@ -104,13 +151,14 @@ export default function ProteinModalContent(props: {
               ) : null}
               <div className="flex flex-col gap-1">
                 <Button
-                  as={Link}
-                  href={`/api/export/protein/${props.data.id}/interactions`}
-                  isDisabled={!stats?.interactions_count}
+                  isDisabled={!stats?.interactions_count || isExporting}
+                  isLoading={isExporting}
                   color="secondary"
                   size="lg"
+                  startContent={!isExporting ? <MdDownload size={22} /> : null}
+                  onPress={handleExport}
                 >
-                  Export
+                  {isExporting ? "Preparing export..." : "Export"}
                 </Button>
                 {stats?.interactions_count ? (
                   <p className="text-sm text-foreground/50">
