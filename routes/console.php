@@ -2,7 +2,6 @@
 
 use App\Console\Commands\Cron\RunDailyCommands;
 use App\Console\Commands\ProcessFrontendUploads;
-use App\Models\Config;
 use Illuminate\Console\Command;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -39,8 +38,6 @@ Artisan::command('predictions:refresh-dataset-stats {--chunk=200}', function () 
     return Command::SUCCESS;
 })->purpose('Refresh cached prediction dataset progress statistics.');
 
-$failureRecipients = array_filter(explode(';', Config::get('email:cron:failure', '') ?? ''));
-
 Schedule::command('predictions:refresh-dataset-stats')
     ->everyFiveMinutes()
     ->withoutOverlapping();
@@ -59,5 +56,4 @@ Schedule::command(RunDailyCommands::class)
         if (file_exists($logPath) && filesize($logPath) > 50 * 1024 * 1024) {
             file_put_contents($logPath, '[Log truncated on '.now()."]\n");
         }
-    })
-    ->emailOutputOnFailure($failureRecipients);
+    });

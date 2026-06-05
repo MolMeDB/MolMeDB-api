@@ -6,6 +6,7 @@ use App\Libraries\Identifiers;
 use App\Models\Config;
 use App\Models\Structure;
 use App\Services\Structures\LegacyStructureLinksPreprocessor;
+use Exception;
 use Illuminate\Console\Command;
 
 class CheckStructureInternalIdentifiers extends Command
