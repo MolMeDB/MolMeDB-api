@@ -9,11 +9,11 @@ use Modules\PredictionWorkers\Models\PredictionFile;
 
 Route::prefix('/export')->group(function () {
     Route::get('/upload-queue/raw/{record}', [Export\ExportUploadQueueController::class, 'raw'])
-        ->middleware(['auth', 'throttle:6,1'])
+        ->middleware(['auth', 'throttle:60,1'])
         ->name('export.upload-queue.raw');
 
     Route::get('/upload-queue/{record}', [Export\ExportUploadQueueController::class, 'index'])
-        ->middleware(['auth', 'throttle:6,1'])
+        ->middleware(['auth', 'throttle:60,1'])
         ->name('export.upload-queue');
 });
 
@@ -37,17 +37,17 @@ Route::get('/download/public/{hash}', function (string $hash) {
             'Pragma' => 'no-cache',
         ]
     );
-})->middleware('throttle:6,1')
+})->middleware('throttle:60,1')
     ->withoutMiddleware('auth')
     ->name('public.download');
 
 Route::prefix('/api/dump')->group(function () {
     Route::get('/idsm/info', [Export\ExportIdsmController::class, 'info'])
-        ->middleware(['throttle:6,1'])
+        ->middleware(['throttle:60,1'])
         ->name('export.dump.idsm.info');
 
     Route::get('/idsm/download', [Export\ExportIdsmController::class, 'download'])
-        ->middleware(['throttle:1,1'])
+        ->middleware(['throttle:10,1'])
         ->name('export.dump.idsm.download');
 })
     ->withoutMiddleware('auth');
@@ -68,7 +68,7 @@ Route::get('/download/prediction/{hash}', function (string $hash) {
         },
         $file->downloadName()
     );
-})->middleware('throttle:6,1')
+})->middleware('throttle:60,1')
     ->withoutMiddleware('auth')
     ->name('public.download-prediction');
 
@@ -89,7 +89,7 @@ Route::get('/download/predictionResult/{hash}', function (string $hash) {
         }
     }, $file->downloadName());
 })
-    ->middleware('throttle:6,1')
+    ->middleware('throttle:60,1')
     ->withoutMiddleware('auth')
     ->name('predictionResult.download');
 

@@ -1,5 +1,6 @@
 "use server";
 import { cookies as Cookies } from "next/headers";
+import { headers as Headers } from "next/headers";
 import { DEFAULT_COOKIES_CONFIG } from "../cookies";
 import { selectedValuesToSearchParamsString } from "@/utils/searchParams";
 import HttpJsonResponse from "./interfaces/http/jsonResponse";
@@ -30,6 +31,36 @@ function decodeCookieValue(value: string): string {
     return decodeURIComponent(value);
   } catch {
     return value;
+  }
+}
+
+async function forwardedHeaders(): Promise<Record<string, string>> {
+  try {
+    const incomingHeaders = await Headers();
+    const headers: Record<string, string> = {};
+    const forwardedFor =
+      incomingHeaders.get("x-forwarded-for") ??
+      incomingHeaders.get("x-real-ip");
+    const forwardedProto = incomingHeaders.get("x-forwarded-proto");
+    const forwardedHost =
+      incomingHeaders.get("x-forwarded-host") ?? incomingHeaders.get("host");
+
+    if (forwardedFor) {
+      headers["X-Forwarded-For"] = forwardedFor;
+      headers["X-Real-IP"] = forwardedFor.split(",")[0].trim();
+    }
+
+    if (forwardedProto) {
+      headers["X-Forwarded-Proto"] = forwardedProto;
+    }
+
+    if (forwardedHost) {
+      headers["X-Forwarded-Host"] = forwardedHost;
+    }
+
+    return headers;
+  } catch {
+    return {};
   }
 }
 
@@ -64,12 +95,14 @@ async function updateCookies(res: Response): Promise<BackendCookies | null> {
 
 async function refreshCSRF() {
   console.log("Refreshing CSRF");
+  const proxyHeaders = await forwardedHeaders();
   const res = await fetch(`${baseUrl}/sanctum/csrf-cookie`, {
     method: "GET",
     credentials: "include",
     headers: {
       Accept: "application/json",
       Referer: process.env.FRONTEND_URL as string,
+      ...proxyHeaders,
     },
   });
 
@@ -88,6 +121,7 @@ async function _post(
   const XSRF_TOKEN =
     backendCookies?.xsrfToken ?? (cks.get(XSRF_KEY)?.value as string);
   const XSRF_HEADER = XSRF_TOKEN ? decodeCookieValue(XSRF_TOKEN) : "";
+  const proxyHeaders = await forwardedHeaders();
 
   // console.log("POST", uri);
   // console.log("COOK", SESSION);
@@ -103,6 +137,7 @@ async function _post(
       Referer: process.env.FRONTEND_URL as string,
       Cookie: `${XSRF_KEY}=${XSRF_TOKEN}; ${BE_SESSION_KEY}=${SESSION}`,
       "X-XSRF-TOKEN": XSRF_HEADER,
+      ...proxyHeaders,
     },
     body: JSON.stringify(data),
   });
@@ -128,6 +163,7 @@ async function _postForm(
   const XSRF_TOKEN =
     backendCookies?.xsrfToken ?? (cks.get(XSRF_KEY)?.value as string);
   const XSRF_HEADER = XSRF_TOKEN ? decodeCookieValue(XSRF_TOKEN) : "";
+  const proxyHeaders = await forwardedHeaders();
 
   const result = await fetch(`${baseUrl}${uri}`, {
     method,
@@ -137,6 +173,7 @@ async function _postForm(
       Referer: process.env.FRONTEND_URL as string,
       Cookie: `${XSRF_KEY}=${XSRF_TOKEN}; ${BE_SESSION_KEY}=${SESSION}`,
       "X-XSRF-TOKEN": XSRF_HEADER,
+      ...proxyHeaders,
     },
     body: data,
   });
@@ -273,6 +310,7 @@ async function _get(
 
   const SESSION = cks.get(FE_SESSION_KEY)?.value as string;
   const XSRF_TOKEN = cks.get(XSRF_KEY)?.value as string;
+  const proxyHeaders = await forwardedHeaders();
   // Filter data
   // data = Object.fromEntries(
   //   Object.entries(data).filter(
@@ -303,6 +341,7 @@ async function _get(
       Referer: process.env.FRONTEND_URL as string,
       Cookie: `${XSRF_KEY}=${XSRF_TOKEN}; ${BE_SESSION_KEY}=${SESSION}`,
       "X-XSRF-TOKEN": XSRF_TOKEN,
+      ...proxyHeaders,
     },
   });
 

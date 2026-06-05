@@ -141,4 +141,4 @@ Route::prefix('/api')->group(function () {
             Route::get('/{identifier}/similarities', 'similarities');
         });
 })
-    ->middleware('throttle:100,1');
+    ->middleware('throttle:300,1');
