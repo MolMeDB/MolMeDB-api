@@ -31,6 +31,7 @@ export default function CompoundPassiveInteractions(props: {
   const [methodIdsToTable, setMethodIdsToTable] = useState<string[]>([]);
 
   const [loadingMethod, setLoadingMethod] = useState<boolean>(false);
+  const [canExport, setCanExport] = useState(false);
 
   useEffect(() => {
     getJson(
@@ -190,6 +191,7 @@ export default function CompoundPassiveInteractions(props: {
             structure={props.compound}
             membraneIds={Array.from(membraneIdsToTable)}
             methodIds={Array.from(methodIdsToTable)}
+            onTotalItemsChange={(totalItems) => setCanExport(totalItems > 0)}
           />
         </div>
         <div className="flex flex-row justify-end">
@@ -202,6 +204,7 @@ export default function CompoundPassiveInteractions(props: {
             }
             variant="bordered"
             color="success"
+            isDisabled={!canExport}
           >
             Export data
           </Button>

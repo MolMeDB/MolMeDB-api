@@ -81,6 +81,7 @@ export default function UiTable<TData>(props: {
   searchPlaceholder?: string;
   loadingText?: string;
   filters?: UiTableFilter[];
+  onTotalItemsChange?: (totalItems: number) => void;
 }) {
   const [hideEmptyCols, setHideEmptyCols] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -108,6 +109,7 @@ export default function UiTable<TData>(props: {
     async load({ signal }) {
       try {
         setIsLoading(true);
+        props.onTotalItemsChange?.(0);
         const response = await getJson(
           props.apiUrl,
           {
@@ -131,6 +133,7 @@ export default function UiTable<TData>(props: {
         if (response?.code === 200 && response.data) {
           const fr: FilteredResponse<TData> = response.data;
           setTotalItems(fr.meta.total);
+          props.onTotalItemsChange?.(fr.meta.total);
           setItems(fr.data);
           setIsLoading(false);
           return {
@@ -144,6 +147,7 @@ export default function UiTable<TData>(props: {
             shouldShowTimeoutProgress: true,
             timeout: 4500,
           });
+          props.onTotalItemsChange?.(0);
           return { items: [] };
         }
       } catch (error) {
@@ -154,6 +158,7 @@ export default function UiTable<TData>(props: {
           shouldShowTimeoutProgress: true,
           timeout: 4500,
         });
+        props.onTotalItemsChange?.(0);
         return { items: [] };
       }
     },

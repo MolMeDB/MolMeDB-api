@@ -9,6 +9,7 @@ export default function PassiveInteractionTable(props: {
   structure: IStructure;
   membraneIds: string[] | null;
   methodIds: string[] | null;
+  onTotalItemsChange?: (totalItems: number) => void;
 }) {
   const stableApiParams = useMemo(() => {
     return {
@@ -25,6 +26,7 @@ export default function PassiveInteractionTable(props: {
       columns={passiveInteractionsColumns}
       itemKey="id"
       defaultRowsPerPage={8}
+      onTotalItemsChange={props.onTotalItemsChange}
     />
   );
 }
