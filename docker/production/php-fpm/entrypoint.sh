@@ -15,6 +15,8 @@ set -e
 # Remove storage-init directory
 rm -rf /var/www/storage-init
 
+rm -f bootstrap/cache/*.php
+
 php artisan config:clear
 
 # Run Laravel migrations
@@ -27,7 +29,7 @@ php artisan config:clear && php artisan cache:clear && php artisan route:clear &
 
 php artisan storage:link --silent
 
-php artisan key:generate --silent
+# php artisan key:generate --silent
 
 # Clear and cache configurations
 # -----------------------------------------------------------

@@ -28,12 +28,16 @@ services:
     volumes:
       - ./:/var/www
       - molmedb-storage-production:/var/www/storage
-      - /var/www/bootstrap
     env_file:
       - .env
     environment:
       # - APP_ENV=production
       # - APP_DEBUG=false
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_PREDICTIONS_HOST=db-predictions
+      - DB_PREDICTIONS_PORT=5432
+      - REDIS_HOST=redis
       - FRONTEND_URL=http://frontend:3000 
     networks:
       - molmedb-network
@@ -45,6 +49,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      db-predictions:
+        condition: service_healthy
 
   app-scheduler-worker:
     image: molmedb-backend 
@@ -55,14 +61,19 @@ services:
     environment:
       - SERVICE_TAGS=dev
       - SERVICE_NAME=molmedb-scheduler-worker
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_PREDICTIONS_HOST=db-predictions
+      - DB_PREDICTIONS_PORT=5432
+      - REDIS_HOST=redis
     working_dir: /var/www
     volumes:
       - ./:/var/www
-      - /var/www/bootstrap
     networks:
       - molmedb-network
     depends_on:
       - app
+      - db-predictions
     command: php artisan schedule:work
     restart: unless-stopped 
 
@@ -75,15 +86,20 @@ services:
     environment:
       - SERVICE_TAGS=dev
       - SERVICE_NAME=molmedb-queue-worker
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_PREDICTIONS_HOST=db-predictions
+      - DB_PREDICTIONS_PORT=5432
+      - REDIS_HOST=redis
     working_dir: /var/www
     volumes:
       - ./:/var/www
       - molmedb-storage-production:/var/www/storage
-      - /var/www/bootstrap
     networks:
       - molmedb-network
     depends_on:
       - app
+      - db-predictions
       - redis
     command: php artisan queue:work --queue=upload,default --sleep=3 --tries=3 --timeout=3600 --memory=512
     restart: unless-stopped 
@@ -213,4 +229,3 @@ volumes:
 
 networks:
   molmedb-network:
-

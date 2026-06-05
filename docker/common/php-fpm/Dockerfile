@@ -1,5 +1,5 @@
 # Use the official PHP image as a base image
-FROM php:8.3-fpm as builder
+FROM php:8.4-fpm as builder
 
 # Copy composer.lock and composer.json
 COPY composer.lock composer.json /var/www/
@@ -87,9 +87,10 @@ COPY --from=builder /usr/local/bin/docker-php-ext-* /usr/local/bin/
 # -----------------------------------------------------------
 RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 # RUN echo "extension=pdo_pgsql.so" >> "$PHP_INI_DIR/php.ini"
+COPY ./docker/common/php-fpm/conf.d/uploads.ini "$PHP_INI_DIR/conf.d/uploads.ini"
 
-# Enable PHP-FPM status page by modifying zz-docker.conf with sed
-RUN sed -i '/\[www\]/a pm.status_path = /status' /usr/local/etc/php-fpm.d/zz-docker.conf
+# Enable PHP-FPM status page in the www pool.
+RUN sed -i '/\[www\]/a pm.status_path = /status' /usr/local/etc/php-fpm.d/www.conf
 
 # Copy existing application directory permissions
 COPY --from=builder --chown=www-data:www-data /var/www /var/www
