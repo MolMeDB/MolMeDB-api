@@ -6,7 +6,8 @@ import IStructure from "@/lib/api/admin/interfaces/Structure";
 import { useEffect, useState } from "react";
 import { ISelectSetting } from "@/lib/api/admin/interfaces/SelectData";
 import { getJson } from "@/lib/api/admin";
-import { addToast, Button, cn, Link, Spinner } from "@heroui/react";
+import { downloadFile } from "@/utils/downloadFile";
+import { addToast, Button, cn, Spinner } from "@heroui/react";
 import { MdClose, MdSearch } from "react-icons/md";
 
 export default function CompoundPassiveInteractions(props: {
@@ -32,6 +33,7 @@ export default function CompoundPassiveInteractions(props: {
 
   const [loadingMethod, setLoadingMethod] = useState<boolean>(false);
   const [canExport, setCanExport] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     getJson(
@@ -80,6 +82,32 @@ export default function CompoundPassiveInteractions(props: {
   const findInteractions = () => {
     setMethodIdsToTable(Array.from(selectedMethodIds));
     setMembraneIdsToTable(Array.from(selectedMembraneIds));
+  };
+
+  const handleExport = async () => {
+    if (!canExport || isExporting) {
+      return;
+    }
+
+    setIsExporting(true);
+
+    try {
+      await downloadFile(
+        `/api/export/structure/${props.compound.id}/passiveInteractions`,
+        `${props.compound.identifier}-passive-interactions.csv`,
+      );
+    } catch {
+      addToast({
+        title: "Export failed",
+        description:
+          "An error occurred while preparing the file. Please try again later.",
+        color: "danger",
+        shouldShowTimeoutProgress: true,
+        timeout: 6000,
+      });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   return (
@@ -196,15 +224,11 @@ export default function CompoundPassiveInteractions(props: {
         </div>
         <div className="flex flex-row justify-end">
           <Button
-            as={Link}
-            href={
-              "/api/export/structure/" +
-              props.compound.id +
-              "/passiveInteractions"
-            }
             variant="bordered"
             color="success"
             isDisabled={!canExport}
+            isLoading={isExporting}
+            onPress={handleExport}
           >
             Export data
           </Button>

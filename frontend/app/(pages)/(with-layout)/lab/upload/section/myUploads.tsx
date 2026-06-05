@@ -3,8 +3,17 @@
 import { getJson } from "@/lib/api/admin";
 import { IUploadQueue } from "@/lib/api/admin/interfaces/UploadQueue";
 import { useHandle401 } from "@/lib/api/admin/redirections";
-import { Button, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Spinner } from "@heroui/react";
-import Link from "next/link";
+import { downloadFile } from "@/utils/downloadFile";
+import {
+  addToast,
+  Button,
+  Modal,
+  ModalBody,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  Spinner,
+} from "@heroui/react";
 import { useEffect, useState } from "react";
 
 type ConfigureState = {
@@ -35,14 +44,16 @@ type UploadQueueLog = IUploadQueue["logs"][number];
 
 export default function MyUploadsList(props: {
   reloadKey: number;
- }) {
-
+}) {
   const [myUploads, setMyUploads] = useState<IUploadQueue[]>([]);
   const [isLoadingUploads, setIsLoadingUploads] = useState(false);
   const [reuploadFiles, setReuploadFiles] = useState<
     Record<number, File | null>
   >({});
   const [reuploadLoading, setReuploadLoading] = useState<
+    Record<number, boolean>
+  >({});
+  const [downloadLoading, setDownloadLoading] = useState<
     Record<number, boolean>
   >({});
   const [reuploadErrors, setReuploadErrors] = useState<Record<number, string[]>>(
@@ -71,6 +82,38 @@ export default function MyUploadsList(props: {
   });
 
   const handle401 = useHandle401();
+
+  const handleDatasetDownload = async (upload: IUploadQueue) => {
+    if (downloadLoading[upload.id]) {
+      return;
+    }
+
+    setDownloadLoading((current) => ({
+      ...current,
+      [upload.id]: true,
+    }));
+
+    try {
+      await downloadFile(
+        `/api/export/uploads/dataset/${upload.id}`,
+        upload.file?.name ?? `dataset-upload-${upload.id}`,
+      );
+    } catch {
+      addToast({
+        title: "Export failed",
+        description:
+          "An error occurred while preparing the file. Please try again later.",
+        color: "danger",
+        shouldShowTimeoutProgress: true,
+        timeout: 6000,
+      });
+    } finally {
+      setDownloadLoading((current) => ({
+        ...current,
+        [upload.id]: false,
+      }));
+    }
+  };
 
   function normalizeSeparatorLabel(value: string): string {
     if (value === "\t" || value === "\\t" || value === "tab") {
@@ -590,11 +633,15 @@ export default function MyUploadsList(props: {
                       </div>
                     </td>
                     <td className="p-2">
-                      <Link
-                        href={`/api/export/uploads/dataset/${upload.id}`}
-                        target="_blank"
-                        className="hover:underline"
-                      >{upload.file?.name ?? "-"}</Link>
+                      <Button
+                        size="sm"
+                        variant="light"
+                        className="h-auto min-w-0 px-0 text-sm font-normal hover:underline"
+                        isLoading={downloadLoading[upload.id] ?? false}
+                        onPress={() => handleDatasetDownload(upload)}
+                      >
+                        {upload.file?.name ?? "-"}
+                      </Button>
                     </td>
                     <td className="p-2">
                       <span

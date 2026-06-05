@@ -6,6 +6,7 @@ import IFile, {
   IFileTypeExportIntPass,
 } from "@/lib/api/admin/interfaces/File";
 import IPublication from "@/lib/api/admin/interfaces/Publication";
+import { downloadFile } from "@/utils/downloadFile";
 import {
   addToast,
   Button,
@@ -16,7 +17,6 @@ import {
   Spinner,
 } from "@heroui/react";
 import Image from "next/image";
-import Link from "next/link";
 import { useEffect, useState } from "react";
 
 export default function PublicationModalContent(props: {
@@ -30,6 +30,38 @@ export default function PublicationModalContent(props: {
   const [lastActiveExport, setLastActiveExport] = useState<IFile | null>(null);
 
   const [isLoading, setIsLoading] = useState(false);
+  const [downloadingExportType, setDownloadingExportType] = useState<
+    "passive" | "active" | null
+  >(null);
+
+  const handleDownload = async (
+    exportFile: IFile | null,
+    type: "passive" | "active",
+  ) => {
+    if (!exportFile?.hash || downloadingExportType) {
+      return;
+    }
+
+    setDownloadingExportType(type);
+
+    try {
+      await downloadFile(
+        `/api/export/files/${exportFile.hash}`,
+        `${type}-interactions.zip`,
+      );
+    } catch {
+      addToast({
+        title: "Export failed",
+        description:
+          "An error occurred while preparing the file. Please try again later.",
+        color: "danger",
+        shouldShowTimeoutProgress: true,
+        timeout: 6000,
+      });
+    } finally {
+      setDownloadingExportType(null);
+    }
+  };
 
   useEffect(() => {
     getJson("/api/publication/" + props.id + "/stats").then((response) => {
@@ -151,15 +183,13 @@ export default function PublicationModalContent(props: {
               <div className="flex flex-row justify-center gap-4">
                 <div className="flex flex-col justify-center items-center gap-1">
                   <Button
-                    as={Link}
-                    href={
-                      lastPassiveExport?.hash
-                        ? `/api/export/files/${lastPassiveExport.hash}`
-                        : "#"
+                    isDisabled={
+                      !lastPassiveExport?.hash || downloadingExportType !== null
                     }
-                    isDisabled={!lastPassiveExport || !lastPassiveExport.hash}
+                    isLoading={downloadingExportType === "passive"}
                     color="secondary"
                     size="lg"
+                    onPress={() => handleDownload(lastPassiveExport, "passive")}
                   >
                     Passive interactions
                   </Button>
@@ -175,15 +205,13 @@ export default function PublicationModalContent(props: {
                 </div>
                 <div className="flex flex-col justify-center items-center gap-1">
                   <Button
-                    as={Link}
-                    href={
-                      lastActiveExport?.hash
-                        ? `/api/export/files/${lastActiveExport.hash}`
-                        : "#"
+                    isDisabled={
+                      !lastActiveExport?.hash || downloadingExportType !== null
                     }
-                    isDisabled={!lastActiveExport || !lastActiveExport.hash}
+                    isLoading={downloadingExportType === "active"}
                     color="secondary"
                     size="lg"
+                    onPress={() => handleDownload(lastActiveExport, "active")}
                   >
                     Active interactions
                   </Button>

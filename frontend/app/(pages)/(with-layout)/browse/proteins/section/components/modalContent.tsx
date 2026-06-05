@@ -2,6 +2,7 @@
 
 import { getJson } from "@/lib/api/admin";
 import IProtein, { IProteinStats } from "@/lib/api/admin/interfaces/Protein";
+import { downloadFile } from "@/utils/downloadFile";
 import {
   addToast,
   Button,
@@ -23,12 +24,6 @@ export default function ProteinModalContent(props: {
   const [isLoading, setIsLoading] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
-  const downloadFilename = (contentDisposition: string | null) => {
-    const match = contentDisposition?.match(/filename="?([^"]+)"?/);
-
-    return match?.[1] || `protein-${props.data.uniprot_id}-interactions.csv`;
-  };
-
   const handleExport = async () => {
     if (!stats?.interactions_count || isExporting) {
       return;
@@ -37,24 +32,10 @@ export default function ProteinModalContent(props: {
     setIsExporting(true);
 
     try {
-      const response = await fetch(
+      await downloadFile(
         `/api/export/protein/${props.data.id}/interactions`,
+        `protein-${props.data.uniprot_id}-interactions.csv`,
       );
-
-      if (!response.ok) {
-        throw new Error("Export failed.");
-      }
-
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-
-      link.href = url;
-      link.download = downloadFilename(response.headers.get("content-disposition"));
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
     } catch {
       addToast({
         title: "Export failed",

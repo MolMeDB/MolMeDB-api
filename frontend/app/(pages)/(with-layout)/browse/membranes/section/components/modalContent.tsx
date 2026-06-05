@@ -3,6 +3,7 @@
 import { getJson } from "@/lib/api/admin";
 import IFile from "@/lib/api/admin/interfaces/File";
 import IMembrane, { IMembraneStats } from "@/lib/api/admin/interfaces/Membrane";
+import { downloadFile } from "@/utils/downloadFile";
 import {
   addToast,
   Button,
@@ -13,7 +14,6 @@ import {
   Spinner,
 } from "@heroui/react";
 import Image from "next/image";
-import Link from "next/link";
 import { useEffect, useState } from "react";
 
 export default function MembraneModalContent(props: {
@@ -23,6 +23,33 @@ export default function MembraneModalContent(props: {
   const [stats, setStats] = useState<IMembraneStats | null>(null);
   const [lastExport, setLastExport] = useState<IFile | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleDownload = async () => {
+    if (!lastExport?.hash || isExporting) {
+      return;
+    }
+
+    setIsExporting(true);
+
+    try {
+      await downloadFile(
+        `/api/export/files/${lastExport.hash}`,
+        `membrane-${props.data.abbreviation}-interactions.zip`,
+      );
+    } catch {
+      addToast({
+        title: "Export failed",
+        description:
+          "An error occurred while preparing the file. Please try again later.",
+        color: "danger",
+        shouldShowTimeoutProgress: true,
+        timeout: 6000,
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   useEffect(() => {
     getJson("/api/membrane/" + props.data.id + "/stats").then((response) => {
@@ -108,17 +135,13 @@ export default function MembraneModalContent(props: {
               ) : null}
               <div className="flex flex-col gap-1">
                 <Button
-                  as={Link}
-                  href={
-                    lastExport?.hash
-                      ? `/api/export/files/${lastExport.hash}`
-                      : "#"
-                  }
-                  isDisabled={!lastExport || !lastExport.hash}
+                  isDisabled={!lastExport?.hash || isExporting}
+                  isLoading={isExporting}
                   color="secondary"
                   size="lg"
+                  onPress={handleDownload}
                 >
-                  Export
+                  {isExporting ? "Preparing export..." : "Export"}
                 </Button>
                 {lastExport && lastExport.created_at ? (
                   <p className="text-sm text-foreground/50">
