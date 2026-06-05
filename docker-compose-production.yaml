@@ -38,7 +38,6 @@ services:
       - DB_PREDICTIONS_HOST=db-predictions
       - DB_PREDICTIONS_PORT=5432
       - REDIS_HOST=redis
-      - FRONTEND_URL=http://frontend:3000 
     networks:
       - molmedb-network
     # healthcheck: // TODO
