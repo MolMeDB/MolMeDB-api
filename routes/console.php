@@ -5,7 +5,6 @@ use App\Console\Commands\ProcessFrontendUploads;
 use Illuminate\Console\Command;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schedule;
 use Modules\PredictionWorkers\Models\PredictionDataset;
 
@@ -48,12 +47,4 @@ Schedule::command(ProcessFrontendUploads::class)
 
 Schedule::command(RunDailyCommands::class)
     ->dailyAt('01:00')
-    ->withoutOverlapping()
-    ->appendOutputTo(storage_path('logs/cron/daily/cron-daily.log'))
-    ->before(function () {
-        $logPath = storage_path('logs/cron/daily/cron-daily.log');
-        File::ensureDirectoryExists(dirname($logPath));
-        if (file_exists($logPath) && filesize($logPath) > 50 * 1024 * 1024) {
-            file_put_contents($logPath, '[Log truncated on '.now()."]\n");
-        }
-    });
+    ->withoutOverlapping();

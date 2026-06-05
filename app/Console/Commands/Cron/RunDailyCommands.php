@@ -6,10 +6,13 @@ use App\Console\Commands\CheckStructureInternalIdentifiers;
 use App\Console\Commands\UpdateExportFiles;
 use App\Console\Commands\UpdateStatistics;
 use App\Models\Config;
+use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Throwable;
 
@@ -56,6 +59,7 @@ class RunDailyCommands extends Command
         ];
 
         $startedAt = now();
+        $logDirectory = $this->prepareLogDirectory($startedAt);
         $results = [];
 
         $this->comment("\n-----------------------");
@@ -67,33 +71,41 @@ class RunDailyCommands extends Command
 
             $output = new BufferedOutput;
             $jobStartedAt = now();
+            $logPath = $logDirectory.'/'.$this->logFilename($command['label']);
 
             try {
                 $exitCode = Artisan::call($command['name'], $command['parameters'], $output);
+                $commandOutput = trim($output->fetch());
                 $results[] = [
                     'label' => $command['label'],
                     'command' => $command['name'],
                     'successful' => $exitCode === Command::SUCCESS,
                     'exit_code' => $exitCode,
-                    'output' => trim($output->fetch()),
-                    'error' => null,
+                    'output' => $commandOutput,
+                    'error' => $exitCode === Command::SUCCESS ? null : 'Command exited with code '.$exitCode.'.',
+                    'exception' => null,
                     'started_at' => $jobStartedAt,
                     'finished_at' => now(),
+                    'log_path' => $logPath,
                 ];
             } catch (Throwable $throwable) {
+                $commandOutput = trim($output->fetch());
                 $results[] = [
                     'label' => $command['label'],
                     'command' => $command['name'],
                     'successful' => false,
                     'exit_code' => Command::FAILURE,
-                    'output' => trim($output->fetch()),
+                    'output' => $commandOutput,
                     'error' => $throwable::class.': '.$throwable->getMessage(),
+                    'exception' => $throwable,
                     'started_at' => $jobStartedAt,
                     'finished_at' => now(),
+                    'log_path' => $logPath,
                 ];
             }
 
             $result = end($results);
+            $this->writeJobLog($result);
             $this->{$result['successful'] ? 'info' : 'error'}(
                 ($result['successful'] ? '[OK] ' : '[FAILED] ').$command['label']
             );
@@ -103,11 +115,56 @@ class RunDailyCommands extends Command
         $this->comment($this->summaryText($results, $startedAt));
         $this->comment("\nDone\n-----------------------\n\n");
 
-        $this->sendSummaryEmail($results, $startedAt, now());
+        $finishedAt = now();
+
+        File::put(
+            $logDirectory.'/summary.log',
+            $this->summaryLog($results, $startedAt, $finishedAt)
+        );
+
+        $this->sendSummaryEmail($results, $startedAt, $finishedAt);
 
         return collect($results)->every(fn (array $result): bool => $result['successful'])
             ? Command::SUCCESS
             : Command::FAILURE;
+    }
+
+    private function prepareLogDirectory(CarbonInterface $startedAt): string
+    {
+        $baseDirectory = storage_path('logs/cron/daily');
+        $logDirectory = $baseDirectory.'/'.$startedAt->toDateString();
+
+        File::ensureDirectoryExists($logDirectory);
+        $this->deleteOldLogDirectories($baseDirectory, $startedAt);
+
+        return $logDirectory;
+    }
+
+    private function deleteOldLogDirectories(string $baseDirectory, CarbonInterface $now): void
+    {
+        $oldestAllowedDate = $now->copy()->subDays(10)->startOfDay();
+
+        foreach (File::directories($baseDirectory) as $directory) {
+            try {
+                $directoryDate = Carbon::createFromFormat('Y-m-d', basename($directory))->startOfDay();
+            } catch (Throwable) {
+                continue;
+            }
+
+            if ($directoryDate->lt($oldestAllowedDate)) {
+                File::deleteDirectory($directory);
+            }
+        }
+    }
+
+    private function logFilename(string $label): string
+    {
+        return Str::slug($label).'.log';
+    }
+
+    private function writeJobLog(array $result): void
+    {
+        File::put($result['log_path'], $this->jobLog($result));
     }
 
     private function sendSummaryEmail(array $results, CarbonInterface $startedAt, CarbonInterface $finishedAt): void
@@ -172,7 +229,7 @@ class RunDailyCommands extends Command
                 if (! $result['successful']) {
                     $details = array_filter([
                         $result['error'],
-                        $result['output'],
+                        'Full log: '.$result['log_path'],
                     ]);
 
                     $detail = '<pre style="margin:12px 0 0;padding:12px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;white-space:pre-wrap;color:#374151;">'
@@ -217,5 +274,48 @@ class RunDailyCommands extends Command
             $startedAt->diffInSeconds($finishedAt),
             $jobsHtml,
         );
+    }
+
+    private function summaryLog(array $results, CarbonInterface $startedAt, CarbonInterface $finishedAt): string
+    {
+        return $this->summaryText($results, $startedAt)
+            ."\nFinished at: ".$finishedAt->toDateTimeString()
+            ."\nDuration: ".$startedAt->diffInSeconds($finishedAt)."s\n";
+    }
+
+    private function jobLog(array $result): string
+    {
+        $lines = [
+            'Job: '.$result['label'],
+            'Command: '.$result['command'],
+            'Status: '.($result['successful'] ? 'OK' : 'FAILED'),
+            'Exit code: '.$result['exit_code'],
+            'Started at: '.$result['started_at']->toDateTimeString(),
+            'Finished at: '.$result['finished_at']->toDateTimeString(),
+            'Duration: '.$result['started_at']->diffInSeconds($result['finished_at']).'s',
+            '',
+            'Output:',
+            $result['output'] !== '' ? $result['output'] : '(no output)',
+        ];
+
+        if ($result['exception'] instanceof Throwable) {
+            $lines = array_merge($lines, [
+                '',
+                'Exception:',
+                $result['exception']::class,
+                $result['exception']->getMessage(),
+                '',
+                'Trace:',
+                $result['exception']->getTraceAsString(),
+            ]);
+        } elseif ($result['error']) {
+            $lines = array_merge($lines, [
+                '',
+                'Error:',
+                $result['error'],
+            ]);
+        }
+
+        return implode("\n", $lines)."\n";
     }
 }
