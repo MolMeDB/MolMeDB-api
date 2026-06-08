@@ -149,21 +149,23 @@ export function SiteMenu(props: {
               </label>
             </DropdownTrigger>
             <DropdownMenu>
-              {browseMenuItems.slice(0, 3).map((item) => (
-                <DropdownItem
-                  key={item.key}
-                  as={Link}
-                  href={item.href}
-                  color="secondary"
-                  textValue={item.title}
-                  startContent={item.icon}
-                  className="!no-underline"
-                >
-                  <label className="md:text-md cursor-pointer">
-                    {item.title}
-                  </label>
-                </DropdownItem>
-              ))}
+              <DropdownSection showDivider>
+                {browseMenuItems.slice(0, 3).map((item) => (
+                  <DropdownItem
+                    key={item.key}
+                    as={Link}
+                    href={item.href}
+                    color="secondary"
+                    textValue={item.title}
+                    startContent={item.icon}
+                    className="!no-underline"
+                  >
+                    <label className="md:text-md cursor-pointer">
+                      {item.title}
+                    </label>
+                  </DropdownItem>
+                ))}
+              </DropdownSection>
               <DropdownSection>
                 {browseMenuItems.slice(3).map((item) => (
                   <DropdownItem
