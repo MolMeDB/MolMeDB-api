@@ -22,7 +22,7 @@ export interface IUploadQueue {
     context?: 'error' | 'success' | 'warning' | 'info',
     type?: 'UPLOAD' | 'STATE CHANGE' | 'VALIDATION RUN' | 'REUPLOAD' | 'UPLOAD RUN',
     state: number,
-    state_label?: string,
+    state_label?: unknown,
     payload?: any,
     timestamp: string,
     user_id?: number

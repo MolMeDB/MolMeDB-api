@@ -34,6 +34,7 @@ use App\Rules\UploadFile\PassiveInteractions\ColumnLogPerm;
 use App\Rules\UploadFile\PassiveInteractions\ColumnLogPermAcc;
 use App\Rules\UploadFile\PassiveInteractions\ColumnXmin;
 use App\Rules\UploadFile\PassiveInteractions\ColumnXminAcc;
+use App\Services\UploadQueueCsvParser;
 use Exception;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Storage;
@@ -191,10 +192,8 @@ class UploadQueueConfigure extends Component
                     continue;
                 }
 
-                $line = mb_convert_encoding($line, 'UTF-8', 'auto');
-
                 if (count($this->previewRows) < 6) {
-                    $this->previewRows[] = str_getcsv($line, $this->separator, '"', '\\');
+                    $this->previewRows[] = app(UploadQueueCsvParser::class)->parseLine($line, $this->separator);
                 }
             }
 
@@ -309,13 +308,15 @@ class UploadQueueConfigure extends Component
 
             $i = 0;
             while (($line = fgets($stream)) !== false) {
-                $line = mb_convert_encoding($line, 'UTF-8', 'auto');
                 $i++;
                 if ($this->skipFirstRow && $i == 1) {
                     continue;
                 }
 
-                $row = array_combine($this->columnMapping, str_getcsv($line, $this->separator, '"', '\\'));
+                $row = array_combine(
+                    $this->columnMapping,
+                    app(UploadQueueCsvParser::class)->parseLine($line, $this->separator)
+                );
 
                 $validator = $this->defineValidator($row);
 

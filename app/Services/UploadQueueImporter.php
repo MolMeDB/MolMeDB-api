@@ -19,6 +19,7 @@ class UploadQueueImporter
         private readonly UploadQueueInteractionPayloadBuilder $payloadBuilder,
         private readonly UploadQueueDuplicateInteractionChecker $duplicateChecker,
         private readonly UploadQueueColumnRegistry $columns,
+        private readonly UploadQueueCsvParser $csvParser,
     ) {}
 
     /**
@@ -291,7 +292,7 @@ class UploadQueueImporter
             throw new RuntimeException('Cannot open uploaded file for import.');
         }
 
-        $separator = $this->normalizeSeparator($record->config->separator());
+        $separator = $this->csvParser->normalizeSeparator($record->config->separator());
         $attributes = $record->config->attributes();
         $skipFirstRow = $record->config->skipFirstRow() === 1;
         $preparedRows = 0;
@@ -312,7 +313,7 @@ class UploadQueueImporter
                     continue;
                 }
 
-                $mappedRow = $this->mapRow(str_getcsv($line, $separator, '"', '\\'), $attributes);
+                $mappedRow = $this->mapRow($this->csvParser->parseLine($line, $separator), $attributes);
                 if ($mappedRow === []) {
                     $skippedRows++;
 
@@ -337,15 +338,6 @@ class UploadQueueImporter
             'skipped_rows' => $skippedRows,
             'rows' => $sampleRows,
         ];
-    }
-
-    private function normalizeSeparator(string $separator): string
-    {
-        if ($separator === '\\t' || mb_strtolower($separator) === 'tab') {
-            return "\t";
-        }
-
-        return in_array($separator, [',', ';', "\t"], true) ? $separator : ',';
     }
 
     /**

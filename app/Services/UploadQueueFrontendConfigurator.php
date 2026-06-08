@@ -23,6 +23,8 @@ class UploadQueueFrontendConfigurator
 {
     public const IGNORE_COLUMN = 'ignore';
 
+    public function __construct(private readonly UploadQueueCsvParser $csvParser) {}
+
     /**
      * @return array<string, string>
      */
@@ -48,7 +50,7 @@ class UploadQueueFrontendConfigurator
         int $startLine = 1,
         int $limit = 5,
     ): array {
-        $separator = $this->normalizeSeparator($separator);
+        $separator = $this->csvParser->normalizeSeparator($separator);
         $skipFirstRow = $skipFirstRow === 1 ? 1 : 0;
         $startLine = max(1, $startLine);
         $limit = max(1, min(10, $limit));
@@ -80,7 +82,7 @@ class UploadQueueFrontendConfigurator
                 continue;
             }
 
-            $previewRows[] = str_getcsv(mb_convert_encoding($line, 'UTF-8', 'auto'), $separator, '"', '\\');
+            $previewRows[] = $this->csvParser->parseLine($line, $separator);
             if (count($previewRows) >= $limit) {
                 break;
             }
@@ -120,7 +122,7 @@ class UploadQueueFrontendConfigurator
         int $skipFirstRow,
         array $columnMapping,
     ): array {
-        $separator = $this->normalizeSeparator($separator);
+        $separator = $this->csvParser->normalizeSeparator($separator);
         $skipFirstRow = $skipFirstRow === 1 ? 1 : 0;
         $columnMapping = array_map(function ($value) {
             if (! is_string($value) || trim($value) === '') {
@@ -164,8 +166,7 @@ class UploadQueueFrontendConfigurator
                 continue;
             }
 
-            $line = mb_convert_encoding($line, 'UTF-8', 'auto');
-            $rawValues = str_getcsv($line, $separator, '"', '\\');
+            $rawValues = $this->csvParser->parseLine($line, $separator);
 
             if (count($rawValues) !== count($columnMapping)) {
                 $errors[] = "Line {$lineNumber}: number of values does not match configured column count.";
@@ -248,15 +249,6 @@ class UploadQueueFrontendConfigurator
                 )
                 ->toArray(),
         ];
-    }
-
-    private function normalizeSeparator(string $separator): string
-    {
-        if ($separator === '\\t' || mb_strtolower($separator) === 'tab') {
-            return "\t";
-        }
-
-        return in_array($separator, [',', ';', "\t"], true) ? $separator : ',';
     }
 
     /**

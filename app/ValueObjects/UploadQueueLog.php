@@ -50,28 +50,32 @@ class UploadQueueLog extends Model implements JsonSerializable
             return $data;
         }
 
+        if (! is_array($data)) {
+            return [];
+        }
+
         $result = [];
 
         if (isset($data['error'])) {
-            $result += array_map(function ($msg) {
-                return new UploadQueueLog($msg, UploadQueueLogContextEnums::ERROR, now()->toISOString(), null, UploadQueueLogTypeEnums::VALIDATION_RUN);
-            }, $data['error']);
+            foreach (self::normalizeLegacyMessages($data['error']) as $message) {
+                $result[] = new UploadQueueLog($message, UploadQueueLogContextEnums::ERROR, now()->toISOString(), null, UploadQueueLogTypeEnums::VALIDATION_RUN);
+            }
 
             unset($data['error']);
         }
 
         if (isset($data['warning'])) {
-            $result += array_map(function ($msg) {
-                return new UploadQueueLog($msg, UploadQueueLogContextEnums::WARNING, now()->toISOString(), null, UploadQueueLogTypeEnums::VALIDATION_RUN);
-            }, $data['warning']);
+            foreach (self::normalizeLegacyMessages($data['warning']) as $message) {
+                $result[] = new UploadQueueLog($message, UploadQueueLogContextEnums::WARNING, now()->toISOString(), null, UploadQueueLogTypeEnums::VALIDATION_RUN);
+            }
 
             unset($data['warning']);
         }
 
         if (isset($data['success'])) {
-            $result += array_map(function ($msg) {
-                return new UploadQueueLog($msg, UploadQueueLogContextEnums::SUCCESS, now()->toISOString(), null, UploadQueueLogTypeEnums::VALIDATION_RUN);
-            }, $data['success']);
+            foreach (self::normalizeLegacyMessages($data['success']) as $message) {
+                $result[] = new UploadQueueLog($message, UploadQueueLogContextEnums::SUCCESS, now()->toISOString(), null, UploadQueueLogTypeEnums::VALIDATION_RUN);
+            }
 
             unset($data['success']);
         }
@@ -91,6 +95,22 @@ class UploadQueueLog extends Model implements JsonSerializable
         }
 
         return $result;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private static function normalizeLegacyMessages(mixed $messages): array
+    {
+        if (is_array($messages)) {
+            return array_values(array_filter($messages, fn (mixed $message): bool => is_string($message)));
+        }
+
+        if (is_string($messages) && trim($messages) !== '') {
+            return [$messages];
+        }
+
+        return [];
     }
 
     public static function hasValidListStructure($data): bool

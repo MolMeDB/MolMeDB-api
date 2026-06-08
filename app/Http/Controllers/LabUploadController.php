@@ -269,11 +269,14 @@ class LabUploadController extends Controller
 
     public function myUploads(Request $request)
     {
+        $perPage = min(max((int) $request->integer('per_page', 20), 1), 20);
+
         $records = UploadQueue::query()
             ->with(['file', 'dataset.membrane', 'dataset.method', 'dataset.publications'])
             ->where('user_id', Auth::id())
             ->orderByDesc('id')
-            ->paginate((int) $request->integer('per_page', 20));
+            ->paginate($perPage)
+            ->withQueryString();
 
         return UploadQueueResource::collection($records);
     }

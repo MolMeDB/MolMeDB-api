@@ -12,9 +12,11 @@ import {
   ModalContent,
   ModalFooter,
   ModalHeader,
+  Pagination,
   Spinner,
+  Tooltip,
 } from "@heroui/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type ConfigureState = {
   isOpen: boolean;
@@ -42,10 +44,25 @@ type BackendErrorResponse = {
 
 type UploadQueueLog = IUploadQueue["logs"][number];
 
+type UploadsPaginationMeta = {
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+  from?: number | null;
+  to?: number | null;
+};
+
+const UPLOADS_PER_PAGE = 20;
+
 export default function MyUploadsList(props: {
   reloadKey: number;
 }) {
   const [myUploads, setMyUploads] = useState<IUploadQueue[]>([]);
+  const [uploadsPage, setUploadsPage] = useState(1);
+  const [uploadsMeta, setUploadsMeta] = useState<UploadsPaginationMeta | null>(
+    null,
+  );
   const [isLoadingUploads, setIsLoadingUploads] = useState(false);
   const [reuploadFiles, setReuploadFiles] = useState<
     Record<number, File | null>
@@ -80,6 +97,7 @@ export default function MyUploadsList(props: {
     isEnqueuing: false,
     isValidated: false,
   });
+  const hasHandledInitialReload = useRef(false);
 
   const handle401 = useHandle401();
 
@@ -197,6 +215,22 @@ export default function MyUploadsList(props: {
     }
   }
 
+  function formatText(value: unknown, fallback = "-"): string {
+    if (value === null || value === undefined) {
+      return fallback;
+    }
+
+    if (typeof value === "string") {
+      return value.trim() === "" ? fallback : value;
+    }
+
+    if (typeof value === "number" || typeof value === "boolean") {
+      return String(value);
+    }
+
+    return fallback;
+  }
+
   function formatLogTimestamp(timestamp?: string): string {
     if (!timestamp) {
       return "";
@@ -236,32 +270,50 @@ export default function MyUploadsList(props: {
     });
   }
 
-  async function loadMyUploads() {
+  async function loadMyUploads(page = uploadsPage) {
     setIsLoadingUploads(true);
     try {
       const response = await getJson("/api/lab/upload/my-uploads", {
-        per_page: 50,
+        page,
+        per_page: UPLOADS_PER_PAGE,
       });
 
-      if(response?.code === 401) {
+      if (response?.code === 401) {
         handle401();
       }
 
       if (response?.code === 200) {
         setMyUploads(response.data?.data ?? []);
+        setUploadsMeta(response.data?.meta ?? null);
       } else {
         setMyUploads([]);
+        setUploadsMeta(null);
       }
     } catch (error) {
       console.error(error);
       setMyUploads([]);
+      setUploadsMeta(null);
     }
     setIsLoadingUploads(false);
   }
 
   useEffect(() => {
-    loadMyUploads();
+    if (!hasHandledInitialReload.current) {
+      hasHandledInitialReload.current = true;
+      return;
+    }
+
+    if (uploadsPage === 1) {
+      loadMyUploads(1);
+      return;
+    }
+
+    setUploadsPage(1);
   }, [props.reloadKey]);
+
+  useEffect(() => {
+    loadMyUploads(uploadsPage);
+  }, [uploadsPage]);
 
   
   async function reupload(recordId: number) {
@@ -313,7 +365,7 @@ export default function MyUploadsList(props: {
     }
 
     if (shouldReloadUploads) {
-      await loadMyUploads ();
+      await loadMyUploads();
     }
   }
 
@@ -595,7 +647,7 @@ export default function MyUploadsList(props: {
           <Button
             size="sm"
             variant="flat"
-            onPress={loadMyUploads}
+            onPress={() => loadMyUploads()}
             isLoading={isLoadingUploads}
           >
             Refresh
@@ -612,38 +664,50 @@ export default function MyUploadsList(props: {
               <thead className="bg-default-100">
                 <tr>
                   <th className="text-left p-2">ID</th>
-                  <th className="text-left p-2">Dataset</th>
-                  <th className="text-left p-2">File</th>
+                  <th className="w-44 max-w-44 text-left p-2">Dataset</th>
+                  <th className="w-44 max-w-44 text-left p-2">File</th>
                   <th className="text-left p-2">State</th>
                   <th className="text-left p-2">Last message</th>
-                  <th className="text-left p-2">Action</th>
+                  <th className="w-36 text-left p-2">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {myUploads.map((upload) => (
                   <tr key={upload.id} className="border-t border-default-200">
                     <td className="p-2">#{upload.id}</td>
-                    <td className="p-2">
-                      <div className="font-semibold">
-                        {upload.dataset?.name ?? "Unnamed"}
-                      </div>
+                    <td className="max-w-44 p-2">
+                      <Tooltip
+                        content={upload.dataset?.name ?? "Unnamed"}
+                        placement="top-start"
+                      >
+                        <div className="truncate font-semibold">
+                          {upload.dataset?.name ?? "Unnamed"}
+                        </div>
+                      </Tooltip>
                       <div className="text-foreground-500">
                         {upload.dataset?.type} | {upload.dataset?.membrane?.abbreviation} |{" "}
                         {upload.dataset?.method?.abbreviation}
                       </div>
                     </td>
-                    <td className="p-2">
-                      <Button
-                        size="sm"
-                        variant="light"
-                        className="h-auto min-w-0 px-0 text-sm font-normal hover:underline"
-                        isLoading={downloadLoading[upload.id] ?? false}
-                        onPress={() => handleDatasetDownload(upload)}
+                    <td className="max-w-44 p-2">
+                      <Tooltip
+                        content={upload.file?.name ?? "-"}
+                        placement="top-start"
                       >
-                        {upload.file?.name ?? "-"}
-                      </Button>
+                        <Button
+                          size="sm"
+                          variant="light"
+                          className="h-auto min-w-0 max-w-full px-0 text-sm font-normal hover:underline"
+                          isLoading={downloadLoading[upload.id] ?? false}
+                          onPress={() => handleDatasetDownload(upload)}
+                        >
+                          <span className="block max-w-full truncate">
+                            {upload.file?.name ?? "-"}
+                          </span>
+                        </Button>
+                      </Tooltip>
                     </td>
-                    <td className="p-2">
+                    <td className="w-36 p-2">
                       <span
                         className={`px-2 py-1 rounded-md text-xs ${
                           upload.state_phase === "error"
@@ -653,12 +717,14 @@ export default function MyUploadsList(props: {
                               : "bg-warning-100 text-warning-700"
                         }`}
                       >
-                        {upload.state_label}
+                        {formatText(upload.state_label)}
                       </span>
                     </td>
                     <td className="p-2 max-w-72">
                       <div className="flex flex-col gap-1">
-                        <span className="truncate">{upload.last_message ?? "-"}</span>
+                        <span className="truncate">
+                          {formatText(upload.last_message)}
+                        </span>
                         {upload.logs && upload.logs.length > 0 && (
                           <Button
                             size="sm"
@@ -771,6 +837,22 @@ export default function MyUploadsList(props: {
                 ))}
               </tbody>
             </table>
+            {uploadsMeta && uploadsMeta.total > 0 && (
+              <div className="mt-3 flex flex-col gap-2 text-sm text-foreground-500 md:flex-row md:items-center md:justify-between">
+                <span>
+                  Showing {uploadsMeta.from ?? 0}-{uploadsMeta.to ?? 0} of{" "}
+                  {uploadsMeta.total}
+                </span>
+                <Pagination
+                  isCompact
+                  showControls
+                  color="primary"
+                  page={uploadsMeta.current_page}
+                  total={uploadsMeta.last_page}
+                  onChange={setUploadsPage}
+                />
+              </div>
+            )}
           </div>
         )}
 
@@ -805,7 +887,7 @@ export default function MyUploadsList(props: {
                 <div className="flex flex-col gap-1">
                   <span className="text-foreground-500">State</span>
                   <span className="font-semibold">
-                    {logsModalUpload?.state_label ?? "-"}
+                    {formatText(logsModalUpload?.state_label)}
                   </span>
                 </div>
               </div>
@@ -822,14 +904,15 @@ export default function MyUploadsList(props: {
                       >
                         <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
                           <div className="font-semibold">
-                            {log.type ?? "LOG"} · {log.state_label ?? "-"}
+                            {formatText(log.type, "LOG")} ·{" "}
+                            {formatText(log.state_label)}
                           </div>
                           <div className="text-current opacity-75">
                             {formatLogTimestamp(log.timestamp)}
                           </div>
                         </div>
                         <div className="mt-2 whitespace-pre-wrap break-words">
-                          {log.message}
+                          {formatText(log.message)}
                         </div>
                         {payload && (
                           <pre className="mt-2 max-h-56 overflow-auto rounded-md bg-background/70 px-3 py-2 text-[11px] leading-relaxed text-foreground">

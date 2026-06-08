@@ -26,6 +26,7 @@ class UploadQueueDetailedValidator
         private readonly UploadQueueInteractionPayloadBuilder $payloadBuilder,
         private readonly UploadQueueDuplicateInteractionChecker $duplicateChecker,
         private readonly UploadQueueColumnRegistry $columns,
+        private readonly UploadQueueCsvParser $csvParser,
     ) {}
 
     public function validate(UploadQueue $record): array
@@ -86,7 +87,7 @@ class UploadQueueDetailedValidator
         }
 
         if ($hasManualConfig) {
-            $separator = $this->normalizeSeparator((string) $configured['separator']);
+            $separator = $this->csvParser->normalizeSeparator((string) $configured['separator']);
             $columnKeys = array_map(function ($value) {
                 if (! is_string($value) || trim($value) === '') {
                     return self::IGNORE_COLUMN;
@@ -99,7 +100,7 @@ class UploadQueueDetailedValidator
             $dataLines = $skipFirstRow === 1 ? array_slice($rows, 1) : $rows;
         } else {
             $separator = $this->detectSeparator($rows[0]);
-            $headerRow = str_getcsv($rows[0], $separator, '"', '\\');
+            $headerRow = $this->csvParser->parseLine($rows[0], $separator);
             $columnKeys = $this->buildColumnMapping($record, $headerRow);
             $dataLines = array_slice($rows, 1);
         }
@@ -136,7 +137,7 @@ class UploadQueueDetailedValidator
             : 1;
         foreach ($dataLines as $line) {
             $rowIndex++;
-            $rawValues = str_getcsv($line, $separator, '"', '\\');
+            $rawValues = $this->csvParser->parseLine($line, $separator);
 
             if (count($rawValues) !== count($columnKeys)) {
                 $errors[] = "Line {$rowIndex}: number of values does not match header column count.";
@@ -230,15 +231,6 @@ class UploadQueueDetailedValidator
         ];
     }
 
-    private function normalizeSeparator(string $separator): string
-    {
-        if ($separator === '\\t' || mb_strtolower($separator) === 'tab') {
-            return "\t";
-        }
-
-        return in_array($separator, [',', ';', "\t"], true) ? $separator : ',';
-    }
-
     private function detectSeparator(string $headerLine): string
     {
         $candidates = [',', ';', "\t"];
@@ -246,7 +238,7 @@ class UploadQueueDetailedValidator
         $bestColumns = 1;
 
         foreach ($candidates as $candidate) {
-            $columns = count(str_getcsv($headerLine, $candidate, '"', '\\'));
+            $columns = count($this->csvParser->parseLine($headerLine, $candidate));
             if ($columns > $bestColumns) {
                 $bestColumns = $columns;
                 $bestSeparator = $candidate;
