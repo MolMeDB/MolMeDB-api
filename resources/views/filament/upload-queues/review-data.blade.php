@@ -105,13 +105,15 @@
         </div>
     @endif
 
-    <div class="rounded-lg border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-900 dark:border-warning-700 dark:bg-warning-950 dark:text-warning-100" style="display: flex; gap: 12px; align-items: flex-start; border: 1px solid #f59e0b; border-radius: 10px; background: #fffbeb; padding: 14px 16px; color: #78350f;">
-        <div style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; flex: 0 0 28px; border-radius: 999px; background: #fef3c7; color: #92400e; font-weight: 800;">!</div>
-        <div>
-            <div style="font-size: 14px; font-weight: 700; color: #78350f;">Review required before decision</div>
-            <div style="margin-top: 2px; font-size: 13px; line-height: 1.5; color: #92400e;">
-                Approve or reject only after checking the mapped table above. The decision actions are below this preview.
+    @if ((int) $record->state === UploadQueue::STATE_REVIEW_REQUIRED)
+        <div class="rounded-lg border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-900 dark:border-warning-700 dark:bg-warning-950 dark:text-warning-100" style="display: flex; gap: 12px; align-items: flex-start; border: 1px solid #f59e0b; border-radius: 10px; background: #fffbeb; padding: 14px 16px; color: #78350f;">
+            <div style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; flex: 0 0 28px; border-radius: 999px; background: #fef3c7; color: #92400e; font-weight: 800;">!</div>
+            <div>
+                <div style="font-size: 14px; font-weight: 700; color: #78350f;">Review required before decision</div>
+                <div style="margin-top: 2px; font-size: 13px; line-height: 1.5; color: #92400e;">
+                    Approve or reject only after checking the mapped table above. The decision actions are below this preview.
+                </div>
             </div>
         </div>
-    </div>
+    @endif
 </div>

@@ -1,27 +1,30 @@
 <?php
+
 namespace App\Rules\UploadFile\Identifiers;
 
 use App\Rules\UploadFile\ColumnTypeInterface;
 use App\Services\External\Chemical\Unichem\Unichem;
+use App\Services\UploadQueueExternalLookupCache;
 use Closure;
 
 class ColumnPdb implements ColumnTypeInterface
 {
     public static string $key = 'pdb';
+
     public static string $label = 'RCSB ligand ID';
 
     public static int $maxLength = 255;
 
     public static function make(): static
     {
-        return new static();
+        return new static;
     }
 
     public function validate(string $attribute, $value, Closure $fail): void
     {
         $this->validate_fast($attribute, $value, $fail);
 
-        if(!$this->exists_remotely($value)) {
+        if (! $this->exists_remotely($value)) {
             $fail('Column '.self::$label." contains unknown ID '{$value}'.");
         }
     }
@@ -35,10 +38,8 @@ class ColumnPdb implements ColumnTypeInterface
         }
     }
 
-    public function exists_remotely(string $value): mixed
+    public function exists_remotely(string $value): bool
     {
-        $unichem = new Unichem;
-
-        return $unichem->getChemicalBySourceId(Unichem::SOURCE_RCSB_PDB, $value)?->inchi !== null;
+        return app(UploadQueueExternalLookupCache::class)->unichemIdentifierExists(Unichem::SOURCE_RCSB_PDB, $value);
     }
 }

@@ -54,6 +54,7 @@ type UploadsPaginationMeta = {
 };
 
 const UPLOADS_PER_PAGE = 20;
+const AUTO_REFRESH_SECONDS = 15;
 
 export default function MyUploadsList(props: {
   reloadKey: number;
@@ -64,6 +65,9 @@ export default function MyUploadsList(props: {
     null,
   );
   const [isLoadingUploads, setIsLoadingUploads] = useState(false);
+  const [autoRefreshCountdown, setAutoRefreshCountdown] = useState(
+    AUTO_REFRESH_SECONDS,
+  );
   const [reuploadFiles, setReuploadFiles] = useState<
     Record<number, File | null>
   >({});
@@ -98,6 +102,9 @@ export default function MyUploadsList(props: {
     isValidated: false,
   });
   const hasHandledInitialReload = useRef(false);
+  const isLoadingUploadsRef = useRef(false);
+  const autoRefreshCountdownRef = useRef(AUTO_REFRESH_SECONDS);
+  const uploadsPageRef = useRef(uploadsPage);
 
   const handle401 = useHandle401();
 
@@ -270,8 +277,28 @@ export default function MyUploadsList(props: {
     });
   }
 
-  async function loadMyUploads(page = uploadsPage) {
+  function uploadProgressLabel(upload: IUploadQueue): string {
+    const progress = upload.processing_progress;
+    if (!progress) {
+      return "";
+    }
+
+    const rows =
+      progress.total_rows && progress.total_rows > 0
+        ? `${progress.processed_rows}/${progress.total_rows}`
+        : `${progress.processed_rows}`;
+
+    return `${rows}`;
+  }
+
+  async function loadMyUploads(page = uploadsPageRef.current): Promise<boolean> {
+    if (isLoadingUploadsRef.current) {
+      return false;
+    }
+
+    isLoadingUploadsRef.current = true;
     setIsLoadingUploads(true);
+
     try {
       const response = await getJson("/api/lab/upload/my-uploads", {
         page,
@@ -293,9 +320,19 @@ export default function MyUploadsList(props: {
       console.error(error);
       setMyUploads([]);
       setUploadsMeta(null);
+    } finally {
+      isLoadingUploadsRef.current = false;
+      setIsLoadingUploads(false);
+      autoRefreshCountdownRef.current = AUTO_REFRESH_SECONDS;
+      setAutoRefreshCountdown(AUTO_REFRESH_SECONDS);
     }
-    setIsLoadingUploads(false);
+
+    return true;
   }
+
+  useEffect(() => {
+    uploadsPageRef.current = uploadsPage;
+  }, [uploadsPage]);
 
   useEffect(() => {
     if (!hasHandledInitialReload.current) {
@@ -315,7 +352,24 @@ export default function MyUploadsList(props: {
     loadMyUploads(uploadsPage);
   }, [uploadsPage]);
 
-  
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      const shouldRefresh = autoRefreshCountdownRef.current <= 1;
+
+      if (shouldRefresh) {
+        void loadMyUploads(uploadsPageRef.current);
+
+        return;
+      }
+
+      const nextCountdown = autoRefreshCountdownRef.current - 1;
+      autoRefreshCountdownRef.current = nextCountdown;
+      setAutoRefreshCountdown(nextCountdown);
+    }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, []);
+
   async function reupload(recordId: number) {
     const file = reuploadFiles[recordId];
     if (!file) {
@@ -642,15 +696,21 @@ export default function MyUploadsList(props: {
 
   return (
     <div className="flex flex-col gap-4">
-        <div className="flex flex-row justify-between items-center">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-xl font-bold">My uploads</h3>
           <Button
             size="sm"
             variant="flat"
             onPress={() => loadMyUploads()}
             isLoading={isLoadingUploads}
+            className="w-fit"
           >
-            Refresh
+            <span className="flex items-center gap-2">
+              <span>Refresh</span>
+              <span className="min-w-9 rounded-full bg-default-200 px-2 py-0.5 text-center text-[11px] font-semibold tabular-nums text-default-600">
+                {isLoadingUploads ? "now" : `${autoRefreshCountdown}s`}
+              </span>
+            </span>
           </Button>
         </div>
 
@@ -707,18 +767,38 @@ export default function MyUploadsList(props: {
                         </Button>
                       </Tooltip>
                     </td>
-                    <td className="w-36 p-2">
-                      <span
-                        className={`px-2 py-1 rounded-md text-xs ${
-                          upload.state_phase === "error"
-                            ? "bg-danger-100 text-danger-700"
-                            : upload.state_phase === "done"
-                              ? "bg-success-100 text-success-700"
-                              : "bg-warning-100 text-warning-700"
-                        }`}
-                      >
-                        {formatText(upload.state_label)}
-                      </span>
+                    <td className="w-40 p-2">
+                      <div className="flex flex-col gap-2">
+                        <span
+                          className={`w-fit rounded-md px-2 py-1 text-xs ${
+                            upload.state_phase.toString().toLowerCase() === "error" || 
+                            upload.state_phase.toString().toLowerCase() === "canceled"
+                              ? "bg-danger-100 text-danger-700"
+                              : upload.state_phase.toString().toLowerCase() === "done"
+                                ? "bg-success-100 text-success-700"
+                                : "bg-warning-100 text-warning-700"
+                          }`}
+                        >
+                          {formatText(upload.state_label)}
+                        </span>
+                        {upload.processing_progress && (
+                          <Tooltip content={uploadProgressLabel(upload)}>
+                            <div className="flex w-32 flex-col gap-1">
+                              <div className="h-1.5 overflow-hidden rounded-full bg-default-200">
+                                <div
+                                  className="h-full rounded-full bg-primary transition-all"
+                                  style={{
+                                    width: `${upload.processing_progress.percent ?? 0}%`,
+                                  }}
+                                />
+                              </div>
+                              <div className="text-[11px] tabular-nums text-foreground-500">
+                                {upload.processing_progress.percent ?? 0}%
+                              </div>
+                            </div>
+                          </Tooltip>
+                        )}
+                      </div>
                     </td>
                     <td className="p-2 max-w-72">
                       <div className="flex flex-col gap-1">

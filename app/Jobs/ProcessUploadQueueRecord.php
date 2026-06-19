@@ -32,11 +32,19 @@ class ProcessUploadQueueRecord implements ShouldBeUnique, ShouldQueue
 
     private const UNICHEM_RETRY_DELAY_SECONDS = 1800;
 
+    private const DEADLINE_RELEASE_BUFFER_SECONDS = 180;
+
+    private const DEADLINE_RETRY_DELAY_SECONDS = 10;
+
     public int $tries = 48;
 
-    public int $timeout = 120;
+    public int $timeout = 1800;
 
     public int $uniqueFor = 3600;
+
+    private const OVERLAP_RELEASE_SECONDS = 900;
+
+    private const OVERLAP_LOCK_SECONDS = 1900;
 
     /**
      * Do not queue twice the same UploadQueue record
@@ -50,8 +58,8 @@ class ProcessUploadQueueRecord implements ShouldBeUnique, ShouldQueue
     {
         return [
             new WithoutOverlapping($this->recordId)
-                ->releaseAfter(60)
-                ->expireAfter(3600),
+                ->releaseAfter(self::OVERLAP_RELEASE_SECONDS)
+                ->expireAfter(self::OVERLAP_LOCK_SECONDS),
         ];
     }
 
@@ -91,18 +99,18 @@ class ProcessUploadQueueRecord implements ShouldBeUnique, ShouldQueue
             return;
         }
 
-        if ((int) $record->state === UploadQueue::STATE_PENDING) {
-            $record->transitionToState(
-                UploadQueue::STATE_RUNNING,
-                'Upload processing has started.',
-                UploadQueueLogContextEnums::INFO,
-                UploadQueueLogTypeEnums::UPLOAD_RUN,
-                null,
-                null
-            );
-        }
-
         try {
+            if ((int) $record->state === UploadQueue::STATE_PENDING) {
+                $record->transitionToState(
+                    UploadQueue::STATE_RUNNING,
+                    'Upload processing has started.',
+                    UploadQueueLogContextEnums::INFO,
+                    UploadQueueLogTypeEnums::UPLOAD_RUN,
+                    null,
+                    null
+                );
+            }
+
             Log::channel('upload')
                 ->info('Starting upload processing', [
                     'record_id' => $this->recordId,
@@ -116,7 +124,10 @@ class ProcessUploadQueueRecord implements ShouldBeUnique, ShouldQueue
                     return;
                 }
 
-                $this->runDetailedValidation($record, $validator);
+                if ($this->runDetailedValidation($record, $validator)) {
+                    return;
+                }
+
                 $record->refresh()->load(['file', 'dataset', 'user']);
             }
 
@@ -138,7 +149,33 @@ class ProcessUploadQueueRecord implements ShouldBeUnique, ShouldQueue
                 return;
             }
 
-            $summary = $importer->import($record);
+            $summary = $importer->import(
+                $record,
+                now()->addSeconds(max(60, $this->timeout - self::DEADLINE_RELEASE_BUFFER_SECONDS)),
+            );
+
+            if (($summary['deferred'] ?? false) === true) {
+                $record->refresh();
+                $record->addStructuredLog(
+                    'Import checkpoint saved. Upload processing will continue shortly.',
+                    UploadQueueLogContextEnums::INFO,
+                    UploadQueueLogTypeEnums::UPLOAD_RUN,
+                    $record->state,
+                    [
+                        'processed_rows' => $summary['prepared_rows'] ?? null,
+                        'created_rows' => $summary['created_rows'] ?? null,
+                        'skipped_rows' => $summary['skipped_rows'] ?? null,
+                        'next_line' => $summary['next_line'] ?? null,
+                        'retry_delay_seconds' => self::DEADLINE_RETRY_DELAY_SECONDS,
+                        'retry_at' => now()->addSeconds(self::DEADLINE_RETRY_DELAY_SECONDS)->toISOString(),
+                    ],
+                    null
+                );
+
+                $this->release(self::DEADLINE_RETRY_DELAY_SECONDS);
+
+                return;
+            }
 
             $record->transitionToState(
                 UploadQueue::STATE_DONE,
@@ -165,7 +202,10 @@ class ProcessUploadQueueRecord implements ShouldBeUnique, ShouldQueue
                 );
             }
 
-            throw $throwable;
+            // The record is already marked as an error, so the state guard at the top
+            // of handle() would turn every further retry into a no-op. Fail the job
+            // immediately instead of burning through all $tries attempts pointlessly.
+            $this->fail($throwable);
         }
     }
 
@@ -173,7 +213,7 @@ class ProcessUploadQueueRecord implements ShouldBeUnique, ShouldQueue
     {
         $record = UploadQueue::query()->find($this->recordId);
 
-        if ($record && (int) $record->state === UploadQueue::STATE_RUNNING) {
+        if ($record && in_array((int) $record->state, [UploadQueue::STATE_PENDING, UploadQueue::STATE_RUNNING], true)) {
             $record->transitionToState(
                 UploadQueue::STATE_ERROR,
                 $throwable?->getMessage() ?? 'Upload processing failed.',
@@ -188,7 +228,7 @@ class ProcessUploadQueueRecord implements ShouldBeUnique, ShouldQueue
     private function runDetailedValidation(
         UploadQueue $record,
         UploadQueueDetailedValidator $validator,
-    ): void {
+    ): bool {
         $record->addStructuredLog(
             'Detailed validation started.',
             UploadQueueLogContextEnums::INFO,
@@ -198,7 +238,30 @@ class ProcessUploadQueueRecord implements ShouldBeUnique, ShouldQueue
             null
         );
 
-        $result = $validator->validate($record);
+        $deadline = now()->addSeconds(max(60, $this->timeout - self::DEADLINE_RELEASE_BUFFER_SECONDS));
+        $result = $validator->validate($record, $deadline);
+        if (($result['deferred'] ?? false) === true) {
+            $record->refresh();
+            $record->addStructuredLog(
+                'Detailed validation checkpoint saved. Upload processing will continue shortly.',
+                UploadQueueLogContextEnums::INFO,
+                UploadQueueLogTypeEnums::VALIDATION_RUN,
+                $record->state,
+                [
+                    'validated_rows' => $result['validated_rows'] ?? null,
+                    'processed_rows' => $result['processed_rows'] ?? null,
+                    'next_line' => $result['next_line'] ?? null,
+                    'retry_delay_seconds' => self::DEADLINE_RETRY_DELAY_SECONDS,
+                    'retry_at' => now()->addSeconds(self::DEADLINE_RETRY_DELAY_SECONDS)->toISOString(),
+                ],
+                null
+            );
+
+            $this->release(self::DEADLINE_RETRY_DELAY_SECONDS);
+
+            return true;
+        }
+
         if (! ($result['ok'] ?? false)) {
             $errors = $result['errors'] ?? [];
             $message = $this->detailedValidationFailureMessage($errors);
@@ -258,6 +321,8 @@ class ProcessUploadQueueRecord implements ShouldBeUnique, ShouldQueue
             ],
             null
         );
+
+        return false;
     }
 
     private function shouldWaitForUnichem(UploadQueue $record): bool

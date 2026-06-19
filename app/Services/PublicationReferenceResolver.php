@@ -19,6 +19,8 @@ class PublicationReferenceResolver
      */
     private static array $existsCache = [];
 
+    public function __construct(private readonly UploadQueueExternalLookupCache $externalLookupCache) {}
+
     public function normalizeReference(string $reference): string
     {
         $reference = trim($reference);
@@ -44,7 +46,10 @@ class PublicationReferenceResolver
             return self::$existsCache[$cacheKey] = true;
         }
 
-        return self::$existsCache[$cacheKey] = $this->fetchPublicationRecord($reference) instanceof Record;
+        return self::$existsCache[$cacheKey] = $this->externalLookupCache->publicationReferenceExists(
+            $reference,
+            fn (): bool => $this->fetchPublicationRecord($reference) instanceof Record,
+        );
     }
 
     public function resolveOrCreatePublication(string $reference): Publication

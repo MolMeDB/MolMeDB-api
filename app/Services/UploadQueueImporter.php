@@ -6,10 +6,13 @@ use App\Models\InteractionActive;
 use App\Models\InteractionPassive;
 use App\Models\Structure;
 use App\Models\UploadQueue;
+use DateTimeInterface;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
+use Throwable;
 
 class UploadQueueImporter
 {
@@ -47,15 +50,15 @@ class UploadQueueImporter
         ];
     }
 
-    public function import(UploadQueue $record): array
+    public function import(UploadQueue $record, ?DateTimeInterface $deadline = null): array
     {
         if (! $record->config->detailedValidationPassed()) {
             throw new RuntimeException('Detailed validation must pass before importing upload data.');
         }
 
         return match ((int) $record->type) {
-            UploadQueue::TYPE_PASSIVE_DATASET => $this->importPassiveInteractions($record),
-            UploadQueue::TYPE_ACTIVE_DATASET => $this->importActiveInteractions($record),
+            UploadQueue::TYPE_PASSIVE_DATASET => $this->importPassiveInteractions($record, $deadline),
+            UploadQueue::TYPE_ACTIVE_DATASET => $this->importActiveInteractions($record, $deadline),
             default => throw new RuntimeException('Unsupported upload queue type: '.$record->type),
         };
     }
@@ -65,47 +68,86 @@ class UploadQueueImporter
      *
      * @return array<string, mixed>
      */
-    private function importPassiveInteractions(UploadQueue $record): array
+    private function importPassiveInteractions(UploadQueue $record, ?DateTimeInterface $deadline = null): array
     {
+        $progress = $this->resumeImportProgress($record, 'passive_interactions_imported');
         $summary = [
             'mode' => 'passive_interactions_imported',
             'record_id' => $record->id,
             'dataset_id' => $record->dataset_id,
             'type' => $record->type,
-            'prepared_rows' => 0,
-            'created_rows' => 0,
-            'skipped_rows' => 0,
-            'duplicate_rows' => 0,
-            'duplicate_conflict_rows' => 0,
+            'prepared_rows' => $progress['processed_rows'],
+            'created_rows' => $progress['created_rows'],
+            'skipped_rows' => $progress['skipped_rows'],
+            'duplicate_rows' => $progress['duplicate_rows'],
+            'duplicate_conflict_rows' => $progress['duplicate_conflict_rows'],
             'duplicate_warnings' => [],
             'duplicate_errors' => [],
             'sample_rows' => [],
         ];
 
         $importedStructureIds = [];
+        $rowsSinceProgressSave = 0;
+        $deferred = false;
+        $nextLine = $progress['next_line'];
 
-        $result = DB::transaction(function () use ($record, &$summary, &$importedStructureIds): array {
-            return $this->forEachMappedRow($record, function (array $row) use ($record, &$summary, &$importedStructureIds): void {
+        $result = $this->forEachMappedRow(
+            $record,
+            function (array $row, int $lineNumber) use ($record, &$summary, &$importedStructureIds, &$rowsSinceProgressSave, &$deferred, &$nextLine, $deadline): bool {
                 $payload = $this->payloadBuilder->passivePayload($record, $row);
 
-                if ($this->skipDuplicate($record, $payload, $summary)) {
-                    return;
+                DB::transaction(function () use ($record, $payload, &$summary, &$importedStructureIds): void {
+                    $summary['prepared_rows']++;
+
+                    if ($this->skipDuplicate($record, $payload, $summary)) {
+                        return;
+                    }
+
+                    $interaction = InteractionPassive::query()->create($payload);
+                    $this->duplicateChecker->remember($record, $interaction, $payload);
+
+                    $importedStructureIds[] = (int) $payload['structure_id'];
+                    $summary['created_rows']++;
+                    if (count($summary['sample_rows']) < 5) {
+                        $summary['sample_rows'][] = $payload;
+                    }
+                });
+
+                $rowsSinceProgressSave++;
+                $nextLine = $lineNumber + 1;
+
+                if ($rowsSinceProgressSave >= 50 || $this->deadlineReached($deadline)) {
+                    $this->saveImportProgress($record, $summary, $nextLine);
+                    $rowsSinceProgressSave = 0;
                 }
 
-                InteractionPassive::query()->create($payload);
+                if ($this->deadlineReached($deadline)) {
+                    $deferred = true;
 
-                $importedStructureIds[] = (int) $payload['structure_id'];
-                $summary['created_rows']++;
-                if (count($summary['sample_rows']) < 5) {
-                    $summary['sample_rows'][] = $payload;
+                    return false;
                 }
-            });
-        });
 
-        $summary['prepared_rows'] = $result['prepared_rows'];
+                return true;
+            },
+            $progress['next_line'],
+        );
+
         $summary['skipped_rows'] += $result['skipped_rows'];
+        $nextLine = max($nextLine, $result['last_line_number'] + 1);
+        if ($rowsSinceProgressSave > 0 || $result['skipped_rows'] > 0) {
+            $this->saveImportProgress($record, $summary, $nextLine);
+        }
+
+        if ($deferred) {
+            $this->checkInternalIdentifiers($importedStructureIds, $summary);
+
+            return $this->deferredImportResult($summary, $nextLine);
+        }
+
         $this->failIfNothingWasImported($summary);
         $this->checkInternalIdentifiers($importedStructureIds, $summary);
+        $record->config = $record->config->withoutProcessingProgress();
+        $record->save();
 
         return $summary;
     }
@@ -118,47 +160,86 @@ class UploadQueueImporter
      *
      * @return array<string, mixed>
      */
-    private function importActiveInteractions(UploadQueue $record): array
+    private function importActiveInteractions(UploadQueue $record, ?DateTimeInterface $deadline = null): array
     {
+        $progress = $this->resumeImportProgress($record, 'active_interactions_imported');
         $summary = [
             'mode' => 'active_interactions_imported',
             'record_id' => $record->id,
             'dataset_id' => $record->dataset_id,
             'type' => $record->type,
-            'prepared_rows' => 0,
-            'created_rows' => 0,
-            'skipped_rows' => 0,
-            'duplicate_rows' => 0,
-            'duplicate_conflict_rows' => 0,
+            'prepared_rows' => $progress['processed_rows'],
+            'created_rows' => $progress['created_rows'],
+            'skipped_rows' => $progress['skipped_rows'],
+            'duplicate_rows' => $progress['duplicate_rows'],
+            'duplicate_conflict_rows' => $progress['duplicate_conflict_rows'],
             'duplicate_warnings' => [],
             'duplicate_errors' => [],
             'sample_rows' => [],
         ];
 
         $importedStructureIds = [];
+        $rowsSinceProgressSave = 0;
+        $deferred = false;
+        $nextLine = $progress['next_line'];
 
-        $result = DB::transaction(function () use ($record, &$summary, &$importedStructureIds): array {
-            return $this->forEachMappedRow($record, function (array $row) use ($record, &$summary, &$importedStructureIds): void {
+        $result = $this->forEachMappedRow(
+            $record,
+            function (array $row, int $lineNumber) use ($record, &$summary, &$importedStructureIds, &$rowsSinceProgressSave, &$deferred, &$nextLine, $deadline): bool {
                 $payload = $this->payloadBuilder->activePayload($record, $row);
 
-                if ($this->skipDuplicate($record, $payload, $summary)) {
-                    return;
+                DB::transaction(function () use ($record, $payload, &$summary, &$importedStructureIds): void {
+                    $summary['prepared_rows']++;
+
+                    if ($this->skipDuplicate($record, $payload, $summary)) {
+                        return;
+                    }
+
+                    $interaction = InteractionActive::query()->create($payload);
+                    $this->duplicateChecker->remember($record, $interaction, $payload);
+
+                    $importedStructureIds[] = (int) $payload['structure_id'];
+                    $summary['created_rows']++;
+                    if (count($summary['sample_rows']) < 5) {
+                        $summary['sample_rows'][] = $payload;
+                    }
+                });
+
+                $rowsSinceProgressSave++;
+                $nextLine = $lineNumber + 1;
+
+                if ($rowsSinceProgressSave >= 50 || $this->deadlineReached($deadline)) {
+                    $this->saveImportProgress($record, $summary, $nextLine);
+                    $rowsSinceProgressSave = 0;
                 }
 
-                InteractionActive::query()->create($payload);
+                if ($this->deadlineReached($deadline)) {
+                    $deferred = true;
 
-                $importedStructureIds[] = (int) $payload['structure_id'];
-                $summary['created_rows']++;
-                if (count($summary['sample_rows']) < 5) {
-                    $summary['sample_rows'][] = $payload;
+                    return false;
                 }
-            });
-        });
 
-        $summary['prepared_rows'] = $result['prepared_rows'];
+                return true;
+            },
+            $progress['next_line'],
+        );
+
         $summary['skipped_rows'] += $result['skipped_rows'];
+        $nextLine = max($nextLine, $result['last_line_number'] + 1);
+        if ($rowsSinceProgressSave > 0 || $result['skipped_rows'] > 0) {
+            $this->saveImportProgress($record, $summary, $nextLine);
+        }
+
+        if ($deferred) {
+            $this->checkInternalIdentifiers($importedStructureIds, $summary);
+
+            return $this->deferredImportResult($summary, $nextLine);
+        }
+
         $this->failIfNothingWasImported($summary);
         $this->checkInternalIdentifiers($importedStructureIds, $summary);
+        $record->config = $record->config->withoutProcessingProgress();
+        $record->save();
 
         return $summary;
     }
@@ -203,12 +284,12 @@ class UploadQueueImporter
     }
 
     /**
-     * @param  callable(array<string, string>): void  $callback
-     * @return array{prepared_rows: int, skipped_rows: int, rows: array<int, array<string, string>>}
+     * @param  callable(array<string, string>, int): bool|null  $callback
+     * @return array{prepared_rows: int, skipped_rows: int, last_line_number: int, rows: array<int, array<string, string>>}
      */
-    private function forEachMappedRow(UploadQueue $record, callable $callback): array
+    private function forEachMappedRow(UploadQueue $record, callable $callback, int $startLine = 1): array
     {
-        return $this->readMappedRows($record, 0, $callback);
+        return $this->readMappedRows($record, 0, $callback, $startLine);
     }
 
     /**
@@ -273,9 +354,91 @@ class UploadQueueImporter
     }
 
     /**
-     * @return array{prepared_rows: int, skipped_rows: int, rows: array<int, array<string, string>>}
+     * @return array{next_line: int, processed_rows: int, created_rows: int, skipped_rows: int, duplicate_rows: int, duplicate_conflict_rows: int}
      */
-    private function readMappedRows(UploadQueue $record, int $sampleLimit, ?callable $onRow = null): array
+    private function resumeImportProgress(UploadQueue $record, string $mode): array
+    {
+        $firstDataLine = $record->config->skipFirstRow() === 1 ? 2 : 1;
+        $progress = $record->config->processingProgress();
+        $configHash = $this->importConfigHash($record, $mode);
+
+        if (($progress['phase'] ?? null) !== 'import' || ($progress['config_hash'] ?? null) !== $configHash) {
+            return [
+                'next_line' => $firstDataLine,
+                'processed_rows' => 0,
+                'created_rows' => 0,
+                'skipped_rows' => 0,
+                'duplicate_rows' => 0,
+                'duplicate_conflict_rows' => 0,
+            ];
+        }
+
+        return [
+            'next_line' => max($firstDataLine, (int) ($progress['next_line'] ?? $firstDataLine)),
+            'processed_rows' => max(0, (int) ($progress['processed_rows'] ?? 0)),
+            'created_rows' => max(0, (int) ($progress['created_rows'] ?? 0)),
+            'skipped_rows' => max(0, (int) ($progress['skipped_rows'] ?? 0)),
+            'duplicate_rows' => max(0, (int) ($progress['duplicate_rows'] ?? 0)),
+            'duplicate_conflict_rows' => max(0, (int) ($progress['duplicate_conflict_rows'] ?? 0)),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $summary
+     */
+    private function saveImportProgress(UploadQueue $record, array $summary, int $nextLine): void
+    {
+        $record->config = $record->config->withProcessingProgress([
+            'phase' => 'import',
+            'mode' => $summary['mode'] ?? null,
+            'config_hash' => $this->importConfigHash($record, (string) ($summary['mode'] ?? 'import')),
+            'next_line' => $nextLine,
+            'processed_rows' => (int) ($summary['prepared_rows'] ?? 0),
+            'created_rows' => (int) ($summary['created_rows'] ?? 0),
+            'skipped_rows' => (int) ($summary['skipped_rows'] ?? 0),
+            'duplicate_rows' => (int) ($summary['duplicate_rows'] ?? 0),
+            'duplicate_conflict_rows' => (int) ($summary['duplicate_conflict_rows'] ?? 0),
+            'total_rows' => $record->config->validatedRows(),
+            'heartbeat_at' => now()->toISOString(),
+        ]);
+
+        $record->save();
+    }
+
+    private function importConfigHash(UploadQueue $record, string $mode): string
+    {
+        return hash('sha256', json_encode([
+            'mode' => $mode,
+            'type' => (int) $record->type,
+            'separator' => $this->csvParser->normalizeSeparator($record->config->separator()),
+            'skip_first_row' => $record->config->skipFirstRow(),
+            'attributes' => $record->config->attributes(),
+            'validated_rows' => $record->config->validatedRows(),
+        ], JSON_THROW_ON_ERROR));
+    }
+
+    private function deadlineReached(?DateTimeInterface $deadline): bool
+    {
+        return $deadline !== null && now()->greaterThanOrEqualTo($deadline);
+    }
+
+    /**
+     * @param  array<string, mixed>  $summary
+     * @return array<string, mixed>
+     */
+    private function deferredImportResult(array $summary, int $nextLine): array
+    {
+        return [
+            ...$summary,
+            'deferred' => true,
+            'next_line' => $nextLine,
+        ];
+    }
+
+    /**
+     * @return array{prepared_rows: int, skipped_rows: int, last_line_number: int, rows: array<int, array<string, string>>}
+     */
+    private function readMappedRows(UploadQueue $record, int $sampleLimit, ?callable $onRow = null, int $startLine = 1): array
     {
         $disk = $record->file?->storage;
         if (! is_string($disk) || trim($disk) === '') {
@@ -283,11 +446,28 @@ class UploadQueueImporter
         }
 
         $path = $record->file?->path;
-        if (! is_string($path) || trim($path) === '' || ! Storage::disk($disk)->exists($path)) {
+        if (! is_string($path) || trim($path) === '') {
             throw new RuntimeException('Uploaded file is missing on storage.');
         }
 
-        $stream = Storage::disk($disk)->readStream($path);
+        // The import job can run in a long-lived queue worker process. Laravel caches
+        // resolved disks (and, for remote drivers such as SFTP, their connection) for
+        // the lifetime of that process, so a connection that died since the worker's
+        // last job would otherwise make every later import fail. Force a fresh resolve.
+        Storage::forgetDisk($disk);
+
+        try {
+            $stream = Storage::disk($disk)->readStream($path);
+        } catch (Throwable $throwable) {
+            Log::channel('upload')->warning('Failed to open uploaded file for import.', [
+                'record_id' => $record->id,
+                'disk' => $disk,
+                'path' => $path,
+                'exception' => $throwable->getMessage(),
+            ]);
+            $stream = false;
+        }
+
         if (! $stream) {
             throw new RuntimeException('Cannot open uploaded file for import.');
         }
@@ -313,6 +493,10 @@ class UploadQueueImporter
                     continue;
                 }
 
+                if ($lineNumber < $startLine) {
+                    continue;
+                }
+
                 $mappedRow = $this->mapRow($this->csvParser->parseLine($line, $separator), $attributes);
                 if ($mappedRow === []) {
                     $skippedRows++;
@@ -322,7 +506,9 @@ class UploadQueueImporter
 
                 $preparedRows++;
                 if ($onRow) {
-                    $onRow($mappedRow);
+                    if ($onRow($mappedRow, $lineNumber) === false) {
+                        break;
+                    }
                 }
 
                 if ($sampleLimit > 0 && count($sampleRows) < $sampleLimit) {
@@ -336,6 +522,7 @@ class UploadQueueImporter
         return [
             'prepared_rows' => $preparedRows,
             'skipped_rows' => $skippedRows,
+            'last_line_number' => $lineNumber,
             'rows' => $sampleRows,
         ];
     }

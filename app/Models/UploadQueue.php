@@ -122,8 +122,8 @@ class UploadQueue extends Model
             self::STATE_CONFIGURED => 'Ready to start upload',
             self::STATE_REVIEW_REQUIRED => 'Waiting for validation',
             self::STATE_PENDING => 'Pending upload',
-            self::STATE_RUNNING => 'Uploading',
-            self::STATE_DONE => 'Uploaded',
+            self::STATE_RUNNING => 'Running',
+            self::STATE_DONE => 'Finished',
             self::STATE_ERROR => 'Validation error',
             self::STATE_CANCELED => 'Canceled',
         ];

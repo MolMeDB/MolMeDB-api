@@ -37,6 +37,7 @@ services:
       - DB_PORT=5432
       - DB_PREDICTIONS_HOST=db-predictions
       - DB_PREDICTIONS_PORT=5432
+      - DB_QUEUE_RETRY_AFTER=1900
       - REDIS_HOST=redis
     networks:
       - molmedb-network
@@ -64,6 +65,7 @@ services:
       - DB_PORT=5432
       - DB_PREDICTIONS_HOST=db-predictions
       - DB_PREDICTIONS_PORT=5432
+      - DB_QUEUE_RETRY_AFTER=1900
       - REDIS_HOST=redis
     working_dir: /var/www
     volumes:
@@ -89,6 +91,7 @@ services:
       - DB_PORT=5432
       - DB_PREDICTIONS_HOST=db-predictions
       - DB_PREDICTIONS_PORT=5432
+      - DB_QUEUE_RETRY_AFTER=1900
       - REDIS_HOST=redis
     working_dir: /var/www
     volumes:
@@ -100,7 +103,7 @@ services:
       - app
       - db-predictions
       - redis
-    command: php artisan queue:work --queue=upload,default --sleep=3 --tries=3 --timeout=3600 --memory=512
+    command: php artisan queue:work --queue=upload,default --sleep=3 --tries=3 --timeout=1800 --memory=512
     restart: unless-stopped 
 
   # frontend:

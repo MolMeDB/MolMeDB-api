@@ -1,27 +1,30 @@
 <?php
+
 namespace App\Rules\UploadFile\Identifiers;
 
 use App\Rules\UploadFile\ColumnTypeInterface;
 use App\Services\External\Chemical\Unichem\Unichem;
+use App\Services\UploadQueueExternalLookupCache;
 use Closure;
 
 class ColumnPubchem implements ColumnTypeInterface
 {
     public static string $key = 'pubchem';
+
     public static string $label = 'Pubchem ID';
 
     public static int $maxLength = 255;
 
     public static function make(): static
     {
-        return new static();
+        return new static;
     }
 
     public function validate(string $attribute, $value, Closure $fail): void
     {
         $this->validate_fast($attribute, $value, $fail);
 
-        if(!$this->exists_remotely($value)) {
+        if (! $this->exists_remotely($value)) {
             $fail('Column '.self::$label." contains unknown ID '{$value}'.");
         }
     }
@@ -37,8 +40,6 @@ class ColumnPubchem implements ColumnTypeInterface
 
     public function exists_remotely(string $value): bool
     {
-        $unichem = new Unichem;
-
-        return $unichem->getChemicalBySourceId(Unichem::SOURCE_PUBCHEM, $value)?->inchi !== null;
+        return app(UploadQueueExternalLookupCache::class)->unichemIdentifierExists(Unichem::SOURCE_PUBCHEM, $value);
     }
 }

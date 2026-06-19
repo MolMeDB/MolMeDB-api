@@ -7,9 +7,19 @@ use App\Models\InteractionPassive;
 use App\Models\UploadQueue;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 
 class UploadQueueDuplicateInteractionChecker
 {
+    /**
+     * Caches the DB candidate set per (type, structure_id, charge, publication_id[, protein_id])
+     * combination so a repeated combination (e.g. same compound measured at several
+     * temperatures/pH) does not issue a fresh query for every row.
+     *
+     * @var array<string, Collection<int, Model>>
+     */
+    private array $candidatesCache = [];
+
     /**
      * @param  array<string, mixed>  $payload
      * @param  array<int, string>  $valueColumns
@@ -35,6 +45,27 @@ class UploadQueueDuplicateInteractionChecker
     }
 
     /**
+     * Registers a freshly created interaction in the candidate cache so later rows
+     * of the same import run see it as a duplicate without re-querying the database.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    public function remember(UploadQueue $record, Model $interaction, array $payload): void
+    {
+        if (($payload['structure_id'] ?? null) === null) {
+            return;
+        }
+
+        if ($record->type === UploadQueue::TYPE_ACTIVE_DATASET && ($payload['protein_id'] ?? null) === null) {
+            return;
+        }
+
+        $cacheKey = $this->candidatesCacheKey($record, $payload);
+        $this->candidatesCache[$cacheKey] ??= collect();
+        $this->candidatesCache[$cacheKey]->push($interaction);
+    }
+
+    /**
      * @param  array<string, mixed>  $payload
      */
     private function findExistingInteraction(UploadQueue $record, array $payload): ?Model
@@ -47,25 +78,54 @@ class UploadQueueDuplicateInteractionChecker
             return null;
         }
 
-        $query = $record->type === UploadQueue::TYPE_ACTIVE_DATASET
-            ? InteractionActive::query()
-            : InteractionPassive::query();
+        $cacheKey = $this->candidatesCacheKey($record, $payload);
 
-        $this->whereNullable($query, 'structure_id', $payload['structure_id'] ?? null);
-        $this->whereNullable($query, 'charge', $payload['charge'] ?? null);
+        if (! array_key_exists($cacheKey, $this->candidatesCache)) {
+            $query = $record->type === UploadQueue::TYPE_ACTIVE_DATASET
+                ? InteractionActive::query()
+                : InteractionPassive::query();
 
-        if (($payload['publication_id'] ?? null) !== -1) {
-            $this->whereNullable($query, 'publication_id', $payload['publication_id'] ?? null);
+            $this->whereNullable($query, 'structure_id', $payload['structure_id'] ?? null);
+            $this->whereNullable($query, 'charge', $payload['charge'] ?? null);
+
+            if (($payload['publication_id'] ?? null) !== -1) {
+                $this->whereNullable($query, 'publication_id', $payload['publication_id'] ?? null);
+            }
+
+            if ($record->type === UploadQueue::TYPE_ACTIVE_DATASET) {
+                $this->whereNullable($query, 'protein_id', $payload['protein_id'] ?? null);
+            }
+
+            $this->candidatesCache[$cacheKey] = $query->get();
         }
 
-        if ($record->type === UploadQueue::TYPE_ACTIVE_DATASET) {
-            $this->whereNullable($query, 'protein_id', $payload['protein_id'] ?? null);
-        }
-
-        return $query
-            ->get()
+        return $this->candidatesCache[$cacheKey]
             ->first(fn (Model $interaction): bool => $this->matchesRoundedSetting($interaction, $payload, 'temperature')
                 && $this->matchesRoundedSetting($interaction, $payload, 'ph'));
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function candidatesCacheKey(UploadQueue $record, array $payload): string
+    {
+        $parts = [
+            (string) $record->type,
+            $this->keyPart($payload['structure_id'] ?? null),
+            $this->keyPart($payload['charge'] ?? null),
+            ($payload['publication_id'] ?? null) !== -1 ? $this->keyPart($payload['publication_id'] ?? null) : 'any',
+        ];
+
+        if ($record->type === UploadQueue::TYPE_ACTIVE_DATASET) {
+            $parts[] = $this->keyPart($payload['protein_id'] ?? null);
+        }
+
+        return implode('|', $parts);
+    }
+
+    private function keyPart(mixed $value): string
+    {
+        return $value === null || $value === '' ? 'null' : (string) $value;
     }
 
     private function whereNullable(Builder $query, string $column, mixed $value): void

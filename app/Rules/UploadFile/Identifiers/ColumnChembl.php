@@ -1,20 +1,23 @@
 <?php
+
 namespace App\Rules\UploadFile\Identifiers;
 
 use App\Rules\UploadFile\ColumnTypeInterface;
 use App\Services\External\Chemical\Unichem\Unichem;
+use App\Services\UploadQueueExternalLookupCache;
 use Closure;
 
 class ColumnChembl implements ColumnTypeInterface
 {
     public static string $key = 'chembl';
+
     public static string $label = 'ChEMBL ID';
 
     public static int $maxLength = 255;
 
     public static function make(): static
     {
-        return new static();
+        return new static;
     }
 
     public function validate(string $attribute, $value, Closure $fail): void
@@ -37,8 +40,6 @@ class ColumnChembl implements ColumnTypeInterface
 
     public function exists_remotely(string $value): bool
     {
-        $unichem = new Unichem;
-
-        return $unichem->getChemicalBySourceId(Unichem::SOURCE_CHEMBL, $value)?->inchi !== null;
+        return app(UploadQueueExternalLookupCache::class)->unichemIdentifierExists(Unichem::SOURCE_CHEMBL, $value);
     }
 }

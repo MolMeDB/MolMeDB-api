@@ -15,8 +15,11 @@ use App\Rules\UploadFile\PassiveInteractions\ColumnLogK;
 use App\Rules\UploadFile\PassiveInteractions\ColumnLogPerm;
 use App\Rules\UploadFile\PassiveInteractions\ColumnXmin;
 use App\ValueObjects\UploadQueueConfig;
+use DateTimeInterface;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Throwable;
 
 class UploadQueueDetailedValidator
 {
@@ -29,7 +32,7 @@ class UploadQueueDetailedValidator
         private readonly UploadQueueCsvParser $csvParser,
     ) {}
 
-    public function validate(UploadQueue $record): array
+    public function validate(UploadQueue $record, ?DateTimeInterface $deadline = null): array
     {
         $disk = $record->file?->storage;
         if (! is_string($disk) || trim($disk) === '') {
@@ -42,7 +45,7 @@ class UploadQueueDetailedValidator
         }
 
         $path = $record->file?->path;
-        if (! is_string($path) || $path === '' || ! Storage::disk($disk)->exists($path)) {
+        if (! is_string($path) || $path === '') {
             return [
                 'ok' => false,
                 'errors' => ['Uploaded file was not found on storage.'],
@@ -51,7 +54,23 @@ class UploadQueueDetailedValidator
             ];
         }
 
-        $stream = Storage::disk($disk)->readStream($path);
+        // Long-running queue workers keep a resolved disk (and its underlying connection,
+        // e.g. SFTP) cached for the lifetime of the worker process. Forcing a fresh resolve
+        // here avoids reusing a connection that died since the last job this worker ran.
+        Storage::forgetDisk($disk);
+
+        try {
+            $stream = Storage::disk($disk)->readStream($path);
+        } catch (Throwable $throwable) {
+            Log::channel('upload')->warning('Failed to open uploaded file for detailed validation.', [
+                'record_id' => $record->id,
+                'disk' => $disk,
+                'path' => $path,
+                'exception' => $throwable->getMessage(),
+            ]);
+            $stream = false;
+        }
+
         if (! $stream) {
             return [
                 'ok' => false,
@@ -61,30 +80,10 @@ class UploadQueueDetailedValidator
             ];
         }
 
-        $rows = [];
-        while (($line = fgets($stream)) !== false) {
-            $line = mb_convert_encoding($line, 'UTF-8', 'auto');
-            $line = trim($line);
-            if ($line === '') {
-                continue;
-            }
-            $rows[] = $line;
-        }
-        fclose($stream);
-
         $configured = $record->config->toArray();
         $hasManualConfig = is_array($configured['attributes'] ?? null) &&
             isset($configured['separator']) &&
             isset($configured['skip_first_row']);
-
-        if (! $hasManualConfig && count($rows) < 2) {
-            return [
-                'ok' => false,
-                'errors' => ['File must contain a header and at least one data row.'],
-                'warnings' => [],
-                'config' => null,
-            ];
-        }
 
         if ($hasManualConfig) {
             $separator = $this->csvParser->normalizeSeparator((string) $configured['separator']);
@@ -97,25 +96,45 @@ class UploadQueueDetailedValidator
             }, $configured['attributes']);
 
             $skipFirstRow = (int) $configured['skip_first_row'] === 1 ? 1 : 0;
-            $dataLines = $skipFirstRow === 1 ? array_slice($rows, 1) : $rows;
+            $firstDataLine = $skipFirstRow === 1 ? 2 : 1;
+            $currentLineNumber = 0;
         } else {
-            $separator = $this->detectSeparator($rows[0]);
-            $headerRow = $this->csvParser->parseLine($rows[0], $separator);
-            $columnKeys = $this->buildColumnMapping($record, $headerRow);
-            $dataLines = array_slice($rows, 1);
-        }
+            $headerLine = null;
+            $currentLineNumber = 0;
 
-        if (count($dataLines) < 1) {
-            return [
-                'ok' => false,
-                'errors' => ['File does not contain rows for validation.'],
-                'warnings' => [],
-                'config' => null,
-            ];
+            while (($line = fgets($stream)) !== false) {
+                $currentLineNumber++;
+                $line = $this->normalizeLine($line);
+                if ($line === '') {
+                    continue;
+                }
+
+                $headerLine = $line;
+                break;
+            }
+
+            if ($headerLine === null) {
+                fclose($stream);
+
+                return [
+                    'ok' => false,
+                    'errors' => ['File must contain a header and at least one data row.'],
+                    'warnings' => [],
+                    'config' => null,
+                ];
+            }
+
+            $separator = $this->detectSeparator($headerLine);
+            $headerRow = $this->csvParser->parseLine($headerLine, $separator);
+            $columnKeys = $this->buildColumnMapping($record, $headerRow);
+            $skipFirstRow = 1;
+            $firstDataLine = $currentLineNumber + 1;
         }
 
         $requiredError = $this->validateRequiredColumns($record, $columnKeys);
         if ($requiredError !== null) {
+            fclose($stream);
+
             return [
                 'ok' => false,
                 'errors' => [$requiredError],
@@ -124,6 +143,11 @@ class UploadQueueDetailedValidator
             ];
         }
 
+        $progress = $this->resumeProgress($record, $separator, $columnKeys, $firstDataLine);
+        $nextLine = $progress['next_line'];
+        $validatedRows = $progress['validated_rows'];
+        $processedRows = $progress['processed_rows'];
+        $skippedDuplicateRows = $progress['skipped_duplicate_rows'];
         $validators = $this->validatorsByKey($record);
         $errors = [];
         $rowErrors = [];
@@ -131,16 +155,23 @@ class UploadQueueDetailedValidator
         $maxErrors = 20;
         $maxRowErrors = 20;
         $maxWarnings = 20;
-        $skippedDuplicateRows = 0;
-        $rowIndex = $hasManualConfig
-            ? ((int) ($configured['skip_first_row'] ?? 0) === 1 ? 1 : 0)
-            : 1;
-        foreach ($dataLines as $line) {
-            $rowIndex++;
+        $rowsSinceProgressSave = 0;
+
+        while (($line = fgets($stream)) !== false) {
+            $currentLineNumber++;
+            $line = $this->normalizeLine($line);
+            if ($line === '') {
+                continue;
+            }
+
+            if ($currentLineNumber < $nextLine) {
+                continue;
+            }
+
             $rawValues = $this->csvParser->parseLine($line, $separator);
 
             if (count($rawValues) !== count($columnKeys)) {
-                $errors[] = "Line {$rowIndex}: number of values does not match header column count.";
+                $errors[] = "Line {$currentLineNumber}: number of values does not match header column count.";
                 if (count($errors) >= $maxErrors) {
                     break;
                 }
@@ -168,7 +199,7 @@ class UploadQueueDetailedValidator
             $validator = Validator::make($row, $rules);
             if ($validator->fails()) {
                 foreach ($validator->errors()->all() as $message) {
-                    $errors[] = "Line {$rowIndex}: {$message}";
+                    $errors[] = "Line {$currentLineNumber}: {$message}";
                     if (count($errors) >= $maxErrors) {
                         break 2;
                     }
@@ -177,8 +208,22 @@ class UploadQueueDetailedValidator
                 continue;
             }
 
+            $validatedRows++;
+            $processedRows++;
+            $rowsSinceProgressSave++;
             $duplicate = $this->duplicateForRow($record, $row);
             if ($duplicate === null) {
+                if ($this->shouldSaveProgress($rowsSinceProgressSave, $deadline)) {
+                    $this->saveProgress($record, $separator, $columnKeys, $firstDataLine, $currentLineNumber + 1, $validatedRows, $processedRows, $skippedDuplicateRows);
+                    $rowsSinceProgressSave = 0;
+                }
+
+                if ($this->deadlineReached($deadline)) {
+                    fclose($stream);
+
+                    return $this->deferredResult($currentLineNumber + 1, $validatedRows, $processedRows);
+                }
+
                 continue;
             }
 
@@ -186,18 +231,36 @@ class UploadQueueDetailedValidator
 
             if ($duplicate['status'] === 'same') {
                 if (count($warnings) < $maxWarnings) {
-                    $warnings[] = $this->duplicateWarningMessage($rowIndex, $duplicate['existing_id']);
+                    $warnings[] = $this->duplicateWarningMessage($currentLineNumber, $duplicate['existing_id']);
                 }
-
-                continue;
+            } elseif (count($rowErrors) < $maxRowErrors) {
+                $rowErrors[] = $this->duplicateConflictMessage($currentLineNumber, $duplicate['existing_id'], $duplicate['differences']);
             }
 
-            if (count($rowErrors) < $maxRowErrors) {
-                $rowErrors[] = $this->duplicateConflictMessage($rowIndex, $duplicate['existing_id'], $duplicate['differences']);
+            if ($this->shouldSaveProgress($rowsSinceProgressSave, $deadline)) {
+                $this->saveProgress($record, $separator, $columnKeys, $firstDataLine, $currentLineNumber + 1, $validatedRows, $processedRows, $skippedDuplicateRows);
+                $rowsSinceProgressSave = 0;
+            }
+
+            if ($this->deadlineReached($deadline)) {
+                fclose($stream);
+
+                return $this->deferredResult($currentLineNumber + 1, $validatedRows, $processedRows);
             }
         }
 
-        if ($skippedDuplicateRows === count($dataLines)) {
+        fclose($stream);
+
+        if ($processedRows < 1) {
+            return [
+                'ok' => false,
+                'errors' => ['File does not contain rows for validation.'],
+                'warnings' => [],
+                'config' => null,
+            ];
+        }
+
+        if ($skippedDuplicateRows === $processedRows) {
             $errors[] = 'All rows would be skipped because they already exist in the database. There is nothing to import.';
             $errors = array_values(array_unique(array_merge($errors, $rowErrors, $warnings)));
         }
@@ -212,6 +275,9 @@ class UploadQueueDetailedValidator
             ];
         }
 
+        $record->config = $record->config->withoutProcessingProgress();
+        $record->save();
+
         return [
             'ok' => true,
             'errors' => [],
@@ -219,15 +285,112 @@ class UploadQueueDetailedValidator
             'warnings' => $warnings,
             'config' => UploadQueueConfig::configured(
                 $separator,
-                $hasManualConfig ? ((int) ($configured['skip_first_row'] ?? 0) === 1 ? 1 : 0) : 1,
+                $skipFirstRow,
                 $columnKeys,
             )
                 ->withDetailedValidation(
                     true,
-                    count($dataLines),
+                    $validatedRows,
                     now()->toISOString(),
                 )
+                ->withoutProcessingProgress()
                 ->toArray(),
+        ];
+    }
+
+    private function normalizeLine(string $line): string
+    {
+        return trim(mb_convert_encoding($line, 'UTF-8', 'auto'));
+    }
+
+    /**
+     * @param  array<int, string|null>  $columnKeys
+     * @return array{next_line: int, validated_rows: int, processed_rows: int, skipped_duplicate_rows: int}
+     */
+    private function resumeProgress(UploadQueue $record, string $separator, array $columnKeys, int $firstDataLine): array
+    {
+        $progress = $record->config->processingProgress();
+        $configHash = $this->validationConfigHash($separator, $columnKeys, $firstDataLine);
+
+        if (($progress['phase'] ?? null) !== 'detailed_validation' || ($progress['config_hash'] ?? null) !== $configHash) {
+            return [
+                'next_line' => $firstDataLine,
+                'validated_rows' => 0,
+                'processed_rows' => 0,
+                'skipped_duplicate_rows' => 0,
+            ];
+        }
+
+        return [
+            'next_line' => max($firstDataLine, (int) ($progress['next_line'] ?? $firstDataLine)),
+            'validated_rows' => max(0, (int) ($progress['validated_rows'] ?? 0)),
+            'processed_rows' => max(0, (int) ($progress['processed_rows'] ?? 0)),
+            'skipped_duplicate_rows' => max(0, (int) ($progress['skipped_duplicate_rows'] ?? 0)),
+        ];
+    }
+
+    /**
+     * @param  array<int, string|null>  $columnKeys
+     */
+    private function saveProgress(
+        UploadQueue $record,
+        string $separator,
+        array $columnKeys,
+        int $firstDataLine,
+        int $nextLine,
+        int $validatedRows,
+        int $processedRows,
+        int $skippedDuplicateRows,
+    ): void {
+        $record->config = $record->config->withProcessingProgress([
+            'phase' => 'detailed_validation',
+            'config_hash' => $this->validationConfigHash($separator, $columnKeys, $firstDataLine),
+            'next_line' => $nextLine,
+            'validated_rows' => $validatedRows,
+            'processed_rows' => $processedRows,
+            'skipped_duplicate_rows' => $skippedDuplicateRows,
+            'heartbeat_at' => now()->toISOString(),
+        ]);
+
+        $record->save();
+    }
+
+    /**
+     * @param  array<int, string|null>  $columnKeys
+     */
+    private function validationConfigHash(string $separator, array $columnKeys, int $firstDataLine): string
+    {
+        return hash('sha256', json_encode([
+            'separator' => $separator,
+            'column_keys' => array_values($columnKeys),
+            'first_data_line' => $firstDataLine,
+        ], JSON_THROW_ON_ERROR));
+    }
+
+    private function shouldSaveProgress(int $rowsSinceProgressSave, ?DateTimeInterface $deadline): bool
+    {
+        return $rowsSinceProgressSave >= 100 || $this->deadlineReached($deadline);
+    }
+
+    private function deadlineReached(?DateTimeInterface $deadline): bool
+    {
+        return $deadline !== null && now()->greaterThanOrEqualTo($deadline);
+    }
+
+    /**
+     * @return array{ok: false, deferred: true, next_line: int, validated_rows: int, processed_rows: int, errors: array<int, string>, warnings: array<int, string>, config: null}
+     */
+    private function deferredResult(int $nextLine, int $validatedRows, int $processedRows): array
+    {
+        return [
+            'ok' => false,
+            'deferred' => true,
+            'next_line' => $nextLine,
+            'validated_rows' => $validatedRows,
+            'processed_rows' => $processedRows,
+            'errors' => [],
+            'warnings' => [],
+            'config' => null,
         ];
     }
 

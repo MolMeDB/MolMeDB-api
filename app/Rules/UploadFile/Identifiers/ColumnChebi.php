@@ -3,8 +3,7 @@
 namespace App\Rules\UploadFile\Identifiers;
 
 use App\Rules\UploadFile\ColumnTypeInterface;
-use App\Services\External\Chemical\Chebi\Chebi;
-use App\Services\External\Chemical\Unichem\Unichem;
+use App\Services\UploadQueueExternalLookupCache;
 use Closure;
 
 class ColumnChebi implements ColumnTypeInterface
@@ -40,8 +39,6 @@ class ColumnChebi implements ColumnTypeInterface
 
     public function exists_remotely(string $value): bool
     {
-        $chebi = new Chebi;
-
-        return $chebi->existsById($value);
+        return app(UploadQueueExternalLookupCache::class)->chebiIdentifierExists($value);
     }
 }

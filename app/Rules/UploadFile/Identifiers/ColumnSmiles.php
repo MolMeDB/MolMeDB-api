@@ -3,8 +3,8 @@
 namespace App\Rules\UploadFile\Identifiers;
 
 use App\Rules\UploadFile\ColumnTypeInterface;
+use App\Services\UploadQueueExternalLookupCache;
 use Closure;
-use Modules\Rdkit\Rdkit;
 
 class ColumnSmiles implements ColumnTypeInterface
 {
@@ -24,15 +24,11 @@ class ColumnSmiles implements ColumnTypeInterface
         $maxLength = self::$maxLength;
         if (! is_string($value) || empty($value) || strlen($value) > $maxLength || strlen($value) < 1) {
             $fail('Column '.self::$label." must be a string between 1 and $maxLength characters.");
+
+            return;
         }
 
-        $rdkit = new Rdkit;
-
-        if (! $rdkit->is_connected()) {
-            $fail('RDKit service is not available for validating '.self::$label.' column.');
-        }
-
-        if (! $rdkit->canonize_smiles($value)) {
+        if (! app(UploadQueueExternalLookupCache::class)->canonicalSmiles($value)) {
             $fail('Column '.self::$label.' contains invalid SMILES string.');
         }
     }

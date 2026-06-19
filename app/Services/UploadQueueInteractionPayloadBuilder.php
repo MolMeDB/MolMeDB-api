@@ -9,7 +9,6 @@ use App\Models\Protein;
 use App\Models\Publication;
 use App\Models\Structure;
 use App\Models\UploadQueue;
-use Modules\Rdkit\Rdkit;
 use Modules\References\EuropePMC\Enums\Sources;
 use RuntimeException;
 
@@ -17,9 +16,34 @@ class UploadQueueInteractionPayloadBuilder
 {
     private const DEFAULT_ACTIVE_CATEGORY_TITLE = 'Unassigned';
 
+    /**
+     * Per-instance memoization caches. An upload file commonly repeats the same
+     * compound/protein/publication across many rows, so without these caches
+     * every row pays for a fresh RDKit call and several DB lookups.
+     *
+     * @var array<string, string>
+     */
+    private array $canonicalSmilesCache = [];
+
+    /**
+     * @var array<string, int|null>
+     */
+    private array $structureResolutionCache = [];
+
+    /**
+     * @var array<string, int|null>
+     */
+    private array $proteinResolutionCache = [];
+
+    /**
+     * @var array<string, int|null>
+     */
+    private array $publicationResolutionCache = [];
+
     public function __construct(
         private readonly UploadQueueColumnRegistry $columns,
         private readonly PublicationReferenceResolver $publicationResolver,
+        private readonly UploadQueueExternalLookupCache $externalLookupCache,
     ) {}
 
     /**
@@ -100,25 +124,6 @@ class UploadQueueInteractionPayloadBuilder
      */
     private function resolveStructureId(array $row, ?UploadQueue $record, bool $createMissingStructure): ?int
     {
-        $structure = null;
-        $smiles = trim($row['smiles'] ?? '');
-
-        if ($smiles !== '') {
-            $rdkit = new Rdkit;
-            $canonicalSmiles = $rdkit->canonize_smiles($smiles);
-            if (! $canonicalSmiles) {
-                throw new RuntimeException('Unable to canonize SMILES for imported row. Check RDKit service availability and SMILES validity.');
-            }
-
-            $smiles = $canonicalSmiles;
-        }
-
-        if ($smiles !== '') {
-            $structure = Structure::withTrashed()
-                ->where('canonical_smiles', $smiles)
-                ->first();
-        }
-
         $identifierColumns = [
             'pubchem' => Identifier::TYPE_PUBCHEM,
             'chembl' => Identifier::TYPE_CHEMBL,
@@ -127,6 +132,24 @@ class UploadQueueInteractionPayloadBuilder
             'chebi' => Identifier::TYPE_CHEBI,
             'name' => Identifier::TYPE_NAME,
         ];
+
+        $cacheKey = $this->structureResolutionCacheKey($row, $identifierColumns, $createMissingStructure);
+        if (array_key_exists($cacheKey, $this->structureResolutionCache)) {
+            return $this->structureResolutionCache[$cacheKey];
+        }
+
+        $structure = null;
+        $smiles = trim($row['smiles'] ?? '');
+
+        if ($smiles !== '') {
+            $smiles = $this->canonizeSmiles($smiles);
+        }
+
+        if ($smiles !== '') {
+            $structure = Structure::withTrashed()
+                ->where('canonical_smiles', $smiles)
+                ->first();
+        }
 
         foreach ($identifierColumns as $column => $type) {
             if ($structure || ! isset($row[$column])) {
@@ -162,7 +185,38 @@ class UploadQueueInteractionPayloadBuilder
             ));
         }
 
-        return $structure ? (int) $structure->id : null;
+        return $this->structureResolutionCache[$cacheKey] = $structure ? (int) $structure->id : null;
+    }
+
+    private function canonizeSmiles(string $smiles): string
+    {
+        if (array_key_exists($smiles, $this->canonicalSmilesCache)) {
+            return $this->canonicalSmilesCache[$smiles];
+        }
+
+        $canonicalSmiles = $this->externalLookupCache->canonicalSmiles($smiles);
+        if (! $canonicalSmiles) {
+            throw new RuntimeException('Unable to canonize SMILES for imported row. Check RDKit service availability and SMILES validity.');
+        }
+
+        return $this->canonicalSmilesCache[$smiles] = $canonicalSmiles;
+    }
+
+    /**
+     * @param  array<string, string>  $row
+     * @param  array<string, int>  $identifierColumns
+     */
+    private function structureResolutionCacheKey(array $row, array $identifierColumns, bool $createMissingStructure): string
+    {
+        $parts = [trim($row['smiles'] ?? '')];
+
+        foreach (array_keys($identifierColumns) as $column) {
+            $parts[] = trim($row[$column] ?? '');
+        }
+
+        $parts[] = $createMissingStructure ? '1' : '0';
+
+        return implode('|', $parts);
     }
 
     /**
@@ -175,6 +229,11 @@ class UploadQueueInteractionPayloadBuilder
             throw new RuntimeException('Unable to resolve protein: target column is empty.');
         }
 
+        $cacheKey = mb_strtolower($target).'|'.($createMissingProtein ? '1' : '0');
+        if (array_key_exists($cacheKey, $this->proteinResolutionCache)) {
+            return $this->proteinResolutionCache[$cacheKey];
+        }
+
         $protein = Protein::withTrashed()
             ->whereRaw('LOWER(uniprot_id) = ?', [mb_strtolower($target)])
             ->first();
@@ -185,7 +244,7 @@ class UploadQueueInteractionPayloadBuilder
             ]);
         }
 
-        return $protein ? (int) $protein->id : null;
+        return $this->proteinResolutionCache[$cacheKey] = $protein ? (int) $protein->id : null;
     }
 
     private function defaultActiveCategoryId(): int
@@ -207,12 +266,18 @@ class UploadQueueInteractionPayloadBuilder
     private function resolvePublicationId(UploadQueue $record, array $row, bool $createMissingPublication): ?int
     {
         $reference = $this->publicationResolver->normalizeReference($row['primaryReference'] ?? '');
+
         if ($reference !== '') {
-            if (! $createMissingPublication) {
-                return $this->findPublicationId($reference) ?? -1;
+            $cacheKey = mb_strtolower($reference).'|'.($createMissingPublication ? '1' : '0');
+            if (array_key_exists($cacheKey, $this->publicationResolutionCache)) {
+                return $this->publicationResolutionCache[$cacheKey];
             }
 
-            return (int) $this->publicationResolver->resolveOrCreatePublication($reference)->id;
+            if (! $createMissingPublication) {
+                return $this->publicationResolutionCache[$cacheKey] = $this->findPublicationId($reference) ?? -1;
+            }
+
+            return $this->publicationResolutionCache[$cacheKey] = (int) $this->publicationResolver->resolveOrCreatePublication($reference)->id;
         }
 
         $sourcePublicationId = $record->config['source_publication_id'] ?? null;

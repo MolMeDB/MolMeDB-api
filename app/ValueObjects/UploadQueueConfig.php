@@ -46,6 +46,8 @@ class UploadQueueConfig implements Arrayable, ArrayAccess, Countable, IteratorAg
 
     public const ADMIN_REVIEW_REJECTED_REASON = 'admin_review_rejected_reason';
 
+    public const PROCESSING_PROGRESS = 'processing_progress';
+
     /**
      * @param  array<string, mixed>  $values
      */
@@ -91,6 +93,7 @@ class UploadQueueConfig implements Arrayable, ArrayAccess, Countable, IteratorAg
             self::ATTRIBUTES,
             self::SEPARATOR,
             self::SKIP_FIRST_ROW,
+            self::PROCESSING_PROGRESS,
         );
     }
 
@@ -129,6 +132,7 @@ class UploadQueueConfig implements Arrayable, ArrayAccess, Countable, IteratorAg
             self::ADMIN_REVIEW_APPROVED_AT,
             self::ADMIN_REVIEW_REJECTED_AT,
             self::ADMIN_REVIEW_REJECTED_REASON,
+            self::PROCESSING_PROGRESS,
         )->merge([
             self::DETAILED_VALIDATION_OK => false,
             self::DETAILED_VALIDATION_AT => null,
@@ -218,6 +222,31 @@ class UploadQueueConfig implements Arrayable, ArrayAccess, Countable, IteratorAg
         $reason = $this->values[self::ADMIN_REVIEW_REJECTED_REASON] ?? null;
 
         return is_string($reason) && trim($reason) !== '' ? $reason : null;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function processingProgress(): array
+    {
+        $progress = $this->values[self::PROCESSING_PROGRESS] ?? [];
+
+        return is_array($progress) ? $progress : [];
+    }
+
+    /**
+     * @param  array<string, mixed>  $progress
+     */
+    public function withProcessingProgress(array $progress): self
+    {
+        return $this->merge([
+            self::PROCESSING_PROGRESS => $progress,
+        ]);
+    }
+
+    public function withoutProcessingProgress(): self
+    {
+        return $this->without(self::PROCESSING_PROGRESS);
     }
 
     public function markAdminReviewApproved(string $approvedAt): self

@@ -17,6 +17,7 @@ export interface IUploadQueue {
   file?: IFile,
   last_message?: string,
   config?: IUploadQueueConfig,
+  processing_progress?: IUploadQueueProgress | null,
   logs: {
     message: string,
     context?: 'error' | 'success' | 'warning' | 'info',
@@ -33,4 +34,16 @@ export interface IUploadQueueConfig {
   separator: string,
   skip_first_row: number,
   attributes: []
+}
+
+export interface IUploadQueueProgress {
+  phase?: 'detailed_validation' | 'import' | string | null,
+  mode?: string | null,
+  processed_rows: number,
+  created_rows?: number | null,
+  skipped_rows?: number | null,
+  next_line?: number | null,
+  total_rows?: number | null,
+  percent?: number | null,
+  heartbeat_at?: string | null
 }

@@ -16,8 +16,10 @@ use App\Rules\UploadFile\PassiveInteractions\ColumnLogK;
 use App\Rules\UploadFile\PassiveInteractions\ColumnLogPerm;
 use App\Rules\UploadFile\PassiveInteractions\ColumnXmin;
 use App\ValueObjects\UploadQueueConfig;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Throwable;
 
 class UploadQueueFrontendConfigurator
 {
@@ -217,7 +219,7 @@ class UploadQueueFrontendConfigurator
                     if ((new $validatorClass)->isOutOfLimits($row[$validatorClass::$key], $record->dataset?->method)) {
                         $warnings[$validatorClass::$key] = 'Some values for column '.$validatorClass::$label.' are out of method limits.';
                     }
-                } catch (\Throwable) {
+                } catch (Throwable) {
                     // Warnings are best-effort only.
                 }
             }
@@ -263,11 +265,26 @@ class UploadQueueFrontendConfigurator
             return false;
         }
 
-        if (! is_string($path) || $path === '' || ! Storage::disk($disk)->exists($path)) {
+        if (! is_string($path) || $path === '') {
             return false;
         }
 
-        return Storage::disk($disk)->readStream($path);
+        // Force a fresh disk/connection resolve instead of reusing one cached by a
+        // long-lived process (see UploadQueueImporter::readMappedRows() for details).
+        Storage::forgetDisk($disk);
+
+        try {
+            return Storage::disk($disk)->readStream($path);
+        } catch (Throwable $throwable) {
+            Log::channel('upload')->warning('Failed to open uploaded file for frontend configuration.', [
+                'record_id' => $record->id,
+                'disk' => $disk,
+                'path' => $path,
+                'exception' => $throwable->getMessage(),
+            ]);
+
+            return false;
+        }
     }
 
     /**

@@ -285,6 +285,7 @@ class UploadQueueResource extends Resource
                 ->action(function (UploadQueue $record) {
                     return $record->revert();
                 })
+                ->successRedirectUrl(fn (UploadQueue $record): string => static::editUrl($record))
                 ->modalDescription('This will remove all already added information for the whole dataset. If the dataset has multiple assigned files, all of their uploads will be reverted.')
                 ->modalHeading('Revert upload process?')
                 ->modalIcon(IconEnums::RESTORE->value)
@@ -335,6 +336,7 @@ class UploadQueueResource extends Resource
                     ->success()
                     ->send();
             })
+            ->successRedirectUrl(fn (UploadQueue $record): string => static::editUrl($record))
             ->hidden(fn (UploadQueue $record) => ! $record->canBeReviewedByAdmin());
     }
 
@@ -362,6 +364,7 @@ class UploadQueueResource extends Resource
                     ->danger()
                     ->send();
             })
+            ->successRedirectUrl(fn (UploadQueue $record): string => static::editUrl($record))
             ->hidden(fn (UploadQueue $record) => ! $record->canBeReviewedByAdmin());
     }
 
@@ -401,6 +404,11 @@ class UploadQueueResource extends Resource
         }
 
         return UploadQueue::$ui_enum_states[$state] ?? UploadQueue::enumState($state);
+    }
+
+    private static function editUrl(UploadQueue $record): string
+    {
+        return static::getUrl('edit', ['record' => $record]);
     }
 
     /**
