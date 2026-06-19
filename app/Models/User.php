@@ -3,14 +3,17 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Database\Factories\UserFactory;
+
+use App\Enums\PermissionEnums;
 use App\Enums\RoleEnums;
+use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasAvatar;
 use Filament\Models\Contracts\HasName;
 use Filament\Panel;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -19,11 +22,12 @@ use Illuminate\Notifications\Notification;
 use Spatie\Activitylog\Traits\CausesActivity;
 use Spatie\Permission\Traits\HasRoles;
 
-class User extends Authenticatable implements MustVerifyEmail, FilamentUser, HasName, HasAvatar
+class User extends Authenticatable implements FilamentUser, HasAvatar, HasName, MustVerifyEmail
 {
+    use CausesActivity, HasRoles;
+
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable, SoftDeletes;
-    use HasRoles, CausesActivity;
 
     /**
      * The attributes that are mass assignable.
@@ -34,7 +38,7 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser, Has
         'name',
         'email',
         'password',
-        'affiliation'
+        'affiliation',
     ];
 
     /**
@@ -57,10 +61,10 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser, Has
 
     public function canAccessPanel(Panel $panel): bool
     {
-        return $this->hasRole(RoleEnums::ADMIN->value);
+        return $this->hasPermissionTo(PermissionEnums::ADMIN_PANEL->value);
     }
 
-    public function hasAdminRole(): bool 
+    public function hasAdminRole(): bool
     {
         return $this->hasRole(RoleEnums::ADMIN->value);
     }
@@ -72,9 +76,11 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser, Has
 
     public function getFilamentAvatarUrl(): ?string
     {
-        if(!$this->name) return null;
+        if (! $this->name) {
+            return null;
+        }
 
-        return 'https://ui-avatars.com/api/?name=' . urlencode($this->name);
+        return 'https://ui-avatars.com/api/?name='.urlencode($this->name);
     }
 
     /**
@@ -101,13 +107,13 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser, Has
     /**
      * Route notifications for the mail channel.
      *
-     * @return  array<string, string>|string
+     * @return array<string, string>|string
      */
     public function routeNotificationForMail(Notification $notification): array|string
     {
         // Return email address only...
         return $this->email;
- 
+
         // Return email address and name...
         return [$this->email => $this->name];
     }
@@ -115,23 +121,28 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser, Has
     /**
      * Returns identifiers added by current user
      */
-    public function identifiers() : MorphMany
+    public function identifiers(): MorphMany
     {
         return $this->morphMany(Identifier::class, 'source');
     }
 
-    public function name() : ?string
+    public function name(): ?string
     {
         return $this->name;
     }
 
-    public function getPrettyNameAttribute() : ?string
+    public function getPrettyNameAttribute(): ?string
     {
-        return $this->name . " ($this->email)";
+        return $this->name." ($this->email)";
     }
 
-    public function logs() : MorphMany
+    public function logs(): MorphMany
     {
         return $this->actions();
+    }
+
+    public function feedbackSubmissions(): HasMany
+    {
+        return $this->hasMany(FeedbackSubmission::class);
     }
 }

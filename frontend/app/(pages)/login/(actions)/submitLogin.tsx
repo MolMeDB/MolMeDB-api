@@ -12,6 +12,7 @@ export default async function submitLogin(
   const rawFormData = {
     email: formData.get("email"),
     password: formData.get("password"),
+    remember: formData.get("remember") === "on",
   };
 
   let redirectTo = formData.get("redirectTo")?.toString() ?? false;
@@ -36,12 +37,19 @@ export default async function submitLogin(
 
     const response = await result2.json();
     const data = response?.data;
+    const authMeta = response?.meta;
 
     if (!data.id || !data.name || !data.email) {
       throw new Error("Invalid user response.");
     }
 
-    await Cookie.setUserData(data);
+    await Cookie.setUserData(data, {
+      expiresAt:
+        typeof authMeta?.session_expires_at === "string"
+          ? authMeta.session_expires_at
+          : undefined,
+      remember: Boolean(authMeta?.remember),
+    });
     redirectTo = redirectTo ? redirectTo : "/lab";
   } catch (error) {
     console.error(error);

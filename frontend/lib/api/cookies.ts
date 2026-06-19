@@ -6,17 +6,43 @@ import { UserSession } from "./admin/interfaces/User";
 const SECRET_KEY = process.env.JWT_SECRET || "SECRET";
 const USER_SESSION_KEY = process.env
   .COOKIES_FRONTEND_SESSION_USER_KEY as string;
+const DEFAULT_COOKIE_MAX_AGE = 60 * 60 * 24;
 
 export const DEFAULT_COOKIES_CONFIG = {
   httpOnly: true, // Not accesible from javascript if true
   secure: process.env.NODE_ENV === "production", // Pouze přes HTTPS
   sameSite: "strict",
   path: "/",
-  maxAge: 60 * 60 * 24, // 1 den
+  maxAge: DEFAULT_COOKIE_MAX_AGE, // 1 den
 } as ResponseCookie;
 
-function sign(data: object) {
-  return jwt.sign(data, SECRET_KEY, { expiresIn: "1d" });
+type UserCookieOptions = {
+  expiresAt?: string;
+  remember?: boolean;
+};
+
+function maxAgeFromExpiresAt(expiresAt?: string): number | null {
+  if (!expiresAt) {
+    return null;
+  }
+
+  const expiresAtTime = Date.parse(expiresAt);
+  if (!Number.isFinite(expiresAtTime)) {
+    return null;
+  }
+
+  return Math.max(1, Math.floor((expiresAtTime - Date.now()) / 1000));
+}
+
+function userCookieMaxAge(options: UserCookieOptions = {}): number {
+  return (
+    maxAgeFromExpiresAt(options.expiresAt) ??
+    (options.remember ? 60 * 60 * 24 * 365 * 5 : DEFAULT_COOKIE_MAX_AGE)
+  );
+}
+
+function sign(data: object, maxAge = DEFAULT_COOKIE_MAX_AGE) {
+  return jwt.sign(data, SECRET_KEY, { expiresIn: maxAge });
 }
 
 function unsign(token: string) {
@@ -57,7 +83,7 @@ function normalizeUserData(data: unknown): UserSession | null {
   };
 }
 
-async function setUserData(data: object) {
+async function setUserData(data: object, options: UserCookieOptions = {}) {
   "use server";
   const user = normalizeUserData(data);
 
@@ -66,7 +92,12 @@ async function setUserData(data: object) {
   }
 
   const cookiesStore = await cookies();
-  cookiesStore.set(USER_SESSION_KEY, sign(user), DEFAULT_COOKIES_CONFIG);
+  const maxAge = userCookieMaxAge(options);
+
+  cookiesStore.set(USER_SESSION_KEY, sign(user, maxAge), {
+    ...DEFAULT_COOKIES_CONFIG,
+    maxAge,
+  });
 }
 
 async function getUserData() {

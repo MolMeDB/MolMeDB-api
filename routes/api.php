@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\DocumentationController;
+use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\InteractionActiveController;
 use App\Http\Controllers\InteractionPassiveController;
 use App\Http\Controllers\LabUploadController;
@@ -109,6 +110,15 @@ Route::prefix('/api')->group(function () {
         ->group(function () {
             Route::get('/', 'index');
             Route::get('/publications', 'publications');
+        });
+
+    Route::prefix('feedback')
+        ->controller(FeedbackController::class)
+        ->group(function () {
+            Route::post('/', 'storeGuest')->middleware('throttle:10,1');
+            Route::post('/authenticated', 'storeAuthenticated')->middleware(['auth:sanctum', 'throttle:10,1']);
+            Route::post('/email-verification', 'requestEmailVerification')->middleware('throttle:5,1');
+            Route::post('/email-verification/verify', 'verifyEmail')->middleware('throttle:10,1');
         });
 
     Route::prefix('lab/upload')

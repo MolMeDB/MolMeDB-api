@@ -2,6 +2,7 @@
 import { cookies as Cookies } from "next/headers";
 import { headers as Headers } from "next/headers";
 import { DEFAULT_COOKIES_CONFIG } from "../cookies";
+import { ResponseCookie } from "next/dist/compiled/@edge-runtime/cookies";
 import { selectedValuesToSearchParamsString } from "@/utils/searchParams";
 import HttpJsonResponse from "./interfaces/http/jsonResponse";
 import { redirect } from "next/navigation";
@@ -16,14 +17,135 @@ type BackendCookies = {
   xsrfToken: string;
 };
 
-function getSetCookieValue(cookies: string, name: string): string | null {
-  const match = cookies.match(new RegExp(`${name}=([^;]+)`));
+type ParsedSetCookie = {
+  name: string;
+  value: string;
+  options: Partial<ResponseCookie>;
+};
 
-  if (!match?.[1]) {
+function splitSetCookieHeader(header: string): string[] {
+  const cookies: string[] = [];
+  let start = 0;
+  let inExpires = false;
+
+  for (let index = 0; index < header.length; index++) {
+    const char = header[index];
+    const slice = header.slice(index, index + 9).toLowerCase();
+
+    if (slice === "expires=") {
+      inExpires = true;
+    }
+
+    if (inExpires && char === ";") {
+      inExpires = false;
+    }
+
+    if (!inExpires && char === "," && header[index + 1] === " ") {
+      cookies.push(header.slice(start, index).trim());
+      start = index + 2;
+    }
+  }
+
+  const lastCookie = header.slice(start).trim();
+  if (lastCookie) {
+    cookies.push(lastCookie);
+  }
+
+  return cookies;
+}
+
+function setCookieHeaders(res: Response): string[] {
+  const getSetCookie = (
+    res.headers as globalThis.Headers & { getSetCookie?: () => string[] }
+  ).getSetCookie;
+
+  if (typeof getSetCookie === "function") {
+    return getSetCookie.call(res.headers);
+  }
+
+  const header = res.headers.get("set-cookie");
+
+  return header ? splitSetCookieHeader(header) : [];
+}
+
+function parseSetCookie(header: string): ParsedSetCookie | null {
+  const parts = header.split(";").map((part) => part.trim());
+  const [nameValue, ...attributes] = parts;
+  const separatorIndex = nameValue.indexOf("=");
+
+  if (separatorIndex < 1) {
     return null;
   }
 
-  return match[1];
+  const options: Partial<ResponseCookie> = {
+    ...DEFAULT_COOKIES_CONFIG,
+  };
+
+  for (const attribute of attributes) {
+    const [rawName, ...rawValue] = attribute.split("=");
+    const name = rawName.toLowerCase();
+    const value = rawValue.join("=");
+
+    if (name === "max-age" && value !== "") {
+      options.maxAge = Number(value);
+    }
+
+    if (name === "expires" && value !== "") {
+      const expires = new Date(value);
+      if (!Number.isNaN(expires.getTime())) {
+        options.expires = expires;
+        delete options.maxAge;
+      }
+    }
+
+    if (name === "path" && value !== "") {
+      options.path = value;
+    }
+
+    if (name === "domain" && value !== "") {
+      options.domain = value;
+    }
+
+    if (name === "samesite" && value !== "") {
+      options.sameSite = value.toLowerCase() as ResponseCookie["sameSite"];
+    }
+
+    if (name === "secure") {
+      options.secure = true;
+    }
+
+    if (name === "httponly") {
+      options.httpOnly = true;
+    }
+  }
+
+  return {
+    name: nameValue.slice(0, separatorIndex),
+    value: nameValue.slice(separatorIndex + 1),
+    options,
+  };
+}
+
+function rememberCookiesHeader(cookies: Awaited<ReturnType<typeof Cookies>>): string {
+  return cookies
+    .getAll()
+    .filter((cookie) => cookie.name.startsWith("remember_"))
+    .map((cookie) => `${cookie.name}=${cookie.value}`)
+    .join("; ");
+}
+
+function backendCookieHeader(
+  xsrfToken?: string,
+  session?: string,
+  rememberCookies = "",
+): string {
+  return [
+    xsrfToken ? `${XSRF_KEY}=${xsrfToken}` : null,
+    session ? `${BE_SESSION_KEY}=${session}` : null,
+    rememberCookies || null,
+  ]
+    .filter(Boolean)
+    .join("; ");
 }
 
 function decodeCookieValue(value: string): string {
@@ -65,31 +187,40 @@ async function forwardedHeaders(): Promise<Record<string, string>> {
 }
 
 async function updateCookies(res: Response): Promise<BackendCookies | null> {
-  const cookies = res.headers.get("set-cookie") || "";
+  const parsedCookies = setCookieHeaders(res)
+    .map(parseSetCookie)
+    .filter((cookie): cookie is ParsedSetCookie => cookie !== null);
 
-  const XSRF_TOKEN = getSetCookieValue(cookies, XSRF_KEY);
-  const SESSION = getSetCookieValue(cookies, BE_SESSION_KEY);
+  const XSRF_TOKEN = parsedCookies.find((cookie) => cookie.name === XSRF_KEY);
+  const SESSION = parsedCookies.find((cookie) => cookie.name === BE_SESSION_KEY);
 
   if (!XSRF_TOKEN || !SESSION) {
-    console.error("No match in set-cookies response"); // TODO
-    // console.log("SET-COOKIES", cookies?.toString());
-    // console.log(res.headers.getSetCookie());
+    if (parsedCookies.length > 0) {
+      const cookiesStore = await Cookies();
+
+      for (const cookie of parsedCookies.filter((cookie) =>
+        cookie.name.startsWith("remember_"),
+      )) {
+        cookiesStore.set(cookie.name, cookie.value, cookie.options);
+      }
+    }
+
     return null;
   }
 
-  // console.log("Setting new cookies");
-  // console.log("XSRF_TOKEN", XSRF_TOKEN);
-  // console.log("SESSION", SESSION);
-
-  // Set new cookies
   const cookiesStore = await Cookies();
-  cookiesStore.set(XSRF_KEY, XSRF_TOKEN, DEFAULT_COOKIES_CONFIG);
-  cookiesStore.set(FE_SESSION_KEY, SESSION, DEFAULT_COOKIES_CONFIG);
-  // console.log("Cookies updated");
+  cookiesStore.set(XSRF_KEY, XSRF_TOKEN.value, XSRF_TOKEN.options);
+  cookiesStore.set(FE_SESSION_KEY, SESSION.value, SESSION.options);
+
+  for (const cookie of parsedCookies.filter((cookie) =>
+    cookie.name.startsWith("remember_"),
+  )) {
+    cookiesStore.set(cookie.name, cookie.value, cookie.options);
+  }
 
   return {
-    session: SESSION,
-    xsrfToken: XSRF_TOKEN,
+    session: SESSION.value,
+    xsrfToken: XSRF_TOKEN.value,
   };
 }
 
@@ -121,6 +252,7 @@ async function _post(
   const XSRF_TOKEN =
     backendCookies?.xsrfToken ?? (cks.get(XSRF_KEY)?.value as string);
   const XSRF_HEADER = XSRF_TOKEN ? decodeCookieValue(XSRF_TOKEN) : "";
+  const REMEMBER_COOKIES = rememberCookiesHeader(cks);
   const proxyHeaders = await forwardedHeaders();
 
   // console.log("POST", uri);
@@ -135,7 +267,7 @@ async function _post(
       "Content-Type": "application/json",
       Accept: "application/json",
       Referer: process.env.FRONTEND_URL as string,
-      Cookie: `${XSRF_KEY}=${XSRF_TOKEN}; ${BE_SESSION_KEY}=${SESSION}`,
+      Cookie: backendCookieHeader(XSRF_TOKEN, SESSION, REMEMBER_COOKIES),
       "X-XSRF-TOKEN": XSRF_HEADER,
       ...proxyHeaders,
     },
@@ -163,6 +295,7 @@ async function _postForm(
   const XSRF_TOKEN =
     backendCookies?.xsrfToken ?? (cks.get(XSRF_KEY)?.value as string);
   const XSRF_HEADER = XSRF_TOKEN ? decodeCookieValue(XSRF_TOKEN) : "";
+  const REMEMBER_COOKIES = rememberCookiesHeader(cks);
   const proxyHeaders = await forwardedHeaders();
 
   const result = await fetch(`${baseUrl}${uri}`, {
@@ -171,7 +304,7 @@ async function _postForm(
     headers: {
       Accept: "application/json",
       Referer: process.env.FRONTEND_URL as string,
-      Cookie: `${XSRF_KEY}=${XSRF_TOKEN}; ${BE_SESSION_KEY}=${SESSION}`,
+      Cookie: backendCookieHeader(XSRF_TOKEN, SESSION, REMEMBER_COOKIES),
       "X-XSRF-TOKEN": XSRF_HEADER,
       ...proxyHeaders,
     },
@@ -310,6 +443,7 @@ async function _get(
 
   const SESSION = cks.get(FE_SESSION_KEY)?.value as string;
   const XSRF_TOKEN = cks.get(XSRF_KEY)?.value as string;
+  const REMEMBER_COOKIES = rememberCookiesHeader(cks);
   const proxyHeaders = await forwardedHeaders();
   // Filter data
   // data = Object.fromEntries(
@@ -339,7 +473,7 @@ async function _get(
       "Content-Type": "application/json",
       Accept: "application/json",
       Referer: process.env.FRONTEND_URL as string,
-      Cookie: `${XSRF_KEY}=${XSRF_TOKEN}; ${BE_SESSION_KEY}=${SESSION}`,
+      Cookie: backendCookieHeader(XSRF_TOKEN, SESSION, REMEMBER_COOKIES),
       "X-XSRF-TOKEN": XSRF_TOKEN,
       ...proxyHeaders,
     },

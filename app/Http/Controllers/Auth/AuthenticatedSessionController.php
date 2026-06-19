@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Config;
 
 class AuthenticatedSessionController extends Controller
 {
@@ -23,7 +24,15 @@ class AuthenticatedSessionController extends Controller
 
         $user = Auth::user();
 
-        return UserResource::make($user);
+        return UserResource::make($user)->additional([
+            'meta' => [
+                'remember' => $request->boolean('remember'),
+                'session_lifetime_minutes' => (int) Config::get('session.lifetime'),
+                'session_expires_at' => now()
+                    ->addMinutes((int) Config::get('session.lifetime'))
+                    ->toISOString(),
+            ],
+        ]);
     }
 
     /**
