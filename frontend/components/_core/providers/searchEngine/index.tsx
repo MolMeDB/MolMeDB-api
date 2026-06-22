@@ -11,15 +11,15 @@ import {
   cn,
 } from "@heroui/react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { GiMolecule } from "react-icons/gi";
 import {
   MdBiotech,
   MdDataset,
   MdDraw,
   MdSearch,
-  MdScience,
   MdWaterDrop,
 } from "react-icons/md";
-import { PiDnaBold } from "react-icons/pi";
+import { PiAtomBold } from "react-icons/pi";
 import RecentSearchList from "./components/recent";
 import SearchListItems from "./components/list";
 import KetcherModal from "./components/KetcherModal";
@@ -113,7 +113,7 @@ export default function SearchEngine({ isOpenSE = false, onClose = () => {} }) {
       key: "Structures",
       title: "Structures",
       placeholder: "Name, identifier, SMILES, ...",
-      icon: <MdBiotech size={18} />,
+      icon: <GiMolecule size={18} />,
     },
     {
       key: "Membranes",
@@ -125,13 +125,13 @@ export default function SearchEngine({ isOpenSE = false, onClose = () => {} }) {
       key: "Methods",
       title: "Methods",
       placeholder: "Method name, category, ...",
-      icon: <MdScience size={18} />,
+      icon: <MdBiotech size={18} />,
     },
     {
       key: "Proteins",
       title: "Proteins",
       placeholder: "Uniprot ID, name, ...",
-      icon: <PiDnaBold size={18} />,
+      icon: <PiAtomBold size={18} />,
     },
     {
       key: "Datasets",

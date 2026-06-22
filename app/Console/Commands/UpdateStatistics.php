@@ -64,6 +64,7 @@ class UpdateStatistics extends Command
             'total_structures' => Structure::count(),
             'total_membranes' => Membrane::count(),
             'total_methods' => Method::count(),
+            'total_proteins' => Protein::count(),
         ]);
         Stats::setCountStats($counts);
         $this->info('... 1) Finished.');
