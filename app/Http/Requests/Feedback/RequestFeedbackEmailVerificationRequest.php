@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Feedback;
 
+use App\Rules\TurnstileToken;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -24,6 +25,7 @@ class RequestFeedbackEmailVerificationRequest extends FormRequest
     {
         return [
             'email' => ['required', 'email:rfc', 'max:255'],
+            'turnstile_token' => ['required', 'string', new TurnstileToken($this->ip())],
         ];
     }
 }

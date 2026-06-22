@@ -30,6 +30,7 @@ import { UserSession } from "@/lib/api/admin/interfaces/User";
 import SiteMenuUser from "./SiteMenuUser";
 import { IoMdLogOut } from "react-icons/io";
 import { IoSettingsOutline } from "react-icons/io5";
+import SiteNotificationsBell from "./notifications/SiteNotificationsBell";
 // import { UserSession } from "@/lib/api/admin/interfaces/user";
 
 const browseMenuItems = [
@@ -203,7 +204,10 @@ export function SiteMenu(props: {
           </Button>
         </div>
         {props.user?.id ? (
-          <SiteMenuUser user={props.user} />
+          <div className="flex items-center gap-2">
+            <SiteNotificationsBell />
+            <SiteMenuUser user={props.user} />
+          </div>
         ) : (
           <div>
             <Button
@@ -303,6 +307,12 @@ export function SiteMenu(props: {
         </NavbarMenuItem>
         {props.user?.id ? (
           <>
+            <NavbarMenuItem>
+              <div className="flex items-center justify-between gap-3 rounded-lg py-2">
+                <span className="text-lg font-semibold">Notifications</span>
+                <SiteNotificationsBell />
+              </div>
+            </NavbarMenuItem>
             <NavbarMenuItem onClick={() => setIsMenuOpen(false)}>
               <MenuItem
                 href="/account/settings"

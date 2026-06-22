@@ -12,6 +12,8 @@ class Config extends Model
     /** @use HasFactory<ConfigFactory> */
     use HasFactory;
 
+    public const KEY_FEEDBACK_EMAIL_FALLBACK = 'feedback:email_fallback';
+
     protected $primaryKey = 'key';
 
     public $incrementing = false;
@@ -23,19 +25,30 @@ class Config extends Model
         'value',
     ];
 
-    public static function get($key, $default = null)
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'key' => 'string',
+            'value' => 'string',
+        ];
+    }
+
+    public static function get(string $key, mixed $default = null): mixed
     {
         if (! Schema::hasTable('configs')) {
-            return;
+            return $default;
         }
 
         return static::where('key', $key)->value('value') ?? $default;
     }
 
-    public static function set($key, $value)
+    public static function set(string $key, ?string $value): bool
     {
         if (! Schema::hasTable('configs')) {
-            return;
+            return false;
         }
 
         return (bool) static::updateOrCreate(

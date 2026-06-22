@@ -1,5 +1,6 @@
 "use client";
 
+import Turnstile from "@/components/auth/Turnstile";
 import { UserSession } from "@/lib/api/admin/interfaces/User";
 import {
   addToast,
@@ -8,11 +9,20 @@ import {
   Textarea,
   Tooltip,
 } from "@heroui/react";
+import { motion } from "framer-motion";
 import { usePathname, useSearchParams } from "next/navigation";
 import { type SyntheticEvent, useEffect, useMemo, useState } from "react";
-import { FiCheckCircle, FiMessageCircle, FiSend, FiX } from "react-icons/fi";
+import {
+  FiArrowLeft,
+  FiArrowRight,
+  FiCheckCircle,
+  FiMessageCircle,
+  FiSend,
+  FiX,
+} from "react-icons/fi";
 
 type FeedbackStep = "email" | "code" | "message" | "success";
+type FeedbackPosition = "left" | "right";
 
 type VerificationPayload = {
   verification_id: number;
@@ -25,6 +35,8 @@ type ApiErrorPayload = {
 };
 
 const MESSAGE_LIMIT = 4000;
+const POSITION_STORAGE_KEY = "feedback-widget-position";
+const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
 
 class ApiRequestError extends Error {
   constructor(
@@ -50,11 +62,21 @@ export default function FeedbackWidget({ user }: { user?: UserSession }) {
   const [email, setEmail] = useState(user?.email ?? "");
   const [code, setCode] = useState("");
   const [message, setMessage] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [verification, setVerification] = useState<VerificationPayload | null>(
     null,
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [position, setPosition] = useState<FeedbackPosition>("right");
+
+  useEffect(() => {
+    const storedPosition = window.localStorage.getItem(POSITION_STORAGE_KEY);
+
+    if (storedPosition === "left" || storedPosition === "right") {
+      setPosition(storedPosition);
+    }
+  }, []);
 
   useEffect(() => {
     const query = searchParams.toString();
@@ -108,7 +130,10 @@ export default function FeedbackWidget({ user }: { user?: UserSession }) {
     setIsSubmitting(true);
 
     try {
-      await requestJson("/api/feedback/email-verification", { email });
+      await requestJson("/api/feedback/email-verification", {
+        email,
+        turnstile_token: turnstileToken,
+      });
       setStep("code");
       addToast({
         title: "Verification code sent",
@@ -183,6 +208,7 @@ export default function FeedbackWidget({ user }: { user?: UserSession }) {
   function resetForm() {
     setStep(shouldVerifyEmail ? "email" : "message");
     setCode("");
+    setTurnstileToken(null);
     setVerification(null);
 
     if (isAuthenticated && !requiresEmailVerification) {
@@ -198,23 +224,45 @@ export default function FeedbackWidget({ user }: { user?: UserSession }) {
     setIsOpen(false);
   }
 
+  function togglePosition() {
+    setPosition((currentPosition) => {
+      const nextPosition = currentPosition === "right" ? "left" : "right";
+
+      window.localStorage.setItem(POSITION_STORAGE_KEY, nextPosition);
+
+      return nextPosition;
+    });
+  }
+
+  const isPositionedLeft = position === "left";
+
   return (
     <div
-      className="flex flex-col items-end gap-3"
+      className={[
+        "flex pointer-events-none",
+        isPositionedLeft ? "justify-start" : "justify-end",
+      ].join(" ")}
       style={{
         bottom: "max(16px, env(safe-area-inset-bottom))",
-        maxWidth: "calc(100vw - 32px)",
-        pointerEvents: "none",
+        left: "max(16px, env(safe-area-inset-left))",
         position: "fixed",
         right: "max(16px, env(safe-area-inset-right))",
-        width: "360px",
         zIndex: 1000,
       }}
     >
+      <motion.div
+        layout
+        className={[
+          "flex w-[360px] max-w-full flex-col gap-3",
+          isPositionedLeft ? "items-start" : "items-end",
+        ].join(" ")}
+        transition={{ type: "spring", stiffness: 420, damping: 34 }}
+      >
       <div
         aria-hidden={!isOpen}
         className={[
-          "max-h-[calc(100dvh-6rem)] w-full origin-bottom-right overflow-y-auto rounded-lg border border-default-200 bg-white shadow-2xl transition-all duration-200 ease-out dark:border-default-100 dark:bg-zinc-950",
+          "max-h-[calc(100dvh-6rem)] w-full overflow-y-auto rounded-lg border border-default-200 bg-white shadow-2xl transition-all duration-200 ease-out motion-reduce:transition-none dark:border-default-100 dark:bg-zinc-950",
+          isPositionedLeft ? "origin-bottom-left" : "origin-bottom-right",
           isOpen
             ? "pointer-events-auto translate-y-0 scale-100 opacity-100"
             : "pointer-events-none translate-y-3 scale-95 opacity-0",
@@ -264,9 +312,15 @@ export default function FeedbackWidget({ user }: { user?: UserSession }) {
                 variant="bordered"
                 onValueChange={setEmail}
               />
+              <Turnstile
+                name="turnstile_token"
+                siteKey={turnstileSiteKey}
+                onVerify={setTurnstileToken}
+              />
               <div className="flex justify-end">
                 <Button
                   color="primary"
+                  isDisabled={!turnstileSiteKey || !turnstileToken}
                   isLoading={isSubmitting}
                   startContent={!isSubmitting ? <FiSend /> : null}
                   type="submit"
@@ -374,18 +428,51 @@ export default function FeedbackWidget({ user }: { user?: UserSession }) {
         </div>
       </div>
 
-      <Tooltip content="Send feedback" placement="left">
-        <Button
-          isIconOnly
-          aria-label="Send feedback"
-          className="pointer-events-auto h-12 w-12 shadow-lg"
-          color="primary"
-          radius="full"
-          onPress={() => setIsOpen((current) => !current)}
+      <div
+        className={[
+          "flex items-center gap-2",
+          isPositionedLeft ? "flex-row-reverse" : "flex-row",
+        ].join(" ")}
+      >
+        <Tooltip
+          content={isPositionedLeft ? "Move feedback right" : "Move feedback left"}
+          placement={isPositionedLeft ? "right" : "left"}
         >
-          <FiMessageCircle className="h-5 w-5" />
-        </Button>
-      </Tooltip>
+          <Button
+            isIconOnly
+            aria-label={
+              isPositionedLeft ? "Move feedback right" : "Move feedback left"
+            }
+            className="pointer-events-auto h-9 w-9 min-w-9 border border-default-200 bg-white shadow-md dark:border-default-100 dark:bg-zinc-950"
+            radius="full"
+            variant="flat"
+            onPress={togglePosition}
+          >
+            {isPositionedLeft ? (
+              <FiArrowRight className="h-4 w-4" />
+            ) : (
+              <FiArrowLeft className="h-4 w-4" />
+            )}
+          </Button>
+        </Tooltip>
+
+        <Tooltip
+          content="Send feedback"
+          placement={isPositionedLeft ? "right" : "left"}
+        >
+          <Button
+            isIconOnly
+            aria-label="Send feedback"
+            className="pointer-events-auto h-12 w-12 shadow-lg"
+            color="primary"
+            radius="full"
+            onPress={() => setIsOpen((current) => !current)}
+          >
+            <FiMessageCircle className="h-5 w-5" />
+          </Button>
+        </Tooltip>
+      </div>
+      </motion.div>
     </div>
   );
 }

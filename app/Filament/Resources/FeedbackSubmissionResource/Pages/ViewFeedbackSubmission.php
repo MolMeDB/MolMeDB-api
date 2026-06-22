@@ -9,6 +9,13 @@ class ViewFeedbackSubmission extends ViewRecord
 {
     protected static string $resource = FeedbackSubmissionResource::class;
 
+    public function mount(int|string $record): void
+    {
+        parent::mount($record);
+
+        $this->getRecord()->markAsRead();
+    }
+
     protected function getHeaderActions(): array
     {
         return [];

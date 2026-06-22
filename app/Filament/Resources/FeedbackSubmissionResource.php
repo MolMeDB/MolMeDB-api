@@ -12,6 +12,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -24,9 +25,25 @@ class FeedbackSubmissionResource extends Resource
 
     protected static ?string $navigationLabel = 'Feedbacks';
 
+    protected static string|\UnitEnum|null $navigationGroup = 'System';
+
     protected static ?string $modelLabel = 'Feedback';
 
-    protected static ?string $pluralModelLabel = 'Feedbacks';
+    protected static ?string $pluralModelLabel = 'Feedback';
+
+    public static function getNavigationBadge(): ?string
+    {
+        $count = FeedbackSubmission::query()
+            ->where('state', FeedbackSubmission::STATE_NEW)
+            ->count();
+
+        return $count > 0 ? (string) $count : null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'danger';
+    }
 
     public static function form(Schema $schema): Schema
     {
@@ -92,6 +109,11 @@ class FeedbackSubmissionResource extends Resource
                     ->label('ID')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('state')
+                    ->badge()
+                    ->formatStateUsing(fn (string $state): string => FeedbackSubmission::states()[$state] ?? $state)
+                    ->color(fn (string $state): string => $state === FeedbackSubmission::STATE_NEW ? 'warning' : 'success')
+                    ->sortable(),
                 TextColumn::make('email')
                     ->searchable()
                     ->sortable()
@@ -121,6 +143,8 @@ class FeedbackSubmissionResource extends Resource
                     ->sortable(),
             ])
             ->filters([
+                SelectFilter::make('state')
+                    ->options(FeedbackSubmission::states()),
                 TernaryFilter::make('user_id')
                     ->label('Authenticated user')
                     ->placeholder('All feedback')
@@ -132,6 +156,15 @@ class FeedbackSubmissionResource extends Resource
                     ),
             ])
             ->recordActions([
+                Actions\Action::make('markAsRead')
+                    ->label('Read')
+                    ->icon(Heroicon::OutlinedCheck)
+                    ->color('success')
+                    ->tooltip('Mark as read')
+                    ->hidden(fn (FeedbackSubmission $record): bool => $record->state === FeedbackSubmission::STATE_READ)
+                    ->action(function (FeedbackSubmission $record): void {
+                        $record->markAsRead();
+                    }),
                 Actions\ViewAction::make(),
             ])
             ->toolbarActions([

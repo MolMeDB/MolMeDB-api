@@ -13,6 +13,7 @@ use App\Http\Controllers\PublicationController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\StatsController;
 use App\Http\Controllers\StructureController;
+use App\Http\Controllers\UserNotificationController;
 use App\Http\Resources\UserResource;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -110,6 +111,14 @@ Route::prefix('/api')->group(function () {
         ->group(function () {
             Route::get('/', 'index');
             Route::get('/publications', 'publications');
+        });
+
+    Route::prefix('notifications')
+        ->controller(UserNotificationController::class)
+        ->middleware('auth:sanctum')
+        ->group(function () {
+            Route::get('/', 'index');
+            Route::post('/read', 'markAsRead')->middleware('throttle:60,1');
         });
 
     Route::prefix('feedback')

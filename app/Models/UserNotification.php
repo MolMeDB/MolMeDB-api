@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class FeedbackSubmission extends Model
+class UserNotification extends Model
 {
     public const STATE_NEW = 'new';
 
@@ -16,21 +16,22 @@ class FeedbackSubmission extends Model
     protected function casts(): array
     {
         return [
-            'created_at' => 'datetime',
+            'data' => 'array',
             'read_at' => 'datetime',
+            'emailed_at' => 'datetime',
+            'created_at' => 'datetime',
             'updated_at' => 'datetime',
         ];
     }
 
-    /**
-     * @return array<string, string>
-     */
-    public static function states(): array
+    public function user(): BelongsTo
     {
-        return [
-            self::STATE_NEW => 'New',
-            self::STATE_READ => 'Read',
-        ];
+        return $this->belongsTo(User::class);
+    }
+
+    public function template(): BelongsTo
+    {
+        return $this->belongsTo(NotificationTemplate::class, 'notification_template_id');
     }
 
     public function markAsRead(): void
@@ -43,15 +44,5 @@ class FeedbackSubmission extends Model
             'state' => self::STATE_READ,
             'read_at' => now(),
         ])->save();
-    }
-
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
-    }
-
-    public function emailVerification(): BelongsTo
-    {
-        return $this->belongsTo(FeedbackEmailVerification::class, 'feedback_email_verification_id');
     }
 }
