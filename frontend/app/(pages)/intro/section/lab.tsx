@@ -13,9 +13,9 @@ export default function LabSection() {
           Custom laboratory
         </h1>
         <p className="text-center text-lg md:text-xl">
-          Each registered user will gain access to a personal lab, where they
-          can calculate permeability values for their own sets of molecules. The
-          data can be kept private for a limited period (up to one year).
+          Anyone can access a personal lab, where they can calculate
+          permeability values for their own sets of molecules. The data can
+          be kept private for a limited period (up to one year).
           <br />
           <br />
           <strong>How does it work?</strong>

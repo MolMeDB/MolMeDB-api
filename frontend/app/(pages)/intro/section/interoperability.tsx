@@ -1,6 +1,9 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { Tooltip } from "@heroui/react";
 import { motion } from "framer-motion";
+import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
+import { FiHelpCircle } from "react-icons/fi";
 
 const partners = [
   { src: "/assets/partners/pubchem.png", angle: 340 },
@@ -56,9 +59,18 @@ function InteroperabilityContent(props: { size: "small" | "large" }) {
       className="relative w-full h-screen lg:h-[950px] px-8 py-28 bg-gradient-to-br 
     from-intro-blue dark:from-intro-purple-dark via-intro-purple dark:via-intro-purple-dark to-intro-pink dark:to-intro-pink-dark"
     >
-      <div className="flex flex-col items-center gap-4 -mb-24">
-        <h1 className="text-4xl font-bold text-white text-center">
+      <div className="relative z-20 flex flex-col items-center gap-4 -mb-24">
+        <h1 className="flex items-center gap-2 text-4xl font-bold text-white text-center">
           Focused on interoperability
+          <Tooltip content="Get more info" placement="top">
+            <Link
+              href="/docs/are-we-fair"
+              aria-label="Get more info about interoperability"
+              className="text-white/70 transition-colors hover:text-white"
+            >
+              <FiHelpCircle className="h-6 w-6" />
+            </Link>
+          </Tooltip>
         </h1>
         <h2 className="text-2xl font-bold text-white text-center">
           We are connected to
