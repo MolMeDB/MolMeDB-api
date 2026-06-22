@@ -6,6 +6,7 @@ use App\Enums\IconEnums;
 use App\Filament\Resources\DocumentArticles\Pages\CreateDocumentArticle;
 use App\Filament\Resources\DocumentArticles\Pages\EditDocumentArticle;
 use App\Filament\Resources\DocumentArticles\Pages\ListDocumentArticles;
+use App\Filament\RichContentCustomBlocks\CaptionBlock;
 use App\Filament\RichContentCustomBlocks\CodeSnippetBlock;
 use App\Filament\RichContentCustomBlocks\ErrorInfoboxBlock;
 use App\Filament\RichContentCustomBlocks\InfoInfoboxBlock;
@@ -38,7 +39,7 @@ class DocumentArticleResource extends Resource
 
     protected static ?int $navigationSort = 30;
 
-    protected static ?string $label = "Articles";
+    protected static ?string $label = 'Articles';
 
     public static function form(Schema $schema): Schema
     {
@@ -103,11 +104,17 @@ class DocumentArticleResource extends Resource
                         'Source code' => [
                             CodeSnippetBlock::class,
                         ],
+                        'Media' => [
+                            CaptionBlock::class,
+                        ],
                     ])
                     ->activePanel('customBlocks')
+                    ->resizableImages()
                     ->fileAttachmentsDirectory('documentation/attachments')
                     ->fileAttachmentsDisk('public')
-                    ->fileAttachmentsVisibility('public'),
+                    ->fileAttachmentsVisibility('public')
+                    ->fileAttachmentsAcceptedFileTypes(['image/png', 'image/jpeg'])
+                    ->fileAttachmentsMaxSize(5120), // 5 MB,
             ]);
     }
 

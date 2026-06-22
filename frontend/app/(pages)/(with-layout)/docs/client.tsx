@@ -3,6 +3,7 @@
 import { Spinner } from "@heroui/react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { FiMenu, FiX } from "react-icons/fi";
 
 type DocumentArticleTreeNode = {
   id: number;
@@ -41,39 +42,99 @@ type ParsedArticleContent = {
   headings: Heading[];
 };
 
+let cachedTree: DocumentArticleTreeNode[] | null = null;
+
 export default function Client(props: ClientProps) {
-  const [tree, setTree] = useState<DocumentArticleTreeNode[]>([]);
+  const [tree, setTree] = useState<DocumentArticleTreeNode[]>(
+    () => cachedTree ?? [],
+  );
   const [article, setArticle] = useState<DocumentArticle | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [isTreeLoading, setIsTreeLoading] = useState(cachedTree === null);
+  const [isArticleLoading, setIsArticleLoading] = useState(true);
+  const [treeError, setTreeError] = useState<string | null>(null);
+  const [articleError, setArticleError] = useState<string | null>(null);
+  const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const slugPath = useMemo(
     () => props.initialSlug.join("/"),
     [props.initialSlug],
   );
+  const activePath = article?.path ?? slugPath;
   const parsedContent = useMemo<ParsedArticleContent>(() => {
     return parseContent(article?.content ?? "");
   }, [article?.content]);
 
   useEffect(() => {
+    if (isArticleLoading || parsedContent.headings.length === 0) {
+      setActiveHeadingId(null);
+
+      return;
+    }
+
+    setActiveHeadingId(parsedContent.headings[0]?.id ?? null);
+
+    let animationFrame: number | null = null;
+
+    function updateActiveHeading() {
+      animationFrame = null;
+
+      const scrollOffset = 130;
+      const currentHeading = parsedContent.headings.findLast((heading) => {
+        const element = document.getElementById(heading.id);
+
+        if (!element) {
+          return false;
+        }
+
+        return element.getBoundingClientRect().top <= scrollOffset;
+      });
+
+      setActiveHeadingId(
+        currentHeading?.id ?? parsedContent.headings[0]?.id ?? null,
+      );
+    }
+
+    function scheduleUpdate() {
+      if (animationFrame !== null) {
+        return;
+      }
+
+      animationFrame = window.requestAnimationFrame(updateActiveHeading);
+    }
+
+    updateActiveHeading();
+    window.addEventListener("scroll", scheduleUpdate, { passive: true });
+    window.addEventListener("resize", scheduleUpdate);
+
+    return () => {
+      if (animationFrame !== null) {
+        window.cancelAnimationFrame(animationFrame);
+      }
+
+      window.removeEventListener("scroll", scheduleUpdate);
+      window.removeEventListener("resize", scheduleUpdate);
+    };
+  }, [isArticleLoading, parsedContent.headings]);
+
+  useEffect(() => {
     const abortController = new AbortController();
 
-    async function loadData() {
-      setLoading(true);
-      setError(null);
+    async function loadTree() {
+      if (cachedTree !== null) {
+        setTree(cachedTree);
+        setIsTreeLoading(false);
+
+        return;
+      }
 
       try {
-        const [treeResponse, articleResponse] = await Promise.all([
-          fetch("/api/docs/tree", { signal: abortController.signal }),
-          fetch(
-            slugPath.trim().length > 0
-              ? `/api/docs/article/${slugPath}`
-              : "/api/docs/article",
-            {
-              signal: abortController.signal,
-            },
-          ),
-        ]);
+        setIsTreeLoading(true);
+        setTreeError(null);
+
+        const treeResponse = await fetch("/api/docs/tree", {
+          signal: abortController.signal,
+        });
 
         if (!treeResponse.ok) {
           const treeError = (await treeResponse.json().catch(() => null)) as {
@@ -83,6 +144,44 @@ export default function Client(props: ClientProps) {
             treeError?.message ?? "Failed to load documentation menu.",
           );
         }
+
+        const treeJson = (await treeResponse.json()) as {
+          data?: DocumentArticleTreeNode[];
+        };
+
+        cachedTree = treeJson.data ?? [];
+        setTree(cachedTree);
+      } catch (err) {
+        if (abortController.signal.aborted) {
+          return;
+        }
+
+        setTreeError(
+          err instanceof Error
+            ? err.message
+            : "Documentation menu cannot be loaded right now.",
+        );
+      } finally {
+        if (!abortController.signal.aborted) {
+          setIsTreeLoading(false);
+        }
+      }
+    }
+
+    async function loadArticle() {
+      try {
+        setIsArticleLoading(true);
+        setArticleError(null);
+        setArticle(null);
+
+        const articleResponse = await fetch(
+          slugPath.trim().length > 0
+            ? `/api/docs/article/${slugPath}`
+            : "/api/docs/article",
+          {
+            signal: abortController.signal,
+          },
+        );
 
         if (!articleResponse.ok) {
           const articleError = (await articleResponse
@@ -95,91 +194,130 @@ export default function Client(props: ClientProps) {
           );
         }
 
-        const treeJson = (await treeResponse.json()) as {
-          data?: DocumentArticleTreeNode[];
-        };
         const articleJson = (await articleResponse.json()) as {
           data?: DocumentArticle;
         };
 
-        setTree(treeJson.data ?? []);
         setArticle(articleJson.data ?? null);
       } catch (err) {
         if (abortController.signal.aborted) {
           return;
         }
 
-        setTree([]);
         setArticle(null);
-        setError(
+        setArticleError(
           err instanceof Error
             ? err.message
             : "Documentation cannot be loaded right now.",
         );
       } finally {
         if (!abortController.signal.aborted) {
-          setLoading(false);
+          setIsArticleLoading(false);
         }
       }
     }
 
-    loadData();
+    loadTree();
+    loadArticle();
 
     return () => {
       abortController.abort();
     };
   }, [slugPath]);
 
-  if (loading) {
-    return (
-      <div className="flex min-h-[55vh] flex-col items-center justify-center text-default-600">
-        <Spinner size="lg" color="primary" className="mb-4" />
-        Loading content...
-      </div>
-    );
-  }
+  useEffect(() => {
+    setIsMenuOpen(false);
+  }, [slugPath]);
 
-  if (error) {
-    return (
-      <div className="rounded-xl border border-danger-200 bg-danger-50 p-4 text-danger-700">
-        {error}
-      </div>
-    );
-  }
+  return (
+    <div className="grid min-h-screen w-full grid-cols-1 gap-6 py-6 xl:grid-cols-[18rem_minmax(0,1fr)_18rem] xl:gap-8">
+      <div className="hidden xl:contents">
+        <aside className="min-w-0 xl:sticky xl:top-20 xl:self-start">
+          <SectionMenu
+            tree={tree}
+            activePath={activePath}
+            error={treeError}
+            isLoading={isTreeLoading}
+          />
+        </aside>
 
-  if (!article) {
-    return (
-      <div className="rounded-xl border border-default-200 bg-default-50 p-4 text-default-700">
-        No published documentation article found.
+        {!isArticleLoading && parsedContent.headings.length > 0 && (
+          <aside className="min-w-0 xl:sticky xl:top-20 xl:self-start">
+            <SectionContents
+              activeHeadingId={activeHeadingId}
+              headings={parsedContent.headings}
+            />
+          </aside>
+        )}
       </div>
-    );
+
+      <main className="min-w-0 xl:col-start-2 xl:row-start-1">
+        <ArticleContent
+          article={article}
+          error={articleError}
+          isLoading={isArticleLoading}
+          onOpenMenu={() => setIsMenuOpen(true)}
+          parsedContent={parsedContent}
+        />
+      </main>
+
+      <MobileMenuDrawer
+        activePath={activePath}
+        error={treeError}
+        isLoading={isTreeLoading}
+        isOpen={isMenuOpen}
+        tree={tree}
+        onClose={() => setIsMenuOpen(false)}
+      />
+    </div>
+  );
+}
+
+function MobileMenuDrawer(props: {
+  activePath: string;
+  error: string | null;
+  isLoading: boolean;
+  isOpen: boolean;
+  tree: DocumentArticleTreeNode[];
+  onClose: () => void;
+}) {
+  if (!props.isOpen) {
+    return null;
   }
 
   return (
-    <div className="flex w-full min-h-screen flex-col gap-8 py-6 lg:flex-row">
-      <aside className="w-64 h-full lg:sticky lg:top-20 lg:w-72 lg:self-start">
-        <SectionMenu tree={tree} activePath={article.path} />
-      </aside>
-
-      <main className="w-full flex-1 min-w-0">
-        <Breadcrumbs items={article.breadcrumbs} />
-        <div className="mt-4 h-px w-full bg-default-300/70" />
-        <article className="mt-6">
-          <h1 className="pb-6 text-3xl font-bold text-default-900">
-            {article.title}
-          </h1>
-          <div
-            className="html-content-block max-w-none text-default-700"
-            dangerouslySetInnerHTML={{ __html: parsedContent.html }}
+    <div className="fixed inset-x-0 bottom-0 top-16 z-[999] xl:hidden">
+      <button
+        aria-label="Close documentation menu"
+        className="absolute inset-0 bg-black/45"
+        type="button"
+        onClick={props.onClose}
+      />
+      <div className="relative flex h-full w-[min(22rem,86vw)] flex-col bg-white shadow-2xl dark:bg-zinc-950">
+        <div className="flex items-center justify-between gap-3 border-b border-default-200 px-4 py-3 dark:border-default-100">
+          <div className="text-sm font-semibold text-default-800">
+            Documentation
+          </div>
+          <button
+            aria-label="Close documentation menu"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-default-600 transition-colors hover:bg-default-100 hover:text-default-900"
+            type="button"
+            onClick={props.onClose}
+          >
+            <FiX className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          <SectionMenu
+            activePath={props.activePath}
+            error={props.error}
+            isDrawer
+            isLoading={props.isLoading}
+            tree={props.tree}
+            onNavigate={props.onClose}
           />
-        </article>
-      </main>
-
-      {parsedContent.headings.length > 0 && (
-        <aside className="w-64 lg:sticky lg:top-20 lg:w-72 lg:self-start">
-          <SectionContents headings={parsedContent.headings} />
-        </aside>
-      )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -187,9 +325,31 @@ export default function Client(props: ClientProps) {
 function SectionMenu(props: {
   tree: DocumentArticleTreeNode[];
   activePath: string;
+  error: string | null;
+  isDrawer?: boolean;
+  isLoading: boolean;
+  onNavigate?: () => void;
 }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-default-300 bg-default-50 h-full">
+    <div
+      className={[
+        "overflow-y-auto rounded-xl border border-default-300 bg-default-50",
+        props.isDrawer
+          ? "max-h-none"
+          : "max-h-[45vh] xl:max-h-[calc(100vh-7rem)]",
+      ].join(" ")}
+    >
+      {props.error && (
+        <div className="border-b border-danger-200 bg-danger-50 p-4 text-sm text-danger-700">
+          {props.error}
+        </div>
+      )}
+      {props.isLoading && props.tree.length === 0 && (
+        <div className="flex items-center gap-3 p-4 text-sm text-default-600">
+          <Spinner size="sm" color="primary" />
+          Loading menu...
+        </div>
+      )}
       {props.tree.map((item) => (
         <div
           key={item.id}
@@ -200,6 +360,7 @@ function SectionMenu(props: {
             path={item.path}
             isActive={props.activePath === item.path}
             isParent
+            onNavigate={props.onNavigate}
           />
 
           {item.children.length > 0 && (
@@ -210,6 +371,7 @@ function SectionMenu(props: {
                   title={child.title}
                   path={child.path}
                   isActive={props.activePath === child.path}
+                  onNavigate={props.onNavigate}
                 />
               ))}
             </div>
@@ -220,11 +382,87 @@ function SectionMenu(props: {
   );
 }
 
+function ArticleContent(props: {
+  article: DocumentArticle | null;
+  error: string | null;
+  isLoading: boolean;
+  onOpenMenu: () => void;
+  parsedContent: ParsedArticleContent;
+}) {
+  if (props.isLoading) {
+    return (
+      <div className="flex min-h-[45vh] flex-col items-center justify-center rounded-xl border border-default-200 bg-white/60 text-default-600">
+        <Spinner size="lg" color="primary" className="mb-4" />
+        Loading article...
+      </div>
+    );
+  }
+
+  if (props.error) {
+    return (
+      <div className="rounded-xl border border-danger-200 bg-danger-50 p-4 text-danger-700">
+        {props.error}
+      </div>
+    );
+  }
+
+  if (!props.article) {
+    return (
+      <div className="rounded-xl border border-default-200 bg-default-50 p-4 text-default-700">
+        No published documentation article found.
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <MobileDocumentationBar
+        breadcrumbs={props.article.breadcrumbs}
+        onOpenMenu={props.onOpenMenu}
+      />
+      <div className="sticky top-16 z-40 -mx-4 mb-5 hidden min-h-14 items-center border-b border-default-200 bg-default-100/95 px-4 py-3 backdrop-blur xl:flex">
+        <Breadcrumbs items={props.article.breadcrumbs} />
+      </div>
+      <article className="mt-5 xl:mt-6">
+        <h1 className="pb-6 text-3xl font-bold text-default-900">
+          {props.article.title}
+        </h1>
+        <div
+          className="html-content-block max-w-none text-default-700"
+          dangerouslySetInnerHTML={{ __html: props.parsedContent.html }}
+        />
+      </article>
+    </>
+  );
+}
+
+function MobileDocumentationBar(props: {
+  breadcrumbs: DocumentArticleBreadcrumb[];
+  onOpenMenu: () => void;
+}) {
+  return (
+    <div className="sticky top-16 z-40 -mx-4 mb-5 flex min-h-14 items-center gap-3 border-b border-default-200 bg-default-100/95 px-4 py-3 backdrop-blur xl:hidden">
+      <button
+        aria-label="Open documentation menu"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-default-700 transition-colors hover:bg-default-200 hover:text-default-950"
+        type="button"
+        onClick={props.onOpenMenu}
+      >
+        <FiMenu className="h-5 w-5" />
+      </button>
+      <div className="min-w-0 flex-1">
+        <Breadcrumbs compact items={props.breadcrumbs} />
+      </div>
+    </div>
+  );
+}
+
 function MenuItem(props: {
   title: string;
   path: string;
   isActive: boolean;
   isParent?: boolean;
+  onNavigate?: () => void;
 }) {
   return (
     <Link
@@ -236,26 +474,50 @@ function MenuItem(props: {
           ? "text-primary-600"
           : "text-default-700 hover:text-primary-600"
       }`}
+      onClick={props.onNavigate}
     >
       {props.title}
     </Link>
   );
 }
 
-function Breadcrumbs(props: { items: DocumentArticleBreadcrumb[] }) {
+function Breadcrumbs(props: {
+  compact?: boolean;
+  items: DocumentArticleBreadcrumb[];
+}) {
   return (
-    <div className="flex flex-wrap items-center gap-2 text-lg">
+    <div
+      className={[
+        "flex items-center gap-2",
+        props.compact
+          ? "min-w-0 overflow-hidden whitespace-nowrap text-sm"
+          : "flex-wrap text-lg",
+      ].join(" ")}
+    >
       {props.items.map((item, index) => {
         const isLast = index === props.items.length - 1;
 
         return (
-          <div key={item.path} className="flex items-center gap-2">
+          <div
+            key={item.path}
+            className={[
+              "flex min-w-0 items-center gap-2",
+              props.compact && !isLast ? "shrink-0" : "",
+            ].join(" ")}
+          >
             {isLast ? (
-              <span className="text-default-500">{item.title}</span>
+              <span
+                className={[
+                  "text-default-500",
+                  props.compact ? "truncate" : "",
+                ].join(" ")}
+              >
+                {item.title}
+              </span>
             ) : (
               <Link
                 href={`/docs/${item.path}`}
-                className="text-primary hover:underline"
+                className="shrink-0 text-primary hover:underline"
               >
                 {item.title}
               </Link>
@@ -269,27 +531,40 @@ function Breadcrumbs(props: { items: DocumentArticleBreadcrumb[] }) {
   );
 }
 
-function SectionContents(props: { headings: Heading[] }) {
+function SectionContents(props: {
+  activeHeadingId: string | null;
+  headings: Heading[];
+}) {
   if (props.headings.length === 0) {
     return null;
   }
 
   return (
-    <div className="rounded-xl border border-default-300 bg-default-50 p-4">
-      <h2 className="text-2xl font-bold text-default-800">Contents</h2>
-      <div className="mt-4 flex flex-col gap-2 border-l-2 border-secondary/20 pl-4">
-        {props.headings.map((heading) => (
-          <button
-            key={heading.id}
-            type="button"
-            onClick={() => scrollToHeading(heading.id)}
-            className={`text-left text-sm text-default-700 transition-colors hover:text-primary-600 ${
-              heading.level === 2 ? "pl-4" : ""
-            }`}
-          >
-            {heading.title}
-          </button>
-        ))}
+    <div className="max-h-[45vh] overflow-y-auto rounded-xl border border-default-300 bg-default-50 p-4 xl:max-h-[calc(100vh-7rem)]">
+      <h2 className="text-lg font-bold text-default-800 xl:text-2xl">
+        Contents
+      </h2>
+      <div className="mt-3 flex flex-col border-l-2 border-secondary/20 xl:mt-4">
+        {props.headings.map((heading) => {
+          const isActive = props.activeHeadingId === heading.id;
+
+          return (
+            <button
+              key={heading.id}
+              type="button"
+              onClick={() => scrollToHeading(heading.id)}
+              className={[
+                "-ml-0.5 border-l-2 px-3 py-2 text-left text-sm transition-colors",
+                heading.level === 2 ? "pl-7" : "",
+                isActive
+                  ? "border-primary bg-primary-50 font-semibold text-primary-700"
+                  : "border-transparent text-default-700 hover:bg-default-100 hover:text-primary-600",
+              ].join(" ")}
+            >
+              {heading.title}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -476,7 +751,7 @@ function highlightSource(source: string, language: string): string {
   };
 
   const tokenRegex =
-    /(\/\*[\s\S]*?\*\/|--.*$|#.*$|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\b\d+(?:\.\d+)?\b|[A-Za-z_][A-Za-z0-9_]*|[^\s])/gm;
+    /(\/\*[\s\S]*?\*\/|--.*$|#.*$|<[^>\s]+>|\?[A-Za-z_][A-Za-z0-9_-]*|[A-Za-z_][A-Za-z0-9_-]*:[A-Za-z_][A-Za-z0-9_-]*|[A-Za-z_][A-Za-z0-9_-]*:|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\b\d+(?:\.\d+)?\b|[A-Za-z_][A-Za-z0-9_]*|[^\s])/gm;
   const keywordSet = keywordSets[language] ?? keywordSets.sparql;
 
   let html = "";
@@ -516,6 +791,22 @@ function wrapToken(
     token.startsWith("#")
   ) {
     return `<span class="docs-code__comment">${escaped}</span>`;
+  }
+
+  if (token.startsWith("?")) {
+    return `<span class="docs-code__variable">${escaped}</span>`;
+  }
+
+  if (token.startsWith("<") && token.endsWith(">")) {
+    return `<span class="docs-code__iri">${escaped}</span>`;
+  }
+
+  if (/^[A-Za-z_][A-Za-z0-9_-]*:$/.test(token)) {
+    return `<span class="docs-code__prefix">${escaped}</span>`;
+  }
+
+  if (/^[A-Za-z_][A-Za-z0-9_-]*:[A-Za-z_][A-Za-z0-9_-]*$/.test(token)) {
+    return `<span class="docs-code__prefixed-name">${escaped}</span>`;
   }
 
   if (

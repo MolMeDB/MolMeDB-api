@@ -18,11 +18,11 @@
 
 .html-content-block {
     ul, ol {
-        @apply pl-5 flex flex-col gap-1;
+        @apply mt-0 mb-4 flex flex-col gap-1.5 pl-6;
     }
 
     li {
-        @apply pt-3
+        @apply leading-relaxed;
     }
 
     ul {
@@ -81,12 +81,20 @@
         @apply border-emerald-700 bg-emerald-50 text-emerald-950 dark:border-emerald-500 dark:bg-emerald-950/35 dark:text-emerald-100;
     }
 
+    .docs-caption {
+        @apply -mt-2 mb-6 text-sm italic leading-relaxed text-default-500 dark:text-default-500;
+    }
+
+    .docs-caption__label {
+        @apply font-bold not-italic text-default-600 dark:text-default-500;
+    }
+
     :where(p, li, td, th, blockquote) code {
         @apply rounded bg-zinc-200 px-1.5 py-0.5 font-mono text-[0.92em] text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100;
     }
 
     pre {
-        @apply my-6 overflow-x-auto rounded-md border border-zinc-200 bg-zinc-900 px-4 py-3 text-zinc-100 dark:border-zinc-700;
+        @apply my-6 overflow-x-auto rounded-sm border border-zinc-200 bg-zinc-100 px-4 py-3 text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100;
     }
 
     pre.docs-code-block {
@@ -95,7 +103,7 @@
 
     pre.docs-code-block::before {
         content: attr(data-language);
-        @apply absolute left-3 top-2 rounded bg-zinc-700/70 px-2 py-0.5 font-mono text-[0.7rem] uppercase tracking-wide text-zinc-100;
+        @apply absolute left-3 top-2 rounded bg-zinc-300 px-2 py-0.5 font-mono text-[0.7rem] uppercase tracking-wide text-zinc-700 dark:bg-zinc-700/70 dark:text-zinc-100;
     }
 
     pre code {
@@ -103,15 +111,15 @@
     }
 
     .docs-code__keyword {
-        @apply font-semibold text-sky-300;
+        @apply font-semibold text-sky-600 dark:text-sky-300;
     }
 
     .docs-code__string {
-        @apply text-amber-300;
+        @apply text-lime-700 dark:text-lime-300;
     }
 
     .docs-code__number {
-        @apply text-fuchsia-300;
+        @apply text-lime-700 dark:text-yellow-300;
     }
 
     .docs-code__comment {
@@ -119,7 +127,20 @@
     }
 
     .docs-code__operator {
-        @apply text-rose-300;
+        @apply text-zinc-500 dark:text-rose-300;
+    }
+
+    .docs-code__variable {
+        @apply text-orange-500 dark:text-amber-300;
+    }
+
+    .docs-code__iri {
+        @apply text-amber-700 dark:text-zinc-100;
+    }
+
+    .docs-code__prefix,
+    .docs-code__prefixed-name {
+        @apply text-rose-500 dark:text-rose-300;
     }
 }
 
@@ -161,6 +182,24 @@
   font-size: 0.95rem;
 }
 
+.html-content-block .docs-caption--table:has(+ table),
+.html-content-block .docs-caption--table:has(+ .docs-table) {
+  margin-bottom: 0.5rem;
+}
+
+.html-content-block .docs-caption--table + table,
+.html-content-block .docs-caption--table + .docs-table {
+  margin-top: 0;
+}
+
+.html-content-block img:has(+ .docs-caption--figure) {
+  margin-bottom: 0.5rem;
+}
+
+.html-content-block img + .docs-caption--figure {
+  margin-top: 0;
+}
+
 .html-content-block table th,
 .html-content-block table td,
 .html-content-block .docs-table th,
@@ -182,24 +221,41 @@
   background: #fafafa;
 }
 
-.dark .html-content-block table,
-.dark .html-content-block .docs-table {
-  border-color: #3f3f46;
-}
+@media (prefers-color-scheme: dark) {
+  .html-content-block table,
+  .html-content-block .docs-table {
+    border-color: #3f3f46;
+  }
 
-.dark .html-content-block table th,
-.dark .html-content-block table td,
-.dark .html-content-block .docs-table th,
-.dark .html-content-block .docs-table td {
-  border-color: #3f3f46;
-}
+  .html-content-block table tr,
+  .html-content-block .docs-table tr,
+  .html-content-block table tbody tr:nth-child(even),
+  .html-content-block .docs-table tbody tr:nth-child(even) {
+    background-color: #18181b;
+  }
 
-.dark .html-content-block table th,
-.dark .html-content-block .docs-table th {
-  background: #27272a;
-}
+  .html-content-block table th,
+  .html-content-block table td,
+  .html-content-block .docs-table th,
+  .html-content-block .docs-table td {
+    background-color: #18181b;
+    border-color: #3f3f46;
+  }
 
-.dark .html-content-block table tbody tr:nth-child(even),
-.dark .html-content-block .docs-table tbody tr:nth-child(even) {
-  background: #18181b;
+  .html-content-block table th,
+  .html-content-block .docs-table th {
+    background-color: #27272a;
+  }
+
+  .html-content-block table th[style],
+  .html-content-block table td[style],
+  .html-content-block .docs-table th[style],
+  .html-content-block .docs-table td[style] {
+    background-color: #18181b !important;
+  }
+
+  .html-content-block table th[style],
+  .html-content-block .docs-table th[style] {
+    background-color: #27272a !important;
+  }
 }

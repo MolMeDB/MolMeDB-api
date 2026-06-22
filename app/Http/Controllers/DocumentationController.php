@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Filament\RichContentCustomBlocks\CaptionBlock;
 use App\Filament\RichContentCustomBlocks\CodeSnippetBlock;
 use App\Filament\RichContentCustomBlocks\ErrorInfoboxBlock;
 use App\Filament\RichContentCustomBlocks\InfoInfoboxBlock;
@@ -61,12 +62,15 @@ class DocumentationController extends Controller
                 'slug' => $article->slug,
                 'path' => $article->fullSlug(),
                 'content' => RichContentRenderer::make($article->content)
+                    ->fileAttachmentsDisk('public')
+                    ->fileAttachmentsVisibility('public')
                     ->customBlocks([
                         InfoInfoboxBlock::class,
                         WarningInfoboxBlock::class,
                         ErrorInfoboxBlock::class,
                         SuccessInfoboxBlock::class,
                         CodeSnippetBlock::class,
+                        CaptionBlock::class,
                     ])
                     ->toHtml(),
                 'breadcrumbs' => $breadcrumbs,
