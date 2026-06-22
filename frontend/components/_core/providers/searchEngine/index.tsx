@@ -14,6 +14,7 @@ import { type ReactNode, useCallback, useEffect, useState } from "react";
 import {
   MdBiotech,
   MdDataset,
+  MdDraw,
   MdSearch,
   MdScience,
   MdWaterDrop,
@@ -21,6 +22,7 @@ import {
 import { PiDnaBold } from "react-icons/pi";
 import RecentSearchList from "./components/recent";
 import SearchListItems from "./components/list";
+import KetcherModal from "./components/KetcherModal";
 
 export default function SearchEngine({ isOpenSE = false, onClose = () => {} }) {
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
@@ -33,6 +35,7 @@ export default function SearchEngine({ isOpenSE = false, onClose = () => {} }) {
     type: "Structures",
   });
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isStructureEditorOpen, setIsStructureEditorOpen] = useState(false);
 
   useEffect(() => {
     if (isOpenSE) onOpen();
@@ -43,6 +46,10 @@ export default function SearchEngine({ isOpenSE = false, onClose = () => {} }) {
   //////////////////////
   const keyDownHandler = useCallback(
     (event: KeyboardEvent) => {
+      if (isStructureEditorOpen) {
+        return;
+      }
+
       if ((event.ctrlKey || event.metaKey) && event.key === "k" && !isOpen) {
         onOpen();
       }
@@ -55,7 +62,7 @@ export default function SearchEngine({ isOpenSE = false, onClose = () => {} }) {
         submitQuery();
       }
     },
-    [isOpen, currentQuery],
+    [isOpen, currentQuery, isStructureEditorOpen],
   );
 
   useEffect(() => {
@@ -138,8 +145,18 @@ export default function SearchEngine({ isOpenSE = false, onClose = () => {} }) {
     (group) => group.key === currentQuery.type,
   );
 
+  function searchDrawnStructure(smiles: string) {
+    submitQuery({
+      query: smiles,
+      type: "Structures",
+      isDrawnStructure: true,
+    });
+    setIsStructureEditorOpen(false);
+  }
+
   return (
-    <Modal
+    <>
+      <Modal
       isOpen={isOpen}
       onOpenChange={onOpenChange}
       scrollBehavior="outside"
@@ -194,42 +211,56 @@ export default function SearchEngine({ isOpenSE = false, onClose = () => {} }) {
                 </div>
 
                 <div className="flex flex-col gap-6 bg-white px-8 pb-8 pt-6 dark:bg-background-dark">
-                  <Input
-                    type="text"
-                    autoFocus
-                    size="lg"
-                    value={currentQuery.query}
-                    onChange={(e) =>
-                      setCurrentQuery({
-                        ...currentQuery,
-                        query: e.target.value,
-                      })
-                    }
-                    placeholder={selectedGroup?.placeholder}
-                    aria-label="Search query"
-                    labelPlacement="outside"
-                    startContent={
-                      <MdSearch
-                        size={24}
-                        className="text-default-400 pointer-events-none flex-shrink-0"
-                      />
-                    }
-                    endContent={
-                      <button
-                        type="button"
-                        className="flex items-center"
-                        onClick={() => submitQuery()}
-                        aria-label="Submit search"
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Input
+                      type="text"
+                      autoFocus
+                      size="lg"
+                      value={currentQuery.query}
+                      onChange={(e) =>
+                        setCurrentQuery({
+                          ...currentQuery,
+                          query: e.target.value,
+                          isDrawnStructure: false,
+                        })
+                      }
+                      placeholder={selectedGroup?.placeholder}
+                      aria-label="Search query"
+                      labelPlacement="outside"
+                      startContent={
+                        <MdSearch
+                          size={24}
+                          className="text-default-400 pointer-events-none flex-shrink-0"
+                        />
+                      }
+                      endContent={
+                        <button
+                          type="button"
+                          className="flex items-center"
+                          onClick={() => submitQuery()}
+                          aria-label="Submit search"
+                        >
+                          <Kbd keys={["enter"]}></Kbd>
+                        </button>
+                      }
+                      classNames={{
+                        inputWrapper:
+                          "h-14 rounded-lg border border-default-200 bg-default-100 px-2 shadow-none data-[hover=true]:bg-default-100 group-data-[focus=true]:bg-white dark:bg-background-dark-2 dark:group-data-[focus=true]:bg-background-dark-2",
+                        input: "text-md font-sans",
+                      }}
+                    />
+                    {currentQuery.type === "Structures" ? (
+                      <Button
+                        className="h-14 shrink-0"
+                        color="secondary"
+                        startContent={<MdDraw size={20} />}
+                        variant="flat"
+                        onPress={() => setIsStructureEditorOpen(true)}
                       >
-                        <Kbd keys={["enter"]}></Kbd>
-                      </button>
-                    }
-                    classNames={{
-                      inputWrapper:
-                        "h-14 rounded-lg border border-default-200 bg-default-100 px-2 shadow-none data-[hover=true]:bg-default-100 group-data-[focus=true]:bg-white dark:bg-background-dark-2 dark:group-data-[focus=true]:bg-background-dark-2",
-                      input: "text-md font-sans",
-                    }}
-                  />
+                        Draw structure
+                      </Button>
+                    ) : null}
+                  </div>
 
                   <div className="grid grid-cols-1 gap-2 rounded-lg bg-default-50 p-2 dark:bg-background-dark-2 sm:grid-cols-2 lg:grid-cols-5">
                     {searchGroups.map((group) => {
@@ -252,6 +283,7 @@ export default function SearchEngine({ isOpenSE = false, onClose = () => {} }) {
                             setCurrentQuery({
                               ...currentQuery,
                               type: group.key,
+                              isDrawnStructure: false,
                             })
                           }
                         >
@@ -278,6 +310,12 @@ export default function SearchEngine({ isOpenSE = false, onClose = () => {} }) {
           </>
         )}
       </ModalContent>
-    </Modal>
+      </Modal>
+      <KetcherModal
+        isOpen={isStructureEditorOpen}
+        onClose={() => setIsStructureEditorOpen(false)}
+        onSearch={searchDrawnStructure}
+      />
+    </>
   );
 }

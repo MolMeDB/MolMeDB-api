@@ -18,6 +18,7 @@ export interface ISearchItem {
 export interface ISearchQuery {
   query: string;
   type: "Structures" | "Membranes" | "Methods" | "Proteins" | "Datasets";
+  isDrawnStructure?: boolean;
 }
 
 export interface ISearchResult extends FilteredResponse<ISearchItem> {}

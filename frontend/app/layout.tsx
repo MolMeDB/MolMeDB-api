@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import "ketcher-react/dist/index.css";
 import "./globals.css";
 import Body from "@/components/_core/Body";
 import FloatingDock from "@/components/_core/layout/FloatingDock";

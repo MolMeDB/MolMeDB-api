@@ -39,9 +39,9 @@ export default function SearchListItems(props: {
       try {
         const response = await getJson(
           `/api/search/${props.searchOptions.type.toLowerCase()}`,
-          {
-            query: props.searchOptions.query,
-          },
+          props.searchOptions.isDrawnStructure
+            ? { smiles: props.searchOptions.query }
+            : { query: props.searchOptions.query },
         );
 
         if (!isCurrentSearch) {
@@ -90,7 +90,11 @@ export default function SearchListItems(props: {
     return () => {
       isCurrentSearch = false;
     };
-  }, [props.searchOptions.query, props.searchOptions.type]);
+  }, [
+    props.searchOptions.isDrawnStructure,
+    props.searchOptions.query,
+    props.searchOptions.type,
+  ]);
 
   const total = records?.meta.total ?? 0;
 
