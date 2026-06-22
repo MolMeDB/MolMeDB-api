@@ -1,0 +1,23 @@
+.fi-fo-rich-editor .color[data-color] {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    padding: 0.05rem 0.55rem;
+    font-size: 0.78em;
+    font-weight: 600;
+    line-height: 1.4;
+    color: #fff;
+    background-color: var(--color);
+}
+
+.dark .fi-fo-rich-editor .color[data-color] {
+    background-color: var(--dark-color, var(--color));
+}
+
+.fi-fo-rich-editor-panels {
+    position: sticky;
+    top: 4.5rem;
+    align-self: flex-start;
+    max-height: calc(100vh - 5.5rem);
+    overflow-y: auto;
+}

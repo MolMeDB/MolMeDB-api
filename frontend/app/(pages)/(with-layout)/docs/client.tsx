@@ -766,8 +766,14 @@ function highlightSource(source: string, language: string): string {
       html += escapeHtml(source.slice(cursor, start));
     }
 
-    html += wrapToken(token, language, keywordSet);
-    cursor = start + token.length;
+    const end = start + token.length;
+    const isJsonKey =
+      language === "json" &&
+      token.startsWith('"') &&
+      /^\s*:/.test(source.slice(end));
+
+    html += wrapToken(token, language, keywordSet, isJsonKey);
+    cursor = end;
     match = tokenRegex.exec(source);
   }
 
@@ -782,6 +788,7 @@ function wrapToken(
   token: string,
   language: string,
   keywordSet: Set<string>,
+  isJsonKey = false,
 ): string {
   const escaped = escapeHtml(token);
 
@@ -813,7 +820,7 @@ function wrapToken(
     (token.startsWith('"') && token.endsWith('"')) ||
     (token.startsWith("'") && token.endsWith("'"))
   ) {
-    return `<span class="docs-code__string">${escaped}</span>`;
+    return `<span class="${isJsonKey ? "docs-code__key" : "docs-code__string"}">${escaped}</span>`;
   }
 
   if (/^\d+(\.\d+)?$/.test(token)) {

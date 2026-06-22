@@ -94,6 +94,29 @@ class DocumentArticleResource extends Resource
                 RichEditor::make('content')
                     ->columnSpanFull()
                     ->required()
+                    ->toolbarButtons([
+                        ['bold', 'italic', 'underline', 'strike', 'subscript', 'superscript', 'link', 'textColor'],
+                        ['h2', 'h3'],
+                        ['alignStart', 'alignCenter', 'alignEnd'],
+                        ['blockquote', 'codeBlock', 'bulletList', 'orderedList'],
+                        ['table', 'attachFiles', 'customBlocks'],
+                        ['undo', 'redo'],
+                    ])
+                    ->floatingToolbars([
+                        'paragraph' => [
+                            'bold', 'italic', 'underline', 'strike', 'link', 'textColor', 'customBlocks',
+                        ],
+                        'heading' => [
+                            'h2', 'h3',
+                        ],
+                        'table' => [
+                            'tableAddColumnBefore', 'tableAddColumnAfter', 'tableDeleteColumn',
+                            'tableAddRowBefore', 'tableAddRowAfter', 'tableDeleteRow',
+                            'tableMergeCells', 'tableSplitCell',
+                            'tableToggleHeaderRow', 'tableToggleHeaderCell',
+                            'tableDelete',
+                        ],
+                    ])
                     ->customBlocks([
                         'Infoboxes' => [
                             InfoInfoboxBlock::class,
@@ -108,7 +131,6 @@ class DocumentArticleResource extends Resource
                             CaptionBlock::class,
                         ],
                     ])
-                    ->activePanel('customBlocks')
                     ->resizableImages()
                     ->fileAttachmentsDirectory('documentation/attachments')
                     ->fileAttachmentsDisk('public')

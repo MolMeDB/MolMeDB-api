@@ -118,8 +118,16 @@
         @apply text-lime-700 dark:text-lime-300;
     }
 
+    .docs-code__key {
+        @apply text-rose-600 dark:text-rose-300;
+    }
+
     .docs-code__number {
         @apply text-lime-700 dark:text-yellow-300;
+    }
+
+    pre.docs-code-block.language-json .docs-code__number {
+        @apply text-blue-600 dark:text-blue-300;
     }
 
     .docs-code__comment {
@@ -258,4 +266,13 @@
   .html-content-block .docs-table th[style] {
     background-color: #27272a !important;
   }
+
+  .html-content-block .color[data-color] {
+    background-color: var(--dark-color, var(--color));
+  }
+}
+
+.color[data-color] {  
+    @apply inline-flex items-center rounded-full px-2 py-0.5 align-middle text-[0.78em] font-semibold leading-none text-white;
+    background-color: var(--color);
 }
