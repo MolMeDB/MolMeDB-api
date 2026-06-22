@@ -1,5 +1,6 @@
 "use client";
 
+import DownloaderSuggestion from "@/components/downloader/DownloaderSuggestion";
 import { getJson } from "@/lib/api/admin";
 import HttpJsonResponse from "@/lib/api/admin/interfaces/http/jsonResponse";
 import IMethod from "@/lib/api/admin/interfaces/Method";
@@ -61,6 +62,13 @@ export default function SectionDetail(props: { methodId: string }) {
 
   return (
     <div ref={detailSectionRef} className="min-h-64 w-full">
+      {data ? (
+        <DownloaderSuggestion
+          category="method"
+          id={String(data.id)}
+          label={data.name}
+        />
+      ) : null}
       {isLoading ? (
         <div className="flex-1 flex justify-center items-center">
           <Spinner label="Loading..." variant="wave" size="lg" />

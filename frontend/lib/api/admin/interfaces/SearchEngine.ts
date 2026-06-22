@@ -8,6 +8,11 @@ export interface ISearchItem {
   link?: string | null;
   isAvailable?: boolean;
   availabilityMessage?: string | null;
+  downloader?: {
+    category: "membrane" | "method" | "molecule" | "protein";
+    id: string;
+    label: string;
+  } | null;
 }
 
 export interface ISearchQuery {

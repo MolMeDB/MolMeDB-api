@@ -3,6 +3,7 @@
 namespace App\Console\Commands\Cron;
 
 use App\Console\Commands\CheckStructureInternalIdentifiers;
+use App\Console\Commands\CleanupExpiredDownloadFiles;
 use App\Console\Commands\UpdateExportFiles;
 use App\Console\Commands\UpdateStatistics;
 use App\Models\Config;
@@ -38,6 +39,11 @@ class RunDailyCommands extends Command
     public function handle()
     {
         $commands = [
+            [
+                'name' => CleanupExpiredDownloadFiles::class,
+                'label' => 'Cleanup expired downloader files',
+                'parameters' => [],
+            ],
             [
                 'name' => UpdateStatistics::class,
                 'label' => 'Update statistics',

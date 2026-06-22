@@ -187,7 +187,8 @@ export default function SearchEngine({ isOpenSE = false, onClose = () => {} }) {
                       <span>Search</span>
                     </div>
                     <p className="text-sm text-foreground-500">
-                      Structures, membranes, methods, proteins, or datasets.
+                      Find records across MolMeDB. Supported results can be
+                      added directly to the Downloader.
                     </p>
                   </div>
                 </div>

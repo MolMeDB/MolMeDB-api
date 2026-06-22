@@ -1,5 +1,6 @@
 "use client";
 
+import DownloaderSuggestion from "@/components/downloader/DownloaderSuggestion";
 import { getJson } from "@/lib/api/admin";
 import HttpJsonResponse from "@/lib/api/admin/interfaces/http/jsonResponse";
 import IProtein, { IProteinStats } from "@/lib/api/admin/interfaces/Protein";
@@ -114,6 +115,13 @@ export default function SectionDetail(props: { proteinId: string }) {
 
   return (
     <div ref={detailSectionRef} className="min-h-64 w-full">
+      {data ? (
+        <DownloaderSuggestion
+          category="protein"
+          id={String(data.id)}
+          label={data.uniprot_id}
+        />
+      ) : null}
       {isLoading ? (
         <div className="flex-1 flex justify-center items-center">
           <Spinner label="Loading..." variant="wave" />

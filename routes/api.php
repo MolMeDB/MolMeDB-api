@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\DocumentationController;
+use App\Http\Controllers\DownloaderController;
 use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\InteractionActiveController;
 use App\Http\Controllers\InteractionPassiveController;
@@ -128,6 +129,16 @@ Route::prefix('/api')->group(function () {
             Route::post('/authenticated', 'storeAuthenticated')->middleware(['auth:sanctum', 'throttle:10,1']);
             Route::post('/email-verification', 'requestEmailVerification')->middleware('throttle:5,1');
             Route::post('/email-verification/verify', 'verifyEmail')->middleware('throttle:10,1');
+        });
+
+    Route::prefix('downloader')
+        ->controller(DownloaderController::class)
+        ->middleware('throttle:30,1')
+        ->group(function () {
+            Route::post('/verify', 'verify');
+            Route::post('/', 'store');
+            Route::get('/{download:uuid}', 'show');
+            Route::get('/{download:uuid}/file', 'download');
         });
 
     Route::prefix('lab/upload')

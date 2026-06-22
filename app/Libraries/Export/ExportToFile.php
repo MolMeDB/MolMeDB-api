@@ -25,6 +25,8 @@ class ExportToFile
 
     const CONTEXT_PUBLICATION = 'publication';
 
+    const CONTEXT_DOWNLOADER = 'downloader';
+
     const TYPE_CSV = 'csv';
 
     private ?string $fullFilePath = null;

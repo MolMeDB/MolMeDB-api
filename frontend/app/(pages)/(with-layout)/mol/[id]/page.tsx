@@ -1,6 +1,7 @@
 import SimpleSiteHeader from "@/components/_core/layout/SimpleSiteHeader";
 import SiteContent from "@/components/_core/layout/SiteContent";
 import SiteFooter from "@/components/_core/layout/SiteFooter";
+import DownloaderSuggestion from "@/components/downloader/DownloaderSuggestion";
 import { SiMoleculer } from "react-icons/si";
 import CompoundBasicProperties from "./section/basicProperties";
 import Compound2D3DStructure from "./section/structure";
@@ -44,6 +45,11 @@ export default async function CompoundDetailPage(props: {
 
   return (
     <>
+      <DownloaderSuggestion
+        category="molecule"
+        id={compound.identifier}
+        label={compound.name ?? compound.identifier}
+      />
       <SimpleSiteHeader>
         <div className="h-full w-full flex flex-col justify-end">
           <div className="flex flex-row items-center justify-start gap-6 lg:gap-8">

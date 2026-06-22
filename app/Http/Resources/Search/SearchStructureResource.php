@@ -26,6 +26,11 @@ class SearchStructureResource extends JsonResource
             'imageUrl' => $cdk->get2dStructureUrl($this->canonical_smiles, 1),
             'isAvailable' => $isAvailable,
             'availabilityMessage' => $isAvailable ? null : 'This molecule record is being prepared.',
+            'downloader' => $isAvailable ? [
+                'category' => 'molecule',
+                'id' => (string) $this->identifier,
+                'label' => $this->name ?: $this->identifier,
+            ] : null,
         ];
     }
 }

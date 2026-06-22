@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Resources\Search;
 
 use Illuminate\Http\Request;
@@ -13,13 +14,18 @@ class SearchProteinResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        return array 
-        (
+        return
+        [
             'title' => $this->matched_identifier ?? $this->uniprot_id,
             'subtitle' => $this->uniprot_id,
             'description' => null,
             'link' => "/browse/proteins?id=$this->id",
-            'imageUrl' => null
-        );
+            'imageUrl' => null,
+            'downloader' => [
+                'category' => 'protein',
+                'id' => (string) $this->id,
+                'label' => $this->uniprot_id,
+            ],
+        ];
     }
 }

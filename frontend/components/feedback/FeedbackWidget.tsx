@@ -1,6 +1,7 @@
 "use client";
 
 import Turnstile from "@/components/auth/Turnstile";
+import { useDockAlign } from "@/components/_core/layout/FloatingDock";
 import { UserSession } from "@/lib/api/admin/interfaces/User";
 import {
   addToast,
@@ -9,12 +10,9 @@ import {
   Textarea,
   Tooltip,
 } from "@heroui/react";
-import { motion } from "framer-motion";
 import { usePathname, useSearchParams } from "next/navigation";
 import { type SyntheticEvent, useEffect, useMemo, useState } from "react";
 import {
-  FiArrowLeft,
-  FiArrowRight,
   FiCheckCircle,
   FiMessageCircle,
   FiSend,
@@ -22,7 +20,6 @@ import {
 } from "react-icons/fi";
 
 type FeedbackStep = "email" | "code" | "message" | "success";
-type FeedbackPosition = "left" | "right";
 
 type VerificationPayload = {
   verification_id: number;
@@ -35,7 +32,6 @@ type ApiErrorPayload = {
 };
 
 const MESSAGE_LIMIT = 4000;
-const POSITION_STORAGE_KEY = "feedback-widget-position";
 const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
 
 class ApiRequestError extends Error {
@@ -48,6 +44,7 @@ class ApiRequestError extends Error {
 }
 
 export default function FeedbackWidget({ user }: { user?: UserSession }) {
+  const align = useDockAlign();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const isAuthenticated = Boolean(user?.email);
@@ -68,15 +65,6 @@ export default function FeedbackWidget({ user }: { user?: UserSession }) {
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [position, setPosition] = useState<FeedbackPosition>("right");
-
-  useEffect(() => {
-    const storedPosition = window.localStorage.getItem(POSITION_STORAGE_KEY);
-
-    if (storedPosition === "left" || storedPosition === "right") {
-      setPosition(storedPosition);
-    }
-  }, []);
 
   useEffect(() => {
     const query = searchParams.toString();
@@ -224,45 +212,14 @@ export default function FeedbackWidget({ user }: { user?: UserSession }) {
     setIsOpen(false);
   }
 
-  function togglePosition() {
-    setPosition((currentPosition) => {
-      const nextPosition = currentPosition === "right" ? "left" : "right";
-
-      window.localStorage.setItem(POSITION_STORAGE_KEY, nextPosition);
-
-      return nextPosition;
-    });
-  }
-
-  const isPositionedLeft = position === "left";
-
   return (
-    <div
-      className={[
-        "flex pointer-events-none",
-        isPositionedLeft ? "justify-start" : "justify-end",
-      ].join(" ")}
-      style={{
-        bottom: "max(16px, env(safe-area-inset-bottom))",
-        left: "max(16px, env(safe-area-inset-left))",
-        position: "fixed",
-        right: "max(16px, env(safe-area-inset-right))",
-        zIndex: 1000,
-      }}
-    >
-      <motion.div
-        layout
-        className={[
-          "flex w-[360px] max-w-full flex-col gap-3",
-          isPositionedLeft ? "items-start" : "items-end",
-        ].join(" ")}
-        transition={{ type: "spring", stiffness: 420, damping: 34 }}
-      >
+    <div className="relative pointer-events-auto">
       <div
         aria-hidden={!isOpen}
         className={[
-          "max-h-[calc(100dvh-6rem)] w-full overflow-y-auto rounded-lg border border-default-200 bg-white shadow-2xl transition-all duration-200 ease-out motion-reduce:transition-none dark:border-default-100 dark:bg-zinc-950",
-          isPositionedLeft ? "origin-bottom-left" : "origin-bottom-right",
+          "absolute bottom-[calc(100%+12px)]",
+          align === "left" ? "left-0 origin-bottom-left" : "right-0 origin-bottom-right",
+          "max-h-[calc(100dvh-6rem)] w-[360px] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-lg border border-default-200 bg-white shadow-2xl transition-all duration-200 ease-out motion-reduce:transition-none dark:border-default-100 dark:bg-zinc-950",
           isOpen
             ? "pointer-events-auto translate-y-0 scale-100 opacity-100"
             : "pointer-events-none translate-y-3 scale-95 opacity-0",
@@ -428,51 +385,18 @@ export default function FeedbackWidget({ user }: { user?: UserSession }) {
         </div>
       </div>
 
-      <div
-        className={[
-          "flex items-center gap-2",
-          isPositionedLeft ? "flex-row-reverse" : "flex-row",
-        ].join(" ")}
-      >
-        <Tooltip
-          content={isPositionedLeft ? "Move feedback right" : "Move feedback left"}
-          placement={isPositionedLeft ? "right" : "left"}
+      <Tooltip content="Send feedback" placement="top">
+        <Button
+          isIconOnly
+          aria-label="Send feedback"
+          className="pointer-events-auto h-12 w-12 shadow-lg"
+          color="primary"
+          radius="full"
+          onPress={() => setIsOpen((current) => !current)}
         >
-          <Button
-            isIconOnly
-            aria-label={
-              isPositionedLeft ? "Move feedback right" : "Move feedback left"
-            }
-            className="pointer-events-auto h-9 w-9 min-w-9 border border-default-200 bg-white shadow-md dark:border-default-100 dark:bg-zinc-950"
-            radius="full"
-            variant="flat"
-            onPress={togglePosition}
-          >
-            {isPositionedLeft ? (
-              <FiArrowRight className="h-4 w-4" />
-            ) : (
-              <FiArrowLeft className="h-4 w-4" />
-            )}
-          </Button>
-        </Tooltip>
-
-        <Tooltip
-          content="Send feedback"
-          placement={isPositionedLeft ? "right" : "left"}
-        >
-          <Button
-            isIconOnly
-            aria-label="Send feedback"
-            className="pointer-events-auto h-12 w-12 shadow-lg"
-            color="primary"
-            radius="full"
-            onPress={() => setIsOpen((current) => !current)}
-          >
-            <FiMessageCircle className="h-5 w-5" />
-          </Button>
-        </Tooltip>
-      </div>
-      </motion.div>
+          <FiMessageCircle className="h-5 w-5" />
+        </Button>
+      </Tooltip>
     </div>
   );
 }

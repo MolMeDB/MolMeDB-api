@@ -1,12 +1,15 @@
 "use client";
 
+import { useDownloader } from "@/components/_core/providers/downloader";
 import { getJson } from "@/lib/api/admin";
 import {
   ISearchQuery,
   ISearchResult,
 } from "@/lib/api/admin/interfaces/SearchEngine";
-import { addToast, Button, Chip, Link, Spinner } from "@heroui/react";
+import { addToast, Button, Chip, Spinner, Tooltip } from "@heroui/react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
+import { FiCheck, FiPlus } from "react-icons/fi";
 import {
   MdArrowForward,
   MdImageNotSupported,
@@ -17,6 +20,7 @@ import {
 export default function SearchListItems(props: {
   searchOptions: ISearchQuery;
 }) {
+  const { addItem, isAdded } = useDownloader();
   const [isSearching, setIsSearching] = useState(false);
   const [records, setRecords] = useState<ISearchResult>();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -145,6 +149,10 @@ export default function SearchListItems(props: {
             const recordTitle = record.title ?? "Molecule record";
             const recordLink = record.link ?? "";
             const isAvailable = record.isAvailable !== false && recordLink;
+            const downloaderItem = record.downloader ?? null;
+            const isInDownloader = downloaderItem
+              ? isAdded(downloaderItem.category, downloaderItem.id)
+              : false;
             const content = (
               <div className="flex min-w-0 flex-1 items-center gap-4">
                 {record.imageUrl ? (
@@ -203,22 +211,48 @@ export default function SearchListItems(props: {
             }
 
             return (
-              <Button
+              <div
                 key={`${recordLink}-${index}`}
-                as={Link}
-                href={recordLink}
-                className="h-auto min-h-24 justify-start border-default-200 bg-white px-3 py-3 text-left shadow-sm dark:bg-background-dark-2"
-                variant="bordered"
-                size="lg"
-                endContent={
+                className="flex min-h-24 items-stretch gap-2 rounded-lg border border-default-200 bg-white p-2 shadow-sm dark:bg-background-dark-2"
+              >
+                <Link
+                  href={recordLink}
+                  className="flex min-w-0 flex-1 items-center gap-3 rounded-md px-1 py-1 outline-none transition-colors hover:bg-default-100 focus-visible:ring-2 focus-visible:ring-primary dark:hover:bg-default-50/10"
+                >
+                  {content}
                   <MdArrowForward
                     size={19}
                     className="shrink-0 text-foreground-400"
                   />
-                }
-              >
-                {content}
-              </Button>
+                </Link>
+                {downloaderItem ? (
+                  <div className="flex shrink-0 items-center border-l border-default-200 pl-2 dark:border-default-100">
+                    <Tooltip
+                      content={
+                        isInDownloader
+                          ? "Already in downloader"
+                          : "Add to downloader"
+                      }
+                    >
+                      <Button
+                        isIconOnly
+                        aria-label={
+                          isInDownloader
+                            ? `${downloaderItem.label} is already in downloader`
+                            : `Add ${downloaderItem.label} to downloader`
+                        }
+                        color={isInDownloader ? "success" : "primary"}
+                        isDisabled={isInDownloader}
+                        size="sm"
+                        variant={isInDownloader ? "flat" : "light"}
+                        onPress={() => addItem(downloaderItem)}
+                      >
+                        {isInDownloader ? <FiCheck /> : <FiPlus />}
+                      </Button>
+                    </Tooltip>
+                  </div>
+                ) : null}
+              </div>
             );
           })}
         </div>
