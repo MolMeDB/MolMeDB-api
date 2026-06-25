@@ -3,11 +3,12 @@
 namespace App\Notifications;
 
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\HtmlString;
 
-class TemplatedNotification extends Notification
+class TemplatedNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 
@@ -20,7 +21,9 @@ class TemplatedNotification extends Notification
         public readonly ?string $emailSubject = null,
         public readonly ?string $emailMessage = null,
         public readonly array $data = [],
-    ) {}
+    ) {
+        $this->afterCommit();
+    }
 
     /**
      * @return array<int, string>

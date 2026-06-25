@@ -587,7 +587,7 @@ export default function MyUploadsList(props: {
 
   async function sendToQueue(recordId: number) {
     const isConfirmed = window.confirm(
-      "Move this record to pending upload state? This action is irreversible.",
+      "Move this record to pending upload state?",
     );
     if (!isConfirmed) {
       return;
@@ -598,6 +598,7 @@ export default function MyUploadsList(props: {
     try {
       const response = await fetch(`/api/lab/upload/${recordId}/enqueue`, {
         method: "POST",
+        body: new FormData(),
       });
       const json = await response.json();
 
@@ -634,6 +635,7 @@ export default function MyUploadsList(props: {
     try {
       const response = await fetch(`/api/lab/upload/${recordId}/revert`, {
         method: "POST",
+        body: new FormData(),
       });
       const json = await response.json();
 
@@ -669,6 +671,7 @@ export default function MyUploadsList(props: {
     try {
       const response = await fetch(`/api/lab/upload/${recordId}/cancel`, {
         method: "POST",
+        body: new FormData(),
       });
       const json = await response.json();
 

@@ -9,4 +9,5 @@ enum UploadQueueLogTypeEnums: string
     case VALIDATION_RUN = 'VALIDATION RUN';
     case REUPLOAD = 'REUPLOAD';
     case UPLOAD_RUN = 'UPLOAD RUN';
+    case NOTIFICATION = 'NOTIFICATION';
 }

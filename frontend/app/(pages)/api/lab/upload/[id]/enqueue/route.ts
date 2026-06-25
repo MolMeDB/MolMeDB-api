@@ -2,12 +2,12 @@ import { postForm } from "@/lib/api/admin";
 import { NextResponse } from "next/server";
 
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
-    const payload = new FormData();
+    const payload = await request.formData();
     const response = await postForm(`/api/lab/upload/${id}/enqueue`, payload);
 
     const json = await response.json();

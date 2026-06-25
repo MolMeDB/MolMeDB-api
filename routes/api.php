@@ -143,13 +143,15 @@ Route::prefix('/api')->group(function () {
 
     Route::prefix('lab/upload')
         ->controller(LabUploadController::class)
-        ->middleware('auth')
         ->group(function () {
             Route::get('/membranes', 'membranes');
             Route::get('/methods', 'methods');
             Route::get('/publications', 'publications');
             Route::get('/publications/lookup', 'lookupPublications');
             Route::get('/my-uploads', 'myUploads');
+            Route::get('/track/{token}', 'track');
+            Route::post('/email-verification', 'requestEmailVerification')->middleware('throttle:5,1');
+            Route::post('/email-verification/verify', 'verifyEmail')->middleware('throttle:10,1');
             Route::post('/', 'store');
             Route::get('/{record}/configure/preview', 'configurePreview');
             Route::post('/{record}/configure/validate', 'validateConfiguration');

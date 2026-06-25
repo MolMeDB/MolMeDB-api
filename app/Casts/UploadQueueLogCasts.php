@@ -11,7 +11,7 @@ class UploadQueueLogCasts implements CastsAttributes
 {
     public function get($model, string $key, $value, array $attributes): Collection
     {
-        $logs = (array) json_decode($value);
+        $logs = (array) json_decode($value ?? '[]');
 
         if (! UploadQueueLog::hasValidListStructure($logs)) {
             $logs = UploadQueueLog::remapOldLogs($logs);
@@ -41,7 +41,7 @@ class UploadQueueLogCasts implements CastsAttributes
                 return $item->jsonSerialize();
             }
 
-            return (array) $item; 
+            return (array) $item;
         });
 
         return json_encode($array);

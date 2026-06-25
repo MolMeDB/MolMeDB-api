@@ -7,6 +7,7 @@ use App\Models\NotificationTemplate;
 use App\Models\User;
 use App\Models\UserNotification;
 use App\Notifications\TemplatedNotification;
+use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
@@ -102,28 +103,30 @@ class NotificationService
     /**
      * @param  array<string, mixed>  $data
      */
-    public function sendEmailOnly(string $email, string|NotificationTemplate $template, array $data = []): void
+    public function sendEmailOnly(string $email, string|NotificationTemplate $template, array $data = []): bool
     {
         $template = $this->resolveTemplate($template);
 
         if (! $template) {
-            return;
+            return false;
         }
 
         $notification = $this->buildNotification($template, $data);
 
         if (! $notification) {
-            return;
+            return false;
         }
 
         $payload = $notification->toUserNotificationData();
 
         if (! $payload['email_subject'] || ! $payload['email_message']) {
-            return;
+            return false;
         }
 
         try {
             Notification::route('mail', $email)->notify($notification);
+
+            return true;
         } catch (Throwable $exception) {
             $this->logEmailFailure(
                 description: $exception->getMessage(),
@@ -132,15 +135,17 @@ class NotificationService
                     'email' => $email,
                 ],
             );
+
+            return false;
         }
     }
 
     /**
      * @param  array<string, mixed>  $data
      */
-    public function sendEmailByAction(string $email, string $action, array $data = []): void
+    public function sendEmailByAction(string $email, string $action, array $data = []): bool
     {
-        $this->sendEmailOnly($email, $action, $data);
+        return $this->sendEmailOnly($email, $action, $data);
     }
 
     private function resolveTemplate(string|NotificationTemplate $template): ?NotificationTemplate
@@ -196,6 +201,10 @@ class NotificationService
             }
 
             $value = Arr::get($data, $key);
+
+            if ($value instanceof Htmlable) {
+                return $value->toHtml();
+            }
 
             if (is_array($value) || is_object($value)) {
                 throw new RuntimeException("Notification template variable [{$key}] is not scalar.");

@@ -3,6 +3,7 @@
 import Turnstile from "@/components/auth/Turnstile";
 import { getJson } from "@/lib/api/admin";
 import { PublicationLookupOption } from "@/lib/api/admin/interfaces/Publication";
+import { IUploadQueue } from "@/lib/api/admin/interfaces/UploadQueue";
 import {
   Autocomplete,
   AutocompleteItem,
@@ -11,13 +12,23 @@ import {
   Divider,
   Input,
   Textarea,
+  Tooltip,
 } from "@heroui/react";
-import { useEffect, useState } from "react";
-import { MdCloudUpload } from "react-icons/md";
+import Link from "next/link";
+import { type SyntheticEvent, useEffect, useRef, useState } from "react";
+import { FiHelpCircle } from "react-icons/fi";
+import {
+  MdCloudUpload,
+  MdMarkEmailRead,
+  MdRefresh,
+  MdSearch,
+} from "react-icons/md";
 import { useHandle401 } from "@/lib/api/admin/redirections";
 import MyUploadsList from "./myUploads";
+import UploadRecordPanel from "./uploadRecordPanel";
 
 const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
+const TRACK_AUTO_REFRESH_SECONDS = 10;
 
 type SelectOption = {
   id: number;
@@ -31,6 +42,26 @@ type ActionState = {
   data?: Record<string, unknown> | null;
 };
 
+type UploadEmailStep = "email" | "code" | "verified";
+
+type VerificationPayload = {
+  verification_id: number;
+  verification_token: string;
+};
+
+type ApiErrorPayload = {
+  message?: string;
+  errors?: Record<string, string[]>;
+};
+
+class ApiRequestError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+  ) {
+    super(message);
+  }
+}
 
 function useDebouncedValue(value: string, delay = 300): string {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -46,11 +77,45 @@ function useDebouncedValue(value: string, delay = 300): string {
   return debouncedValue;
 }
 
-export default function UploadDatasetForm() {
+export default function UploadDatasetForm(props: {
+  isLoggedIn: boolean;
+  initialToken?: string;
+}) {
   const [actionState, setActionState] = useState<ActionState | null>(null);
   const [isPending, setIsPending] = useState(false);
 
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [email, setEmail] = useState("");
+  const [emailStep, setEmailStep] = useState<UploadEmailStep>(
+    props.isLoggedIn ? "verified" : "email",
+  );
+  const [emailCode, setEmailCode] = useState("");
+  const [emailVerification, setEmailVerification] =
+    useState<VerificationPayload | null>(null);
+  const [emailTurnstileToken, setEmailTurnstileToken] = useState<string | null>(
+    null,
+  );
+  const [isEmailVerificationSubmitting, setIsEmailVerificationSubmitting] =
+    useState(false);
+  const [emailVerificationError, setEmailVerificationError] = useState<
+    string | null
+  >(null);
+  const [isEmailVerificationOpen, setIsEmailVerificationOpen] = useState(true);
+  const [guestUpload, setGuestUpload] = useState<IUploadQueue | null>(null);
+  const [trackTokenInput, setTrackTokenInput] = useState(
+    props.initialToken ?? "",
+  );
+  const [isTrackLoading, setIsTrackLoading] = useState(false);
+  const [trackError, setTrackError] = useState<string | null>(null);
+  const [trackAutoRefreshCountdown, setTrackAutoRefreshCountdown] = useState(
+    TRACK_AUTO_REFRESH_SECONDS,
+  );
+  const trackAutoRefreshCountdownRef = useRef(TRACK_AUTO_REFRESH_SECONDS);
+  const trackTokenInputRef = useRef(trackTokenInput);
+
+  const [uploadTurnstileToken, setUploadTurnstileToken] = useState<
+    string | null
+  >(null);
+  const [uploadCaptchaKey, setUploadCaptchaKey] = useState(0);
   const [datasetType, setDatasetType] = useState("1");
   const [datasetName, setDatasetName] = useState("");
   const [comment, setComment] = useState("");
@@ -92,6 +157,7 @@ export default function UploadDatasetForm() {
     `PMID ${option.pmid} - ${option.citation ?? option.title ?? "Untitled"}`;
 
   const handle401 = useHandle401();
+  const canShowUploadForm = props.isLoggedIn || emailStep === "verified";
 
   useEffect(() => {
     setIsMembraneLoading(true);
@@ -207,10 +273,132 @@ export default function UploadDatasetForm() {
       setDatasetType("1");
       setDatasetName("");
       setComment("");
+      setUploadTurnstileToken(null);
+      setUploadCaptchaKey((current) => current + 1);
       setReloadKey(reloadKey + 1);
+
+      if (!props.isLoggedIn) {
+        setEmail("");
+        setEmailCode("");
+        setEmailVerification(null);
+        setEmailTurnstileToken(null);
+        setEmailStep("email");
+      }
+
+      const guestToken = actionState.data?.guest_token as string | undefined;
+      if (guestToken) {
+        setTrackTokenInput(guestToken);
+        void loadGuestUpload(guestToken);
+      }
     }
   }, [actionState?.status]);
-  
+
+  async function requestJson<T>(
+    uri: string,
+    payload: Record<string, unknown>,
+  ): Promise<T> {
+    const response = await fetch(uri, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+    const json = (await response.json()) as ApiErrorPayload & T;
+
+    if (!response.ok) {
+      const validationError = json.errors
+        ? Object.values(json.errors).flat()[0]
+        : null;
+
+      throw new ApiRequestError(
+        validationError ?? json.message ?? "Request failed.",
+        response.status,
+      );
+    }
+
+    return json;
+  }
+
+  async function handleEmailSubmit(event: SyntheticEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setEmailVerificationError(null);
+    setIsEmailVerificationSubmitting(true);
+
+    try {
+      await requestJson("/api/lab/upload/email-verification", {
+        email,
+        turnstile_token: emailTurnstileToken,
+      });
+      setEmailStep("code");
+    } catch (error) {
+      setEmailVerificationError(
+        error instanceof Error ? error.message : "Verification code failed.",
+      );
+    } finally {
+      setIsEmailVerificationSubmitting(false);
+    }
+  }
+
+  async function handleCodeSubmit(event: SyntheticEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setEmailVerificationError(null);
+    setIsEmailVerificationSubmitting(true);
+
+    try {
+      const verification = await requestJson<VerificationPayload>(
+        "/api/lab/upload/email-verification/verify",
+        { email, code: emailCode },
+      );
+      setEmailVerification(verification);
+      setEmailStep("verified");
+    } catch (error) {
+      setEmailVerificationError(
+        error instanceof Error ? error.message : "Email verification failed.",
+      );
+    } finally {
+      setIsEmailVerificationSubmitting(false);
+    }
+  }
+
+  async function loadGuestUpload(token: string) {
+    const trimmedToken = token.trim();
+
+    if (!trimmedToken) {
+      return;
+    }
+
+    setIsTrackLoading(true);
+    setTrackError(null);
+
+    try {
+      const response = await getJson(
+        `/api/lab/upload/track/${encodeURIComponent(trimmedToken)}`,
+      );
+
+      if (response?.code === 200) {
+        setGuestUpload(response.data?.data ?? null);
+        setIsEmailVerificationOpen(false);
+        return;
+      }
+
+      setGuestUpload(null);
+      setTrackError("Upload not found for this token.");
+    } catch {
+      setGuestUpload(null);
+      setTrackError("Failed to load upload status.");
+    } finally {
+      setIsTrackLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (props.initialToken) {
+      void loadGuestUpload(props.initialToken);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -257,7 +445,20 @@ export default function UploadDatasetForm() {
 
   return (
     <div className="w-full mx-auto bg-foreground-100 rounded-2xl p-6 lg:p-8">
-      <h2 className="text-2xl font-bold">Upload computed dataset</h2>
+      <div className="flex flex-row items-center justify-start gap-2">
+        <h2 className="text-2xl font-bold">Upload data to MolMeDB</h2>
+        <Tooltip content="Show more info" placement="top">
+          <Link
+            aria-label="Show more info about contributing data"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-full text-foreground-500 transition-colors hover:bg-default-200 hover:text-foreground"
+            href="/docs/contributing-data"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <FiHelpCircle className="h-5 w-5" />
+          </Link>
+        </Tooltip>
+      </div>
       <p className="text-sm text-warning-700 mt-1">
         All submissions will be reviewed by our team before being published on
         the platform. Please allow up to 5 business days for the review process.
@@ -265,12 +466,195 @@ export default function UploadDatasetForm() {
         email.
       </p>
 
+      {!props.isLoggedIn && (
+        <div className="mt-6 flex flex-col gap-4 rounded-xl border border-default-200 bg-background/70 p-4">
+          <div className="flex flex-col gap-1">
+            <h3 className="text-lg font-bold">Track an existing upload</h3>
+            <p className="text-sm text-foreground-500">
+              Paste the token from your tracking email, or open the tracking
+              link directly.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Input
+              value={trackTokenInput}
+              onValueChange={setTrackTokenInput}
+              placeholder="Tracking token"
+            />
+            <Button
+              color="secondary"
+              variant="flat"
+              isLoading={isTrackLoading}
+              startContent={<MdSearch />}
+              onPress={() => loadGuestUpload(trackTokenInput)}
+              className="w-fit"
+            >
+              Track
+            </Button>
+          </div>
+          {trackError && <Alert color="danger" title={trackError} />}
+          {guestUpload && (
+            <UploadRecordPanel
+              upload={guestUpload}
+              guestToken={trackTokenInput.trim() || undefined}
+              onRefresh={() => loadGuestUpload(trackTokenInput)}
+            />
+          )}
+        </div>
+      )}
+
+      {!props.isLoggedIn &&
+        emailStep !== "verified" &&
+        guestUpload &&
+        !isEmailVerificationOpen && (
+          <div className="mt-4 flex justify-end">
+            <Button
+              size="sm"
+              variant="flat"
+              onPress={() => setIsEmailVerificationOpen(true)}
+            >
+              Start a new upload
+            </Button>
+          </div>
+        )}
+
+      {!props.isLoggedIn && emailStep !== "verified" && isEmailVerificationOpen && (
+        <div className="mt-6 flex flex-col gap-5 rounded-xl border border-primary-200 bg-primary-50/70 p-4 dark:border-primary-500/40 dark:bg-primary-950/20">
+          {guestUpload && (
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                variant="light"
+                onPress={() => setIsEmailVerificationOpen(false)}
+              >
+                Hide new upload form
+              </Button>
+            </div>
+          )}
+          <Alert
+            color="primary"
+            title="Verify your email to start a new upload"
+            description={
+              <span>
+                We need your email so we can send you a private link for
+                managing the whole upload process and tracking its status. You
+                can also{" "}
+                <Link
+                  className="font-semibold underline"
+                  href="/login?redirect=/lab/upload"
+                >
+                  log in
+                </Link>{" "}
+                instead; signed-in users can submit data immediately and see
+                their previous uploads directly in this form.
+              </span>
+            }
+          />
+
+          {emailVerificationError && (
+            <Alert color="danger" title={emailVerificationError} />
+          )}
+
+          {emailStep === "email" && (
+            <form className="flex flex-col gap-4" onSubmit={handleEmailSubmit}>
+              <Input
+                label="Email"
+                type="email"
+                value={email}
+                onValueChange={setEmail}
+                isRequired
+                maxLength={255}
+              />
+              <Turnstile
+                name="upload_email_turnstile_token"
+                siteKey={turnstileSiteKey}
+                onVerify={setEmailTurnstileToken}
+              />
+              <div className="flex justify-end">
+                <Button
+                  type="submit"
+                  color="primary"
+                  isLoading={isEmailVerificationSubmitting}
+                  isDisabled={
+                    !turnstileSiteKey ||
+                    !emailTurnstileToken ||
+                    isEmailVerificationSubmitting
+                  }
+                  startContent={
+                    !isEmailVerificationSubmitting ? <MdMarkEmailRead /> : null
+                  }
+                >
+                  Send verification code
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {emailStep === "code" && (
+            <form className="flex flex-col gap-4" onSubmit={handleCodeSubmit}>
+              <Input isDisabled label="Email" value={email} />
+              <Input
+                label="Verification code"
+                value={emailCode}
+                onValueChange={setEmailCode}
+                isRequired
+                maxLength={6}
+              />
+              <div className="flex flex-col justify-end gap-2 sm:flex-row">
+                <Button
+                  variant="flat"
+                  onPress={() => {
+                    setEmailStep("email");
+                    setEmailCode("");
+                    setEmailVerificationError(null);
+                  }}
+                >
+                  Change email
+                </Button>
+                <Button
+                  type="submit"
+                  color="primary"
+                  isLoading={isEmailVerificationSubmitting}
+                >
+                  Verify email
+                </Button>
+              </div>
+            </form>
+          )}
+        </div>
+      )}
+
+      {canShowUploadForm && (
       <form onSubmit={handleSubmit} className="pt-6 flex flex-col gap-5">
         {actionState?.message && (
           <Alert
             color={actionState.status === 201 ? "success" : "danger"}
             title={actionState.message}
           />
+        )}
+
+        {!props.isLoggedIn && (
+          <Alert
+            color="success"
+            title="Email verified"
+            description={`Upload status and management link will be sent to ${email}.`}
+          />
+        )}
+
+        {!props.isLoggedIn && (
+          <>
+            <input type="hidden" name="email" value={email} />
+            <input
+              type="hidden"
+              name="verification_id"
+              value={emailVerification?.verification_id ?? ""}
+            />
+            <input
+              type="hidden"
+              name="verification_token"
+              value={emailVerification?.verification_token ?? ""}
+            />
+          </>
         )}
 
         <div>
@@ -456,27 +840,52 @@ export default function UploadDatasetForm() {
         </div>
 
         <Turnstile
+          key={uploadCaptchaKey}
           name="turnstile_token"
           siteKey={turnstileSiteKey}
-          onVerify={setTurnstileToken}
+          onVerify={setUploadTurnstileToken}
         />
 
-        <Button
-          type="submit"
-          color="primary"
-          size="lg"
-          isLoading={isPending}
-          isDisabled={!turnstileSiteKey || !turnstileToken || isPending}
-          startContent={<MdCloudUpload />}
-          className="text-white"
-        >
-          Submit upload request
-        </Button>
+        {turnstileSiteKey && !uploadTurnstileToken ? (
+          <Button
+            type="button"
+            color="primary"
+            size="lg"
+            variant="flat"
+            startContent={<MdRefresh />}
+            onPress={() => {
+              setUploadTurnstileToken(null);
+              setUploadCaptchaKey((current) => current + 1);
+            }}
+          >
+            Reload captcha
+          </Button>
+        ) : (
+          <Button
+            type="submit"
+            color="primary"
+            size="lg"
+            isLoading={isPending}
+            isDisabled={!turnstileSiteKey || isPending}
+            startContent={<MdCloudUpload />}
+            className="text-white"
+          >
+            Submit upload request
+          </Button>
+        )}
       </form>
+      )}
 
       <Divider className="my-8" />
 
-      <MyUploadsList reloadKey={reloadKey} />
+      {props.isLoggedIn ? (
+        <MyUploadsList reloadKey={reloadKey} />
+      ) : (
+        <p className="text-sm text-foreground-500">
+          <Link className="text-primary" href={"/login"}>Sign in</Link>{" "}
+          to see the complete history of your uploaded datasets here.
+        </p>
+      )}
     </div>
   );
 }

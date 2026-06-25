@@ -14,6 +14,8 @@ class Config extends Model
 
     public const KEY_FEEDBACK_EMAIL_FALLBACK = 'feedback:email_fallback';
 
+    public const KEY_LAB_UPLOAD_ADMIN_EMAIL_FALLBACK = 'lab_upload:admin_email_fallback';
+
     protected $primaryKey = 'key';
 
     public $incrementing = false;

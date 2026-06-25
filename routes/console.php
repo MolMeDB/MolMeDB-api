@@ -2,6 +2,7 @@
 
 use App\Console\Commands\Cron\RunDailyCommands;
 use App\Console\Commands\ProcessFrontendUploads;
+use App\Console\Commands\SendUploadQueueNotifications;
 use Illuminate\Console\Command;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -42,6 +43,10 @@ Schedule::command('predictions:refresh-dataset-stats')
     ->withoutOverlapping();
 
 Schedule::command(ProcessFrontendUploads::class)
+    ->everyMinute()
+    ->withoutOverlapping();
+
+Schedule::command(SendUploadQueueNotifications::class)
     ->everyMinute()
     ->withoutOverlapping();
 

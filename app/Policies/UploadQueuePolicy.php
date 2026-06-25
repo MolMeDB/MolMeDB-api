@@ -37,7 +37,7 @@ class UploadQueuePolicy
 
     public function cancel(User $user, UploadQueue $uploadQueue): bool
     {
-        return $uploadQueue->canDeleteUploadedFile($user);
+        return $this->canManage($user, $uploadQueue) && $uploadQueue->canBeCanceled();
     }
 
     public function revert(User $user, UploadQueue $uploadQueue): bool
@@ -47,13 +47,20 @@ class UploadQueuePolicy
 
     public function delete(User $user, UploadQueue $uploadQueue): bool
     {
-        return $uploadQueue->canDeleteUploadedFile($user);
+        return $this->canManage($user, $uploadQueue) && $uploadQueue->canBeCanceled();
     }
 
+    /**
+     * Admins and UPLOAD_QUEUE_MANAGE_ALL holders can manage every record.
+     * UPLOAD_QUEUE_MANAGE_OWN only grants access to records the user owns.
+     */
     private function canManage(User $user, UploadQueue $uploadQueue): bool
     {
-        return $user->hasAdminRole()
-            || $uploadQueue->user_id === $user->id
-            || $user->hasPermissionTo(PermissionEnums::UPLOAD_QUEUE_MANAGE_ALL);
+        if ($user->hasAdminRole() || $user->hasPermissionTo(PermissionEnums::UPLOAD_QUEUE_MANAGE_ALL)) {
+            return true;
+        }
+
+        return $uploadQueue->user_id === $user->id
+            && $user->hasPermissionTo(PermissionEnums::UPLOAD_QUEUE_MANAGE_OWN);
     }
 }

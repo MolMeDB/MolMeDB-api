@@ -33,7 +33,9 @@ export default function Turnstile({ name, siteKey, onVerify }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
   const [token, setToken] = useState("");
-  const [scriptLoaded, setScriptLoaded] = useState(false);
+  const [scriptLoaded, setScriptLoaded] = useState(() => {
+    return typeof window !== "undefined" && Boolean(window.turnstile);
+  });
 
   const resetToken = useCallback(() => {
     setToken("");
@@ -61,6 +63,11 @@ export default function Turnstile({ name, siteKey, onVerify }: Props) {
   }, [onVerify, resetToken, scriptLoaded, siteKey]);
 
   useEffect(() => {
+    if (!scriptLoaded && window.turnstile) {
+      setScriptLoaded(true);
+      return;
+    }
+
     renderWidget();
 
     return () => {
@@ -87,6 +94,7 @@ export default function Turnstile({ name, siteKey, onVerify }: Props) {
         src="https://challenges.cloudflare.com/turnstile/v0/api.js"
         strategy="afterInteractive"
         onLoad={() => setScriptLoaded(true)}
+        onReady={() => setScriptLoaded(true)}
       />
       <input type="hidden" name={name} value={token} readOnly />
       <div ref={containerRef} />

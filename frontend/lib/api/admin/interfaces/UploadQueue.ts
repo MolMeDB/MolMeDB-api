@@ -21,7 +21,7 @@ export interface IUploadQueue {
   logs: {
     message: string,
     context?: 'error' | 'success' | 'warning' | 'info',
-    type?: 'UPLOAD' | 'STATE CHANGE' | 'VALIDATION RUN' | 'REUPLOAD' | 'UPLOAD RUN',
+    type?: 'UPLOAD' | 'STATE CHANGE' | 'VALIDATION RUN' | 'REUPLOAD' | 'UPLOAD RUN' | 'NOTIFICATION',
     state: number,
     state_label?: unknown,
     payload?: any,

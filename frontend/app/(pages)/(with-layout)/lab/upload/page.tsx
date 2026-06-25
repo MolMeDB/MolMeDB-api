@@ -4,19 +4,17 @@ import SiteContent from "@/components/_core/layout/SiteContent";
 import { UserSession } from "@/lib/api/admin/interfaces/User";
 import { Cookie } from "@/lib/api/cookies";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { MdOutlineCloudUpload } from "react-icons/md";
 import UploadDatasetForm from "./section/uploadDatasetForm";
 
-export default async function LabUploadPage() {
+export default async function LabUploadPage(props: {
+  searchParams: Promise<{ token?: string }>;
+}) {
   const user: UserSession | undefined =
     (await Cookie.getUserData()) as UserSession;
 
   const isLoggedIn = user && user.id ? true : false;
-
-  if (!isLoggedIn) {
-    return redirect("/lab");
-  }
+  const initialToken = (await props.searchParams).token ?? "";
 
   return (
     <>
@@ -41,7 +39,10 @@ export default async function LabUploadPage() {
       </SimpleSiteHeader>
       <div className="min-h-screen pb-16">
         <SiteContent classNameChildren="flex flex-col gap-10 min-h-screen">
-          <UploadDatasetForm />
+          <UploadDatasetForm
+            isLoggedIn={isLoggedIn}
+            initialToken={initialToken}
+          />
         </SiteContent>
       </div>
       <SiteFooter />

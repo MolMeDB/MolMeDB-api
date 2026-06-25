@@ -4,13 +4,17 @@ namespace App\Models;
 
 use App\Casts\UploadQueueConfigCasts;
 use App\Casts\UploadQueueLogCasts;
+use App\Enums\PermissionEnums;
 use App\Enums\UploadQueueLogContextEnums;
 use App\Enums\UploadQueueLogTypeEnums;
+use App\Jobs\SendUploadQueueStatusUpdate;
 use App\Observers\UploadQueueObserver;
 use App\ValueObjects\UploadQueueLog;
+use Carbon\Carbon;
 use Filament\Notifications\Notification;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -249,14 +253,60 @@ class UploadQueue extends Model
         ], true);
     }
 
-    public function isDatasetOwner(?User $user): bool
+    public function isAccessibleBy(?User $user, ?string $guestToken): bool
     {
-        return $user !== null && $this->dataset?->created_by === $user->id;
+        if ($user) {
+            return $user->hasAdminRole()
+                || $this->user_id === $user->id
+                || $user->hasPermissionTo(PermissionEnums::UPLOAD_QUEUE_MANAGE_ALL);
+        }
+
+        return $guestToken !== null
+            && $this->guest_token !== null
+            && hash_equals($this->guest_token, $guestToken);
     }
 
-    public function canDeleteUploadedFile(?User $user): bool
+    public function trackingUrl(): string
     {
-        return $this->isDatasetOwner($user) && $this->canBeCanceled();
+        $url = rtrim((string) config('app.frontend_url'), '/').'/lab/upload';
+
+        return $this->guest_token ? $url.'?token='.$this->guest_token : $url;
+    }
+
+    public function lastNotifiedAt(): ?string
+    {
+        return $this->logs
+            ->filter(fn (UploadQueueLog $log) => $log->type === UploadQueueLogTypeEnums::NOTIFICATION)
+            ->last()
+            ?->timestamp;
+    }
+
+    /**
+     * @return Collection<int, UploadQueueLog>
+     */
+    public function unnotifiedLogs(): Collection
+    {
+        $lastNotifiedAt = $this->lastNotifiedAt();
+
+        return $this->logs
+            ->filter(function (UploadQueueLog $log) use ($lastNotifiedAt): bool {
+                if ($log->type === UploadQueueLogTypeEnums::NOTIFICATION) {
+                    return false;
+                }
+
+                if ($lastNotifiedAt === null) {
+                    return true;
+                }
+
+                return $log->timestamp !== null
+                    && Carbon::parse($log->timestamp)->gt(Carbon::parse($lastNotifiedAt));
+            })
+            ->values();
+    }
+
+    public function canDeleteUploadedFile(?User $user, ?string $guestToken = null): bool
+    {
+        return $this->isAccessibleBy($user, $guestToken) && $this->canBeCanceled();
     }
 
     /**
@@ -264,10 +314,10 @@ class UploadQueue extends Model
      *
      * @throws AuthorizationException
      */
-    public function deleteUploadedFileAndCancel(User $user): array
+    public function deleteUploadedFileAndCancel(?User $user, ?string $guestToken = null): array
     {
-        if (! $this->canDeleteUploadedFile($user)) {
-            throw new AuthorizationException('Only the dataset owner can delete this upload.');
+        if (! $this->canDeleteUploadedFile($user, $guestToken)) {
+            throw new AuthorizationException('Only the upload owner can delete this upload.');
         }
 
         if ((int) $this->state === self::STATE_CANCELED) {
@@ -326,7 +376,7 @@ class UploadQueue extends Model
             UploadQueueLogContextEnums::WARNING,
             UploadQueueLogTypeEnums::STATE_CHANGE,
             $payload,
-            $user->id
+            $user?->id
         );
 
         return $payload;
@@ -404,6 +454,10 @@ class UploadQueue extends Model
             $state ?? $this->state,
             $payload,
         ));
+
+        if ($type !== UploadQueueLogTypeEnums::NOTIFICATION && $context === UploadQueueLogContextEnums::ERROR) {
+            $this->queueStatusUpdate(true);
+        }
     }
 
     public function transitionToState(
@@ -425,6 +479,24 @@ class UploadQueue extends Model
             $payload,
             $userId,
         );
+
+        if ($context !== UploadQueueLogContextEnums::ERROR) {
+            $sendImmediately = $this->shouldSendStatusUpdateImmediately($state, $context);
+            $this->queueStatusUpdate($sendImmediately);
+        }
+    }
+
+    private function shouldSendStatusUpdateImmediately(int $state, UploadQueueLogContextEnums $context): bool
+    {
+        return $context === UploadQueueLogContextEnums::ERROR ||
+            in_array($state, [self::STATE_DONE, self::STATE_REVIEW_REQUIRED], true);
+    }
+
+    private function queueStatusUpdate(bool $sendImmediately): void
+    {
+        SendUploadQueueStatusUpdate::dispatch($this->id, $sendImmediately)
+            ->afterCommit()
+            ->delay($sendImmediately ? 0 : 600);
     }
 
     public function hasValidConfig(): bool

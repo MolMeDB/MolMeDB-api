@@ -4,27 +4,37 @@ namespace App\Http\Controllers;
 
 use App\Enums\UploadQueueLogContextEnums;
 use App\Enums\UploadQueueLogTypeEnums;
+use App\Http\Requests\Feedback\RequestFeedbackEmailVerificationRequest;
+use App\Http\Requests\Feedback\VerifyFeedbackEmailRequest;
 use App\Http\Requests\Lab\LookupPublicationRequest;
 use App\Http\Requests\Lab\PreviewLabUploadConfigRequest;
 use App\Http\Requests\Lab\ReuploadLabUploadRequest;
 use App\Http\Requests\Lab\StoreLabUploadRequest;
 use App\Http\Requests\Lab\ValidateLabUploadConfigRequest;
 use App\Http\Resources\UploadQueueResource;
+use App\Mail\UploadEmailVerificationMail;
 use App\Models\Author;
+use App\Models\Config;
 use App\Models\Dataset;
+use App\Models\FeedbackEmailVerification;
 use App\Models\File;
 use App\Models\Filesystem;
 use App\Models\Membrane;
 use App\Models\Method;
+use App\Models\NotificationTemplate;
 use App\Models\Publication;
 use App\Models\UploadQueue;
 use App\Models\User;
+use App\Services\AdminUrlGenerator;
+use App\Services\NotificationService;
 use App\Services\UploadQueueFrontendConfigurator;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Modules\References\EuropePMC\Enums\Query\SortBy;
@@ -36,6 +46,83 @@ use Throwable;
 
 class LabUploadController extends Controller
 {
+    private const CODE_ATTEMPTS_LIMIT = 5;
+
+    public function requestEmailVerification(RequestFeedbackEmailVerificationRequest $request): JsonResponse
+    {
+        $email = Str::lower($request->validated('email'));
+
+        if (User::query()->where('email', $email)->exists()) {
+            throw ValidationException::withMessages([
+                'email' => ['This email is already registered. Please log in to upload data and manage your previous uploads.'],
+            ]);
+        }
+
+        $code = (string) random_int(100000, 999999);
+        $expiresAt = now()->addMinutes(15);
+
+        FeedbackEmailVerification::query()->create([
+            'email' => $email,
+            'code_hash' => Hash::make($code),
+            'expires_at' => $expiresAt,
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+
+        Mail::to($email)->queue(new UploadEmailVerificationMail($code, $expiresAt));
+
+        return response()->json([
+            'message' => 'Verification code has been sent.',
+            'expires_at' => $expiresAt->toISOString(),
+        ]);
+    }
+
+    public function verifyEmail(VerifyFeedbackEmailRequest $request): JsonResponse
+    {
+        $data = $request->validated();
+        $email = Str::lower($data['email']);
+
+        $verification = FeedbackEmailVerification::query()
+            ->where('email', $email)
+            ->whereNull('verified_at')
+            ->whereNull('consumed_at')
+            ->where('expires_at', '>', now())
+            ->latest()
+            ->first();
+
+        if (! $verification) {
+            throw ValidationException::withMessages([
+                'code' => ['Verification code is invalid or has expired.'],
+            ]);
+        }
+
+        if ($verification->attempts >= self::CODE_ATTEMPTS_LIMIT) {
+            throw ValidationException::withMessages([
+                'code' => ['Too many invalid attempts. Please request a new code.'],
+            ]);
+        }
+
+        if (! Hash::check($data['code'], $verification->code_hash)) {
+            $verification->increment('attempts');
+
+            throw ValidationException::withMessages([
+                'code' => ['Verification code is invalid or has expired.'],
+            ]);
+        }
+
+        $submitToken = Str::random(64);
+        $verification->forceFill([
+            'submit_token_hash' => Hash::make($submitToken),
+            'verified_at' => now(),
+        ])->save();
+
+        return response()->json([
+            'verification_id' => $verification->id,
+            'verification_token' => $submitToken,
+            'expires_at' => $verification->expires_at->toISOString(),
+        ]);
+    }
+
     public function membranes(Request $request): JsonResponse
     {
         $query = trim($request->string('query')->toString());
@@ -163,13 +250,17 @@ class LabUploadController extends Controller
     {
         $validated = $request->validated();
         $user = $request->user();
+        $guestToken = $user ? null : (string) Str::random(48);
+        $verification = $user ? null : $this->validatedGuestEmailVerification($validated);
 
-        $result = DB::transaction(function () use ($request, $validated, $user): array {
+        $result = DB::transaction(function () use ($request, $validated, $user, $guestToken, $verification): array {
             $publication = $this->resolvePublication($validated);
 
             $datasetName = isset($validated['dataset_name']) && trim($validated['dataset_name']) !== ''
                 ? trim($validated['dataset_name'])
-                : sprintf('User upload [%s] by %s', now()->format('Y-m-d H:i'), $user->name);
+                : ($user
+                    ? sprintf('User upload [%s] by %s', now()->format('Y-m-d H:i'), $user->name)
+                    : sprintf('Guest upload [%s]', now()->format('Y-m-d H:i')));
 
             $comment = trim((string) ($validated['comment'] ?? ''));
 
@@ -179,7 +270,7 @@ class LabUploadController extends Controller
                 'comment' => $comment !== '' ? $comment : null,
                 'membrane_id' => $validated['dataset_type'] == Dataset::TYPE_PASSIVE ? (int) $validated['membrane_id'] : null,
                 'method_id' => $validated['dataset_type'] == Dataset::TYPE_PASSIVE ? (int) $validated['method_id'] : null,
-                'created_by' => $user->id,
+                'created_by' => $user?->id,
             ]);
 
             $dataset->publications()->syncWithPivotValues(
@@ -221,7 +312,9 @@ class LabUploadController extends Controller
                 'state' => UploadQueue::STATE_UPLOADED,
                 'file_id' => $fileRecord->id,
                 'dataset_id' => $dataset->id,
-                'user_id' => $user->id,
+                'user_id' => $user?->id,
+                'guest_email' => $user ? null : $validated['email'],
+                'guest_token' => $guestToken,
                 'config' => [
                     'source_publication_id' => $publication->id,
                     'uploaded_file_name' => $uploadedFile->getClientOriginalName(),
@@ -246,8 +339,12 @@ class LabUploadController extends Controller
                     'file_size' => $uploadedFile->getSize(),
                     'file_mime' => $uploadedFile->getMimeType(),
                 ],
-                $user->id,
+                $user?->id,
             );
+
+            $verification?->forceFill([
+                'consumed_at' => now(),
+            ])->save();
 
             return [
                 'dataset' => $dataset,
@@ -257,18 +354,88 @@ class LabUploadController extends Controller
             ];
         });
 
+        $uploadQueue = $result['upload_queue'];
+        $notificationService = app(NotificationService::class);
+
+        $receivedData = [
+            'record_id' => $uploadQueue->id,
+            'dataset_name' => $result['dataset']->name,
+            'manage_url' => $uploadQueue->trackingUrl(),
+        ];
+
+        $notificationSent = $user
+            ? $notificationService->send($user, NotificationTemplate::KEY_UPLOAD_RECEIVED, $receivedData) !== null
+            : $notificationService->sendEmailOnly($validated['email'], NotificationTemplate::KEY_UPLOAD_RECEIVED, $receivedData);
+
+        if ($notificationSent) {
+            $uploadQueue->addStructuredLog(
+                'Upload received notification sent to uploader.',
+                UploadQueueLogContextEnums::INFO,
+                UploadQueueLogTypeEnums::NOTIFICATION,
+                $uploadQueue->state,
+                null,
+                $user?->id,
+            );
+        }
+
+        $adminFallback = trim((string) Config::get(Config::KEY_LAB_UPLOAD_ADMIN_EMAIL_FALLBACK, ''));
+
+        if (filled($adminFallback)) {
+            $notificationService->sendEmailOnly($adminFallback, NotificationTemplate::KEY_UPLOAD_ADMIN_NEW_SUBMISSION, [
+                'record_id' => $uploadQueue->id,
+                'dataset_name' => $result['dataset']->name,
+                'uploader_label' => $user?->name ?? ($validated['email'] ?? 'guest'),
+                'admin_url' => app(AdminUrlGenerator::class)->uploadQueueEditUrl($uploadQueue),
+            ]);
+        }
+
         return response()->json([
             'message' => 'Upload request has been accepted and queued for configuration.',
             'data' => [
                 'dataset_id' => $result['dataset']->id,
                 'upload_queue_id' => $result['upload_queue']->id,
                 'publication_id' => $result['publication']->id,
+                'guest_token' => $guestToken,
             ],
         ], 201);
     }
 
+    private function validatedGuestEmailVerification(array $validated): FeedbackEmailVerification
+    {
+        foreach (['email', 'verification_id', 'verification_token'] as $field) {
+            if (! array_key_exists($field, $validated)) {
+                throw ValidationException::withMessages([
+                    $field => ['This field is required.'],
+                ]);
+            }
+        }
+
+        $email = Str::lower($validated['email']);
+        $verification = FeedbackEmailVerification::query()
+            ->whereKey($validated['verification_id'])
+            ->where('email', $email)
+            ->whereNotNull('verified_at')
+            ->whereNull('consumed_at')
+            ->where('expires_at', '>', now())
+            ->first();
+
+        if (
+            ! $verification ||
+            ! $verification->submit_token_hash ||
+            ! Hash::check($validated['verification_token'], $verification->submit_token_hash)
+        ) {
+            throw ValidationException::withMessages([
+                'verification_token' => ['Email verification is invalid or has expired.'],
+            ]);
+        }
+
+        return $verification;
+    }
+
     public function myUploads(Request $request)
     {
+        abort_unless(Auth::check(), 401);
+
         $perPage = min(max((int) $request->integer('per_page', 20), 1), 20);
 
         $records = UploadQueue::query()
@@ -281,9 +448,19 @@ class LabUploadController extends Controller
         return UploadQueueResource::collection($records);
     }
 
+    public function track(string $token): UploadQueueResource
+    {
+        $record = UploadQueue::query()
+            ->with(['file', 'dataset.membrane', 'dataset.method', 'dataset.publications'])
+            ->where('guest_token', $token)
+            ->firstOrFail();
+
+        return UploadQueueResource::make($record);
+    }
+
     public function reupload(ReuploadLabUploadRequest $request, UploadQueue $record): JsonResponse
     {
-        if (! $this->canManageUploadQueueRecord($request->user(), $record, 'reupload')) {
+        if (! $record->isAccessibleBy($request->user(), $this->guestTokenFrom($request))) {
             abort(403);
         }
 
@@ -336,7 +513,7 @@ class LabUploadController extends Controller
                 'new_file_id' => $newFileRecord->id,
                 'old_file_id' => $oldFile?->id,
             ],
-            Auth::id()
+            $request->user()?->id,
         );
 
         if ($oldFile) {
@@ -358,7 +535,7 @@ class LabUploadController extends Controller
         UploadQueue $record,
         UploadQueueFrontendConfigurator $configurator,
     ): JsonResponse {
-        if (! $this->canManageUploadQueueRecord($request->user(), $record, 'configure')) {
+        if (! $record->isAccessibleBy($request->user(), $this->guestTokenFrom($request))) {
             abort(403);
         }
 
@@ -391,7 +568,7 @@ class LabUploadController extends Controller
         UploadQueue $record,
         UploadQueueFrontendConfigurator $configurator,
     ): JsonResponse {
-        if (! $this->canManageUploadQueueRecord($request->user(), $record, 'configure')) {
+        if (! $record->isAccessibleBy($request->user(), $this->guestTokenFrom($request))) {
             abort(403);
         }
 
@@ -461,9 +638,9 @@ class LabUploadController extends Controller
         ]);
     }
 
-    public function enqueue(UploadQueue $record): JsonResponse
+    public function enqueue(Request $request, UploadQueue $record): JsonResponse
     {
-        if (! $this->canManageUploadQueueRecord(Auth::user(), $record, 'enqueue')) {
+        if (! $record->isAccessibleBy($request->user(), $this->guestTokenFrom($request))) {
             abort(403);
         }
 
@@ -497,13 +674,15 @@ class LabUploadController extends Controller
         ]);
     }
 
-    public function cancel(UploadQueue $record): JsonResponse
+    public function cancel(Request $request, UploadQueue $record): JsonResponse
     {
-        if (! $this->canManageUploadQueueRecord(Auth::user(), $record, 'cancel')) {
+        $guestToken = $this->guestTokenFrom($request);
+
+        if (! $record->isAccessibleBy($request->user(), $guestToken)) {
             abort(403);
         }
 
-        $record->deleteUploadedFileAndCancel(Auth::user());
+        $record->deleteUploadedFileAndCancel($request->user(), $guestToken);
 
         return response()->json([
             'message' => 'Record canceled. Uploaded file was removed. This action cannot be reverted.',
@@ -515,9 +694,9 @@ class LabUploadController extends Controller
         ]);
     }
 
-    public function revert(UploadQueue $record): JsonResponse
+    public function revert(Request $request, UploadQueue $record): JsonResponse
     {
-        if (! $this->canManageUploadQueueRecord(Auth::user(), $record, 'revert')) {
+        if (! $record->isAccessibleBy($request->user(), $this->guestTokenFrom($request))) {
             abort(403);
         }
 
@@ -564,13 +743,11 @@ class LabUploadController extends Controller
         return $disk;
     }
 
-    private function canManageUploadQueueRecord(?User $user, UploadQueue $record, string $ability): bool
+    private function guestTokenFrom(Request $request): ?string
     {
-        if (! $user) {
-            return false;
-        }
+        $token = $request->input('guest_token') ?? $request->query('guest_token');
 
-        return $user->can($ability, $record);
+        return is_string($token) && trim($token) !== '' ? trim($token) : null;
     }
 
     // private function statePhase(int $state): string

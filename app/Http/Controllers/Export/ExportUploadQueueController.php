@@ -4,29 +4,26 @@ namespace App\Http\Controllers\Export;
 
 use App\Http\Controllers\Controller;
 use App\Models\UploadQueue;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
 class ExportUploadQueueController extends Controller
 {
     /**
      * Export raw uploaded file from the queue
-     * 
-     * @param UploadQueue $record
      */
-    public function raw(UploadQueue $record)
+    public function raw(Request $request, UploadQueue $record)
     {
         $file = $record->file;
-        $user = Auth::user();
+        $guestToken = $request->query('guest_token');
+        $guestToken = is_string($guestToken) && trim($guestToken) !== '' ? trim($guestToken) : null;
 
-        if(!Storage::disk($file->storage)->exists($file->path))
-        {
+        if (! Storage::disk($file->storage)->exists($file->path)) {
             abort(404, 'File not found');
         }
 
-        if(!$user->hasAdminRole() && $record->user_id !== $user->id)
-        {
-            abort(401, 'Unathenticated');   
+        if (! $record->isAccessibleBy($request->user(), $guestToken)) {
+            abort(401, 'Unathenticated');
         }
 
         return Storage::disk($file->storage)->download($file->path);
@@ -34,12 +31,10 @@ class ExportUploadQueueController extends Controller
 
     /**
      * Export uploaded file from the queue - parsed
-     * 
-     * @param UploadQueue $record
      */
     public function index(UploadQueue $record)
     {
-        //TODO
+        // TODO
         abort(404, 'Not implemented');
 
         // $file = $record->file;

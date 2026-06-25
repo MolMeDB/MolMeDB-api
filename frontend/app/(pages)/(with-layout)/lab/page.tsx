@@ -29,7 +29,7 @@ export default async function LabPage() {
         <SiteContent classNameChildren="flex flex-col gap-16 ">
           <SectionComputationButtons isLoggedIn={isLoggedIn} isDisabled />
           <div className="h-1 w-full bg-gradient-to-r from-transparent via-zinc-100 to-transparent my-8" />
-          <SectionUpload isLoggedIn={isLoggedIn} />
+          <SectionUpload />
         </SiteContent>
       </div>
       <SiteFooter />
