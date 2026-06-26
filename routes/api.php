@@ -100,7 +100,11 @@ Route::prefix('/api')->group(function () {
         ->controller(PredictionsController::class)
         ->middleware('auth')
         ->group(function () {
+            Route::get('/options', 'options');
+            Route::get('/server-stats', 'serverStats');
             Route::get('/datasets', 'index_datasets');
+            Route::post('/datasets', 'storeDataset')->middleware('throttle:10,1');
+            Route::patch('/datasets/{record}', 'updateDataset');
             Route::get('/datasets/{record}', 'index');
             Route::get('/datasets/{record}/records', 'records');
             Route::get('/datasets/{record}/structures', 'structures');

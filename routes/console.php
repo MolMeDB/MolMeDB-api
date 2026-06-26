@@ -1,6 +1,7 @@
 <?php
 
 use App\Console\Commands\Cron\RunDailyCommands;
+use App\Console\Commands\Cron\RunPredictionsWorker;
 use App\Console\Commands\ProcessFrontendUploads;
 use App\Console\Commands\SendUploadQueueNotifications;
 use Illuminate\Console\Command;
@@ -41,6 +42,10 @@ Artisan::command('predictions:refresh-dataset-stats {--chunk=200}', function () 
 Schedule::command('predictions:refresh-dataset-stats')
     ->everyFiveMinutes()
     ->withoutOverlapping();
+
+Schedule::command(RunPredictionsWorker::class)
+    ->everyMinute()
+    ->withoutOverlapping(10);
 
 Schedule::command(ProcessFrontendUploads::class)
     ->everyMinute()

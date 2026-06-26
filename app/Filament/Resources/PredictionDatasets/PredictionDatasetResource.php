@@ -2,33 +2,36 @@
 
 namespace App\Filament\Resources\PredictionDatasets;
 
-use Filament\Schemas\Schema;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Select;
-use Illuminate\Database\Eloquent\Builder;
-use Filament\Schemas\Components\Utilities\Get;
-use App\Models\File;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Columns\ImageColumn;
-use Filament\Actions\EditAction;
-use Filament\Actions\BulkActionGroup;
-use App\Filament\Resources\PredictionDatasets\Pages\ListPredictionDatasets;
+use App\Enums\IconEnums;
 use App\Filament\Resources\PredictionDatasets\Pages\CreatePredictionDataset;
 use App\Filament\Resources\PredictionDatasets\Pages\EditPredictionDataset;
-use App\Enums\IconEnums;
+use App\Filament\Resources\PredictionDatasets\Pages\ListPredictionDatasets;
 use App\Filament\Resources\PredictionDatasets\RelationManagers\PredictionsRelationManager;
 use App\Filament\Resources\PredictionDatasets\RelationManagers\StructuresRelationManager;
+use App\Models\File;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\EditAction;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Schema;
+use Filament\Tables\Columns\ImageColumn;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Modules\PredictionWorkers\Models\Prediction;
 use Modules\PredictionWorkers\Models\PredictionDataset;
 
 class PredictionDatasetResource extends Resource
 {
     protected static ?string $model = PredictionDataset::class;
-    protected static string | \BackedEnum | null $navigationIcon = IconEnums::DATASET->value;
-    protected static string | \UnitEnum | null $navigationGroup = 'Predictions';
+
+    protected static string|\BackedEnum|null $navigationIcon = IconEnums::DATASET->value;
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Predictions';
+
     protected static ?int $navigationSort = 2;
 
     public static function form(Schema $schema): Schema
@@ -61,18 +64,15 @@ class PredictionDatasetResource extends Resource
                     ->afterStateUpdated(function (callable $set, ?string $state) {
                         // $set('membrane_id', null);
                     })
-                    ->options(Prediction::$enum_methods),
+                    ->options(Prediction::remotePredictionMethodOptions()),
                 Select::make('membrane_id')
                     ->relationship(
-                        name: 'predictionMembrane', 
+                        name: 'predictionMembrane',
                         titleAttribute: 'abbreviation',
-                        modifyQueryUsing: fn (Builder $query, Get $get) => 
-                        match($get('method_type')) {
-                            Prediction::METHOD_COSMOMIC => $query->whereHas('file', fn ($q) => 
-                                $q->where('type', File::TYPE_COSMO_MEMBRANE)
+                        modifyQueryUsing: fn (Builder $query, Get $get) => match ($get('method_type')) {
+                            Prediction::METHOD_COSMOMIC => $query->whereHas('file', fn ($q) => $q->where('type', File::TYPE_COSMO_MEMBRANE)
                             ),
-                            Prediction::METHOD_COSMOPERM => $query->whereHas('file', fn ($q) => 
-                                $q->where('type', File::TYPE_COSMO_MEMBRANE)
+                            Prediction::METHOD_COSMOPERM => $query->whereHas('file', fn ($q) => $q->where('type', File::TYPE_COSMO_MEMBRANE)
                             ),
                             default => $query
                         })
@@ -88,7 +88,7 @@ class PredictionDatasetResource extends Resource
     {
         return $table
             ->columns([
-               TextColumn::make('id')
+                TextColumn::make('id')
                     ->sortable()
                     ->searchable(),
                 TextColumn::make('comment')
@@ -107,7 +107,7 @@ class PredictionDatasetResource extends Resource
                 TextColumn::make('created_at')
                     ->since()
                     ->dateTimeTooltip()
-                    ->sortable()
+                    ->sortable(),
             ])
             ->filters([
                 //
@@ -126,7 +126,7 @@ class PredictionDatasetResource extends Resource
     {
         return [
             StructuresRelationManager::class,
-            PredictionsRelationManager::class
+            PredictionsRelationManager::class,
         ];
     }
 

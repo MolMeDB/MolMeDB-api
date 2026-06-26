@@ -13,7 +13,21 @@ export interface IPrediction {
   total_steps: number;
   enum_step: string;
   progress_percent: number;
+  method_type: string;
   method: string;
+  remote_method?: string | null;
+  remote_calculation_id?: string | null;
+  remote_molecule_id?: string | null;
+  remote_status?: string | null;
+  enum_remote_status?: string | null;
+  remote_current_step?: string | null;
+  remote_heartbeat_at?: string | null;
+  remote_last_status_at?: string | null;
+  remote_finished_at?: string | null;
+  remote_error_message?: string | null;
+  logs?: {
+    [key: string]: any;
+  }[];
   priority: 1 | 2 | 3;
   dataset: IPredictionDataset;
   user: IUser;
@@ -32,6 +46,7 @@ export interface IPredictionStructure {
   structure_2d_url?: string;
   structure_2d_url_big?: string;
   total_conformers?: number;
+  remote_molecule_status?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -44,7 +59,9 @@ export interface IPredictionDataset {
   temperature: number;
   membrane: IPredictionMembrane;
   priority: 1 | 2 | 3;
-  method: "cosmoperm" | "cosmomic";
+  method_type: string;
+  method: string;
+  remote_method?: string | null;
   state: number;
   enum_state: string;
   stats: {

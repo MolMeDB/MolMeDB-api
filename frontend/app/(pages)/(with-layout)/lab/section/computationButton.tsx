@@ -5,7 +5,6 @@ import Link from "next/link";
 
 export default function SectionComputationButtons(props: {
   isLoggedIn: boolean;
-  isDisabled?: boolean;
 }) {
   return (
     <>
@@ -32,18 +31,7 @@ export default function SectionComputationButtons(props: {
       </div>
 
       <div className="relative w-full flex flex-col sm:flex-row justify-center items-center gap-8 lg:gap-16 lg:h-[250px]">
-        {props.isDisabled ?
-          <div className="absolute top-0 left-0 w-full h-full bg-white/70 dark:bg-background-dark/70 z-10 rounded-2xl lg:rounded-4xl flex flex-col justify-center items-center gap-4">
-            <h2 className="text-xl lg:text-2xl font-bold">
-              Feature currently under development
-            </h2>
-            <p className="text-center px-8">
-              This functionality is currently being refined and is not available at the moment. 
-              We’re working on improving and finalizing it to ensure the best possible experience. Please check back later.
-            </p>
-          </div>
-        :
-        !props.isLoggedIn && (
+        {!props.isLoggedIn && (
           <div className="absolute top-0 left-0 w-full h-full bg-white/70 dark:bg-background-dark/70 z-10 rounded-2xl lg:rounded-4xl flex flex-col justify-center items-center gap-4">
             <h2 className="text-xl lg:text-2xl font-bold">
               Please log in to access all laboratory features

@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Modules\PredictionWorkers\Models\Prediction;
 use Modules\PredictionWorkers\Models\PredictionDataset;
 
 class PredictionDatasetResource extends JsonResource
@@ -33,8 +34,12 @@ class PredictionDatasetResource extends JsonResource
             'user_id' => $this->user_id,
             'user' => UserResource::make($this->user),
             'temperature' => $this->temperature,
-            'membrane' => PredictionMembraneResource::make($this->membrane),
+            'membrane' => PredictionMembraneResource::make($this->predictionMembrane),
+            'method_type' => $this->method_type,
             'method' => PredictionDataset::method($this->method_type),
+            'remote_method' => Prediction::hasRemotePredictionMethod((string) $this->method_type)
+                ? config("prediction-workers.remote.methods.{$this->method_type}.remote_method")
+                : null,
             'priority' => $this->priority,
             'state' => $progressStats['state'],
             'enum_state' => $progressStats['enum_state'],

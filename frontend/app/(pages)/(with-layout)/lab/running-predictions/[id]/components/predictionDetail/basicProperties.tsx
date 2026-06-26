@@ -3,9 +3,26 @@ import DetailSection from "@/app/(pages)/(with-layout)/mol/[id]/components/secti
 import DetailProperty from "@/app/(pages)/(with-layout)/mol/[id]/components/property";
 import { IPrediction } from "@/lib/api/admin/interfaces/Predictions";
 import { SiMoleculer } from "react-icons/si";
-import { MdList } from "react-icons/md";
-import { Link, Progress } from "@heroui/react";
+import {
+  MdAccessTime,
+  MdErrorOutline,
+  MdFingerprint,
+  MdList,
+  MdSync,
+} from "react-icons/md";
+import { Chip, Link, Progress } from "@heroui/react";
 import { RiProgress3Line } from "react-icons/ri";
+
+function getRemoteStatusColor(
+  compound: IPrediction,
+): "danger" | "success" | "warning" | "default" {
+  if (compound.remote_error_message) return "danger";
+  const status = compound.remote_status ?? null;
+  if (status === "running") return "warning";
+  if (status === "completed") return "success";
+  if (status === "failed") return "danger";
+  return "default";
+}
 
 function getProgressColor(
   compound: IPrediction,
@@ -28,6 +45,13 @@ function getProgressColor(
 export default function CompoundBasicProperties(props: {
   compound: IPrediction;
 }) {
+  const allLogs = props.compound.logs ?? [];
+  const calcId = props.compound.remote_calculation_id ?? null;
+  const remoteLogs = allLogs.filter((log) => {
+    const logCalcId = (log as Record<string, unknown>).calculation_id ?? null;
+    return logCalcId === null || logCalcId === undefined || logCalcId === calcId;
+  });
+
   return (
     <DetailSection title="Basic properties" order={1}>
       <div className="grid grid-cols-1 gap-4 gap-y-6">
@@ -38,7 +62,7 @@ export default function CompoundBasicProperties(props: {
         />
         <DetailProperty
           icon={<MdList size={30} />}
-          title="Record"
+          title="MolMeDB ID"
           value={
             props.compound.structure.remote_identifier ? (
               <Link href={`/mol/${props.compound.structure.remote_identifier}`}>
@@ -69,6 +93,86 @@ export default function CompoundBasicProperties(props: {
                 {props.compound.progress_percent}%)
               </span>
             </div>
+          }
+        />
+        <DetailProperty
+          icon={<MdSync size={30} />}
+          title="Remote status"
+          value={
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-wrap gap-2">
+                <Chip
+                  size="sm"
+                  variant="flat"
+                  color={getRemoteStatusColor(props.compound)}
+                >
+                  {props.compound.enum_remote_status ??
+                    props.compound.remote_current_step ??
+                    "Pending"}
+                </Chip>
+                {props.compound.remote_current_step && (
+                  <Chip size="sm" variant="flat" color="secondary">
+                    {props.compound.remote_current_step}
+                  </Chip>
+                )}
+              </div>
+              {props.compound.remote_error_message && (
+                <span className="text-danger text-sm">
+                  {props.compound.remote_error_message}
+                </span>
+              )}
+            </div>
+          }
+        />
+        <DetailProperty
+          icon={<MdFingerprint size={30} />}
+          title="Remote IDs"
+          value={
+            <div className="flex flex-col gap-1">
+              <span>
+                Calculation: {props.compound.remote_calculation_id ?? "-"}
+              </span>
+              <span>Molecule: {props.compound.remote_molecule_id ?? "-"}</span>
+            </div>
+          }
+        />
+        <DetailProperty
+          icon={<MdAccessTime size={30} />}
+          title="Remote timestamps"
+          value={
+            <div className="flex flex-col gap-1">
+              <span>Heartbeat: {props.compound.remote_heartbeat_at ?? "-"}</span>
+              <span>
+                Last status: {props.compound.remote_last_status_at ?? "-"}
+              </span>
+              <span>Finished: {props.compound.remote_finished_at ?? "-"}</span>
+              <span className="text-xs text-default-400 mt-1">
+                Status is refreshed at most every 5 minutes
+              </span>
+            </div>
+          }
+        />
+        <DetailProperty
+          icon={<MdErrorOutline size={30} />}
+          title={`Remote logs (${remoteLogs.length})`}
+          value={
+            remoteLogs.length > 0 ? (
+              <pre className="max-h-64 overflow-auto rounded-xl bg-default-100 p-3 text-xs whitespace-pre-wrap">
+                {JSON.stringify(
+                  remoteLogs.map((log) => {
+                    const { details: _d, ...rest } = log as Record<
+                      string,
+                      unknown
+                    >;
+                    return rest;
+                  }),
+                  null,
+                  2,
+                )}
+              </pre>
+            ) : (
+              "No remote logs yet"
+            )
           }
         />
       </div>

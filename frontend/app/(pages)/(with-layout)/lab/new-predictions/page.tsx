@@ -7,6 +7,7 @@ import { Cookie } from "@/lib/api/cookies";
 import Link from "next/link";
 import AddNewCalculationForm from "./section/newCalcForm";
 import { redirect } from "next/navigation";
+import PredictionStatsWidget from "@/components/ui/predictionStatsWidget";
 
 export default async function LabNewCalculationPage() {
   const user: UserSession | undefined =
@@ -42,7 +43,8 @@ export default async function LabNewCalculationPage() {
         </div>
       </SimpleSiteHeader>
       <div className="min-h-screen pb-16">
-        <SiteContent classNameChildren="flex flex-col gap-16 min-h-screen">
+        <SiteContent classNameChildren="flex flex-col gap-4 min-h-screen">
+          <PredictionStatsWidget />
           <AddNewCalculationForm />
         </SiteContent>
       </div>

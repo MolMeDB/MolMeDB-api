@@ -1,6 +1,5 @@
 "use client";
 
-import { get } from "@/lib/api/admin";
 import {
   Alert,
   Button,
@@ -12,14 +11,28 @@ import {
   Modal,
   ModalContent,
   Textarea,
+  addToast,
   useDisclosure,
 } from "@heroui/react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { FaCheck } from "react-icons/fa6";
 import { IoSend } from "react-icons/io5";
 
 export default function AddNewCalculationForm() {
+  const router = useRouter();
+  const [options, setOptions] = useState<{
+    membranes: GridSelectionItemProps[];
+    methods: GridSelectionItemProps[];
+    priorities: GridSelectionItemProps[];
+  }>({
+    membranes: [],
+    methods: [],
+    priorities: [],
+  });
+  const [isLoadingOptions, setIsLoadingOptions] = useState(true);
+  const [optionError, setOptionError] = useState<string | null>(null);
   const [setting, setSetting] = useState<{
     membranes: null | any[];
     methods: null | any[];
@@ -48,6 +61,54 @@ export default function AddNewCalculationForm() {
     useState<string>("Please wait...");
 
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
+
+  useEffect(() => {
+    let canceled = false;
+
+    async function loadOptions() {
+      setIsLoadingOptions(true);
+      setOptionError(null);
+
+      try {
+        const response = await fetch("/api/predictions/options", {
+          headers: {
+            Accept: "application/json",
+          },
+        });
+        const json = await response.json();
+
+        if (!response.ok) {
+          throw new Error(json?.message || "Unable to load prediction options.");
+        }
+
+        if (!canceled) {
+          setOptions({
+            membranes: json?.data?.membranes ?? [],
+            methods: json?.data?.methods ?? [],
+            priorities: json?.data?.priorities ?? [],
+          });
+        }
+      } catch (error) {
+        if (!canceled) {
+          setOptionError(
+            error instanceof Error
+              ? error.message
+              : "Unable to load prediction options.",
+          );
+        }
+      } finally {
+        if (!canceled) {
+          setIsLoadingOptions(false);
+        }
+      }
+    }
+
+    loadOptions();
+
+    return () => {
+      canceled = true;
+    };
+  }, []);
 
   useEffect(() => {
     setIsValidated(false);
@@ -116,7 +177,7 @@ export default function AddNewCalculationForm() {
 
         // Todo: Validate molecule + pridat validaci na slozeni, apod.
         const validation_response = await fetch(
-          "/api/mol/smiles/canonize?smiles=" + mol,
+          "/api/mol/smiles/canonize?smiles=" + encodeURIComponent(mol.trim()),
         );
 
         if (validation_response.status === 503) {
@@ -147,6 +208,7 @@ export default function AddNewCalculationForm() {
         }
 
         validated_smiles.push(response.canonized_smiles);
+        processed_smiles.push(mol.trim());
         i++;
       }
     }
@@ -176,8 +238,79 @@ export default function AddNewCalculationForm() {
     }
 
     setIsValidated(errors.length === 0);
+    if (errors.length === 0) {
+      setSetting((prev) => ({
+        ...prev,
+        validated_smiles,
+      }));
+    }
     setValidatorErrors(errors);
     setIsValidating(false);
+  }
+
+  async function submit() {
+    if (!isValidated) {
+      return;
+    }
+
+    setIsSaving(true);
+    setValidatorErrors([]);
+
+    try {
+      const response = await fetch("/api/predictions/datasets", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          membranes: setting.membranes,
+          methods: setting.methods,
+          priority: setting.priority,
+          description: setting.description,
+          smiles: setting.validated_smiles,
+          temperature: setting.temperature,
+        }),
+      });
+      const json = await response.json();
+
+      if (!response.ok) {
+        const errors = json?.errors
+          ? Object.values(json.errors).flat().map(String)
+          : [json?.message || "Unable to submit calculations."];
+
+        setValidatorErrors(errors);
+        onOpen();
+
+        return;
+      }
+
+      addToast({
+        title: "Calculations queued",
+        description:
+          json?.message ||
+          "Your calculations were created and will be submitted by the worker.",
+        color: "success",
+        shouldShowTimeoutProgress: true,
+        timeout: 4500,
+      });
+
+      const firstDatasetId = json?.data?.dataset_ids?.[0];
+      router.push(
+        firstDatasetId
+          ? `/lab/running-predictions/${firstDatasetId}`
+          : "/lab/running-predictions",
+      );
+    } catch (error) {
+      setValidatorErrors([
+        error instanceof Error
+          ? error.message
+          : "Unexpected error occurred while submitting calculations.",
+      ]);
+      onOpen();
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -185,6 +318,7 @@ export default function AddNewCalculationForm() {
       <div className="w-full">
         <div className="flex flex-col min-w-lg bg-foreground-200 rounded-xl p-4 gap-2">
           <h2 className="font-bold text-lg">Add new calculation</h2>
+          {optionError && <Alert color="danger" title={optionError} />}
           <Divider />
           <div>
             <h3 className="text-md text-secondary font-semibold">
@@ -201,34 +335,9 @@ export default function AddNewCalculationForm() {
                     membranes: selected?.length ? selected : null,
                   }))
                 }
-                multiple
-                items={[
-                  {
-                    id: 1,
-                    short_name: "DMPC",
-                    long_name: "1,2-dimyristoyl-sn-glycero-3-phosphocholine",
-                    description:
-                      "DMPC is a phospholipid commonly found in biological membranes. It consists of a glycerol backbone linked to two myristic acid (14:0) chains and a phosphocholine headgroup. DMPC is often used in model membrane studies due to its well-defined phase behavior and ability to form bilayers.",
-                    show_more_link: "/browse/membranes?id=35",
-                  },
-                  {
-                    id: 3,
-                    short_name: "DOPC",
-                    long_name: "1,2-dioleoyl-sn-glycero-3-phosphocholine",
-                    description:
-                      "DOPC is a phospholipid that is a major component of cell membranes. It contains two oleic acid (18:1) chains attached to a glycerol backbone with a phosphocholine headgroup. DOPC is known for its fluidity at physiological temperatures and is frequently used in biophysical studies of lipid bilayers and membrane proteins.",
-                    show_more_link: "/browse/membranes?id=35",
-                  },
-                  {
-                    id: 2,
-                    short_name: "POPC",
-                    long_name:
-                      "1-palmitoyl-2-oleoyl-sn-glycero-3-phosphocholine",
-                    description:
-                      "POPC is a phospholipid commonly found in eukaryotic cell membranes. It consists of a glycerol backbone linked to one palmitic acid (16:0) chain and one oleic acid (18:1) chain, along with a phosphocholine headgroup. POPC is widely used in membrane research due to its prevalence in biological systems and its ability to form stable bilayers.",
-                    show_more_link: "/browse/membranes?id=35",
-                  },
-                ]}
+                items={options.membranes}
+                isLoading={isLoadingOptions}
+                emptyMessage="No prediction membranes are available."
               />
             </div>
           </div>
@@ -237,9 +346,16 @@ export default function AddNewCalculationForm() {
             <h3 className="text-md text-secondary font-semibold">
               Select method
             </h3>
-            <label className="text-sm block text-warning-600 text-right">
-              Choose one of the available methods for the simulation
-            </label>
+            <div className="flex flex-col items-end gap-1 text-right text-sm text-warning-600">
+              <span>Choose one of the available methods for the simulation</span>
+              <Link
+                href="/docs/contributing-data/prediction-workflow"
+                className="text-primary underline"
+                target="_blank"
+              >
+                Read more about the prediction workflow
+              </Link>
+            </div>
             <div className="border-1 border-foreground-300 p-4 bg-background rounded-xl">
               <GridSelection
                 onSelectionChange={(selected) =>
@@ -249,33 +365,9 @@ export default function AddNewCalculationForm() {
                   }))
                 }
                 multiple
-                items={[
-                  {
-                    id: 1,
-                    short_name: "DMPC",
-                    long_name: "1,2-dimyristoyl-sn-glycero-3-phosphocholine",
-                    description:
-                      "DMPC is a phospholipid commonly found in biological membranes. It consists of a glycerol backbone linked to two myristic acid (14:0) chains and a phosphocholine headgroup. DMPC is often used in model membrane studies due to its well-defined phase behavior and ability to form bilayers.",
-                    show_more_link: "/browse/membranes?id=35",
-                  },
-                  {
-                    id: 2,
-                    short_name: "DOPC",
-                    long_name: "1,2-dioleoyl-sn-glycero-3-phosphocholine",
-                    description:
-                      "DOPC is a phospholipid that is a major component of cell membranes. It contains two oleic acid (18:1) chains attached to a glycerol backbone with a phosphocholine headgroup. DOPC is known for its fluidity at physiological temperatures and is frequently used in biophysical studies of lipid bilayers and membrane proteins.",
-                    show_more_link: "/browse/membranes?id=35",
-                  },
-                  {
-                    id: 3,
-                    short_name: "POPC",
-                    long_name:
-                      "1-palmitoyl-2-oleoyl-sn-glycero-3-phosphocholine",
-                    description:
-                      "POPC is a phospholipid commonly found in eukaryotic cell membranes. It consists of a glycerol backbone linked to one palmitic acid (16:0) chain and one oleic acid (18:1) chain, along with a phosphocholine headgroup. POPC is widely used in membrane research due to its prevalence in biological systems and its ability to form stable bilayers.",
-                    show_more_link: "/browse/membranes?id=35",
-                  },
-                ]}
+                items={options.methods}
+                isLoading={isLoadingOptions}
+                emptyMessage="No remote prediction methods are available."
               />
             </div>
           </div>
@@ -294,20 +386,15 @@ export default function AddNewCalculationForm() {
                     priority: selected.length ? selected[0] : null,
                   }))
                 }
-                items={[
-                  {
-                    id: "low",
-                    short_name: "Low",
-                  },
-                  {
-                    id: "medium",
-                    short_name: "Medium",
-                  },
-                  {
-                    id: "high",
-                    short_name: "High",
-                  },
-                ]}
+                items={
+                  options.priorities.length
+                    ? options.priorities
+                    : [
+                        { id: 1, short_name: "Low" },
+                        { id: 2, short_name: "Medium" },
+                        { id: 3, short_name: "High" },
+                      ]
+                }
               />
             </div>
           </div>
@@ -402,6 +489,7 @@ export default function AddNewCalculationForm() {
               size="lg"
               isLoading={isSaving}
               isDisabled={!isValidated}
+              onPress={submit}
             >
               Submit
             </Button>
@@ -482,6 +570,8 @@ interface GridSelectionItemProps {
 function GridSelection(props: {
   items: GridSelectionItemProps[];
   multiple?: boolean;
+  isLoading?: boolean;
+  emptyMessage?: string;
   onSelectionChange?: (selectedItems: (number | string)[]) => void;
 }) {
   const [selectedItems, setSelectedItems] = useState<(number | string)[]>([]);
@@ -526,6 +616,14 @@ function GridSelection(props: {
 
   return (
     <div className="flex flex-row flex-wrap gap-4">
+      {props.isLoading && (
+        <div className="w-full text-sm text-foreground/60">Loading...</div>
+      )}
+      {!props.isLoading && props.items.length === 0 && (
+        <div className="w-full text-sm text-warning">
+          {props.emptyMessage ?? "No options available."}
+        </div>
+      )}
       {props.items.map((item, index) => (
         <Item
           key={index}

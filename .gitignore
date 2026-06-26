@@ -7,6 +7,7 @@
 /storage/*.key
 /storage/pail
 /vendor
+/MolMem-predictor
 docker-compose.yaml
 .env
 .env.backup

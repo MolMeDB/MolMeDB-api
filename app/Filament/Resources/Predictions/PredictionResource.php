@@ -2,28 +2,31 @@
 
 namespace App\Filament\Resources\Predictions;
 
-use Filament\Schemas\Schema;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Select;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Actions\EditAction;
-use Filament\Actions\BulkActionGroup;
-use App\Filament\Resources\Predictions\Pages\ListPredictions;
+use App\Enums\IconEnums;
 use App\Filament\Resources\Predictions\Pages\CreatePrediction;
 use App\Filament\Resources\Predictions\Pages\EditPrediction;
-use App\Enums\IconEnums;
+use App\Filament\Resources\Predictions\Pages\ListPredictions;
 use App\Filament\Resources\Predictions\RelationManagers\PredictionDatasetsRelationManager;
 use App\Filament\Resources\Predictions\RelationManagers\PredictionResultsRelationManager;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\EditAction;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
+use Filament\Schemas\Schema;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Modules\PredictionWorkers\Models\Prediction;
 
 class PredictionResource extends Resource
 {
     protected static ?string $model = Prediction::class;
-    protected static string | \BackedEnum | null $navigationIcon = IconEnums::PREDICTION->value;
-    protected static string | \UnitEnum | null $navigationGroup = 'Predictions';
+
+    protected static string|\BackedEnum|null $navigationIcon = IconEnums::PREDICTION->value;
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Predictions';
+
     protected static ?int $navigationSort = 1;
 
     public static function form(Schema $schema): Schema
@@ -67,11 +70,11 @@ class PredictionResource extends Resource
                     ->afterStateUpdated(function (callable $set, ?string $state) {
                         $set('membrane_id', null);
                     })
-                    ->options(Prediction::$enum_methods),
+                    ->options(Prediction::remotePredictionMethodOptions()),
                 Select::make('membrane_id')
                     ->disabled()
                     ->relationship(
-                        name: 'predictionMembrane', 
+                        name: 'predictionMembrane',
                         titleAttribute: 'abbreviation',
                     )
                     ->label('Membrane')
@@ -114,7 +117,7 @@ class PredictionResource extends Resource
                 TextColumn::make('priority')
                     ->label('Priority')
                     ->sortable()
-                    ->formatStateUsing(fn (string $state) => Prediction::enumPriority($state))
+                    ->formatStateUsing(fn (string $state) => Prediction::enumPriority($state)),
 
             ])
             ->filters([
@@ -140,7 +143,7 @@ class PredictionResource extends Resource
     {
         return [
             PredictionDatasetsRelationManager::class,
-            PredictionResultsRelationManager::class
+            PredictionResultsRelationManager::class,
         ];
     }
 

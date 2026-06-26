@@ -1,6 +1,6 @@
 "use client";
 
-import { MdComment, MdPriorityHigh } from "react-icons/md";
+import { MdComment, MdPriorityHigh, MdEdit, MdCheck, MdClose } from "react-icons/md";
 import InfoBox from "./components/infobox";
 import {
   IPrediction,
@@ -14,8 +14,15 @@ import { FaTemperatureHalf, FaUser } from "react-icons/fa6";
 import { FiDatabase } from "react-icons/fi";
 import { CgArrowRightO } from "react-icons/cg";
 import UiTable from "@/components/ui/table";
-import { Drawer, DrawerContent, Tooltip, useDisclosure } from "@heroui/react";
-import { useEffect, useMemo, useState } from "react";
+import {
+  Button,
+  Drawer,
+  DrawerContent,
+  Textarea,
+  Tooltip,
+  useDisclosure,
+} from "@heroui/react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { datasetColumns } from "./components/columns";
 import { EyeIcon } from "@/components/ui/icons/eye";
 import PredictionDetail from "./components/predicitonDetail";
@@ -45,10 +52,44 @@ export default function PredictionDatasetClient(props: {
 }) {
   const { isOpen, onOpenChange, onOpen } = useDisclosure();
   const [modalRecord, setModalRecord] = useState<IPrediction | null>(null);
+  const [dataset, setDataset] = useState<IPredictionDataset>(props.data);
+  const [isEditingComment, setIsEditingComment] = useState(false);
+  const [commentDraft, setCommentDraft] = useState(props.data.comment ?? "");
+  const [isSavingComment, setIsSavingComment] = useState(false);
 
   const stableApiParams = useMemo(() => {
     return {};
   }, []);
+
+  const refreshDataset = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/predictions/datasets/${props.data.id}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json?.data) setDataset(json.data);
+      }
+    } catch {
+      // silent
+    }
+  }, [props.data.id]);
+
+  const saveComment = useCallback(async () => {
+    setIsSavingComment(true);
+    try {
+      const res = await fetch(`/api/predictions/datasets/${props.data.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comment: commentDraft }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json?.data) setDataset(json.data);
+        setIsEditingComment(false);
+      }
+    } finally {
+      setIsSavingComment(false);
+    }
+  }, [props.data.id, commentDraft]);
 
   const columns = useMemo(
     () => [
@@ -87,9 +128,7 @@ export default function PredictionDatasetClient(props: {
     }
   }, [isOpen]);
 
-  const progressPercent = props.data.overall_stats.progress_percent;
-
-  const datasetComment = props.data.comment || "No comment";
+  const progressPercent = dataset.overall_stats.progress_percent;
 
   const priorityLabel: Record<IPredictionDataset["priority"], string> = {
     1: "Low",
@@ -100,39 +139,91 @@ export default function PredictionDatasetClient(props: {
   return (
     <div className="flex flex-col gap-4">
       <InfoBox icon={<MdComment size={20} />} title={"Comment"}>
-        {datasetComment}
+        {isEditingComment ? (
+          <div className="flex flex-col gap-2">
+            <Textarea
+              value={commentDraft}
+              onValueChange={setCommentDraft}
+              minRows={2}
+              maxRows={6}
+              maxLength={500}
+              className="w-full"
+            />
+            <div className="flex flex-row gap-2">
+              <Button
+                size="sm"
+                color="primary"
+                isLoading={isSavingComment}
+                onPress={saveComment}
+                startContent={<MdCheck />}
+              >
+                Save
+              </Button>
+              <Button
+                size="sm"
+                variant="flat"
+                onPress={() => {
+                  setCommentDraft(dataset.comment ?? "");
+                  setIsEditingComment(false);
+                }}
+                startContent={<MdClose />}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-row items-start gap-3">
+            <span className="flex-1">
+              {dataset.comment || (
+                <span className="text-default-400">No comment</span>
+              )}
+            </span>
+            <Tooltip content="Edit comment">
+              <button
+                className="text-default-400 hover:text-primary transition-colors"
+                onClick={() => {
+                  setCommentDraft(dataset.comment ?? "");
+                  setIsEditingComment(true);
+                }}
+              >
+                <MdEdit size={18} />
+              </button>
+            </Tooltip>
+          </div>
+        )}
       </InfoBox>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
           <InfoBox icon={<FaUser size={20} />} title={"Author"}>
-            {props.data.user?.email ?? props.data.user?.name ?? "N/A"}
+            {dataset.user?.email ?? dataset.user?.name ?? "N/A"}
           </InfoBox>
         </div>
         <InfoBox icon={<MdPriorityHigh size={20} />} title={"Priority"}>
-          {props.data.priority == 1 ? (
+          {dataset.priority == 1 ? (
             <span className="text-success font-bold">
-              {priorityLabel[props.data.priority]}
+              {priorityLabel[dataset.priority]}
             </span>
-          ) : props.data.priority == 2 ? (
+          ) : dataset.priority == 2 ? (
             <span className="text-primary font-bold">
-              {priorityLabel[props.data.priority]}
+              {priorityLabel[dataset.priority]}
             </span>
           ) : (
             <span className="text-warning font-bold">
-              {priorityLabel[props.data.priority]}
+              {priorityLabel[dataset.priority]}
             </span>
           )}
         </InfoBox>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <InfoBox icon={<FaTemperatureHalf size={20} />} title={"Temperature"}>
-          {props.data.temperature} °C
+          {dataset.temperature} °C
         </InfoBox>
         <InfoBox icon={<FiDatabase size={20} />} title={"Membrane"}>
-          {props.data.membrane?.name ?? "N/A"}
+          {dataset.membrane?.name ?? "N/A"}
         </InfoBox>
         <InfoBox icon={<CgArrowRightO size={20} />} title={"Method"}>
-          {props.data.method}
+          {dataset.method}
         </InfoBox>
       </div>
       <InfoBox
@@ -141,10 +232,10 @@ export default function PredictionDatasetClient(props: {
       >
         <div className="flex flex-col gap-1">
           <PredictionDatasetStateBar
-            pending={props.data.stats.pending}
-            running={props.data.stats.running}
-            done={props.data.stats.done}
-            error={props.data.stats.failed}
+            pending={dataset.stats.pending}
+            running={dataset.stats.running}
+            done={dataset.stats.done}
+            error={dataset.stats.failed}
           />
           <div className="flex flex-wrap gap-x-4 gap-y-2">
             <PredictionDatasetStateHelper name="Pending" type="pending" />
@@ -162,6 +253,8 @@ export default function PredictionDatasetClient(props: {
         columns={columns}
         itemKey="id"
         defaultRowsPerPage={40}
+        refreshInterval={300}
+        onDataLoaded={refreshDataset}
         filters={[
           {
             key: "query",

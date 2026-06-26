@@ -16,6 +16,16 @@ class Config extends Model
 
     public const KEY_LAB_UPLOAD_ADMIN_EMAIL_FALLBACK = 'lab_upload:admin_email_fallback';
 
+    public const KEY_REMOTE_PREDICTION_ENABLED = 'remote_prediction:enabled';
+
+    public const KEY_REMOTE_PREDICTION_URL = 'remote_prediction:url';
+
+    public const KEY_REMOTE_PREDICTION_TOKEN = 'remote_prediction:token';
+
+    public const KEY_REMOTE_PREDICTION_TOKEN_ID = 'remote_prediction:token_id';
+
+    public const KEY_REMOTE_PREDICTION_TOKEN_EXPIRES_AT = 'remote_prediction:token_expires_at';
+
     protected $primaryKey = 'key';
 
     public $incrementing = false;
@@ -45,6 +55,13 @@ class Config extends Model
         }
 
         return static::where('key', $key)->value('value') ?? $default;
+    }
+
+    public static function boolean(string $key, bool $default = false): bool
+    {
+        $value = static::get($key, $default ? '1' : '0');
+
+        return filter_var($value, FILTER_VALIDATE_BOOL);
     }
 
     public static function set(string $key, ?string $value): bool

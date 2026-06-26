@@ -1,6 +1,5 @@
-import { get, post } from "@/lib/api/admin";
+import { get } from "@/lib/api/admin";
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 
 export async function GET(request: Request) {
   // Get
@@ -12,7 +11,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "No smiles provided" }, { status: 400 });
   }
 
-  const result = await get("/api/structure/mol/canonize_smiles/" + smiles);
+  const result = await get(
+    "/api/structure/mol/canonize_smiles/" + encodeURIComponent(smiles),
+  );
 
   if (result.status === 503) {
     return NextResponse.json("Service is temporarily unavailable.", {

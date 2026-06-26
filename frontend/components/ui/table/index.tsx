@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import IUiTableColumn from "./interface/columns";
 import { useAsyncList } from "@react-stately/data";
 import { getJson } from "@/lib/api/admin";
@@ -23,6 +23,7 @@ import {
   TableColumn,
   TableHeader,
   TableRow,
+  Tooltip,
 } from "@heroui/react";
 import { FaEye, FaEyeSlash } from "react-icons/fa6";
 import { MdSearch } from "react-icons/md";
@@ -82,6 +83,8 @@ export default function UiTable<TData>(props: {
   loadingText?: string;
   filters?: UiTableFilter[];
   onTotalItemsChange?: (totalItems: number) => void;
+  onDataLoaded?: () => void;
+  refreshInterval?: number;
 }) {
   const [hideEmptyCols, setHideEmptyCols] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -100,6 +103,8 @@ export default function UiTable<TData>(props: {
     column: "",
     direction: "ascending",
   });
+  const [countdown, setCountdown] = useState(props.refreshInterval ?? 0);
+  const countdownRef = useRef(props.refreshInterval ?? 0);
   const rowsPerPage = props.defaultRowsPerPage ?? 10;
   const hasFilters = (props.filters?.length ?? 0) > 0;
 
@@ -136,6 +141,7 @@ export default function UiTable<TData>(props: {
           props.onTotalItemsChange?.(fr.meta.total);
           setItems(fr.data);
           setIsLoading(false);
+          props.onDataLoaded?.();
           return {
             items: fr.data,
           };
@@ -304,6 +310,26 @@ export default function UiTable<TData>(props: {
     };
   }, [pendingTextFilters]);
 
+  useEffect(() => {
+    if (!props.refreshInterval) return;
+
+    countdownRef.current = props.refreshInterval;
+    setCountdown(props.refreshInterval);
+
+    const id = window.setInterval(() => {
+      countdownRef.current -= 1;
+      setCountdown(countdownRef.current);
+
+      if (countdownRef.current <= 0) {
+        countdownRef.current = props.refreshInterval!;
+        setCountdown(props.refreshInterval!);
+        list.reload();
+      }
+    }, 1000);
+
+    return () => window.clearInterval(id);
+  }, [props.refreshInterval]);
+
   return (
     <Table
       aria-label={props["aria-label"]}
@@ -455,8 +481,8 @@ export default function UiTable<TData>(props: {
           )}
           <div className="flex flex-row justify-between items-center text-foreground/60 text-sm">
             <div>Total: {totalItems}</div>
-            {tableColumns.some((c) => c.isHideable === true) && (
-              <div className="flex items-center">
+            <div className="flex items-center gap-3">
+              {tableColumns.some((c) => c.isHideable === true) && (
                 <Switch
                   defaultSelected={hideEmptyCols}
                   color="primary"
@@ -475,8 +501,30 @@ export default function UiTable<TData>(props: {
                 >
                   Hide empty columns
                 </Switch>
-              </div>
-            )}
+              )}
+              {props.refreshInterval && (
+                <Tooltip
+                  content={`Auto-refresh every ${props.refreshInterval}s`}
+                  placement="left"
+                >
+                  <div className="flex items-center gap-1.5 cursor-default select-none">
+                    <CircularProgress
+                      aria-label="Auto-refresh countdown"
+                      size="sm"
+                      value={(countdown / props.refreshInterval) * 100}
+                      color="primary"
+                      isIndeterminate={false}
+                      disableAnimation
+                      strokeWidth={4}
+                      classNames={{ base: "h-5 w-5", svg: "h-5 w-5" }}
+                    />
+                    <span className="text-xs tabular-nums w-5 text-center">
+                      {countdown}s
+                    </span>
+                  </div>
+                </Tooltip>
+              )}
+            </div>
           </div>
         </div>
       }

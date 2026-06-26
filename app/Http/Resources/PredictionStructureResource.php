@@ -25,6 +25,7 @@ class PredictionStructureResource extends JsonResource
             'structure_2d_url' => $cdk->get2dStructureUrl($this->canonical_smiles),
             'structure_2d_url_big' => $cdk->get2dStructureUrl($this->canonical_smiles, 4),
             'total_conformers' => $this->total_conformers,
+            'remote_molecule_status' => $this->remote_molecule_status,
             'created_at' => $this->created_at->format('Y/m/d H:i:s'),
             'updated_at' => $this->updated_at->format('Y/m/d H:i:s'),
         ];

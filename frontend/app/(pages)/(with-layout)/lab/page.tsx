@@ -27,7 +27,7 @@ export default async function LabPage() {
       </SimpleSiteHeader>
       <div className="min-h-screen pb-16">
         <SiteContent classNameChildren="flex flex-col gap-16 ">
-          <SectionComputationButtons isLoggedIn={isLoggedIn} isDisabled />
+          <SectionComputationButtons isLoggedIn={isLoggedIn} />
           <div className="h-1 w-full bg-gradient-to-r from-transparent via-zinc-100 to-transparent my-8" />
           <SectionUpload />
         </SiteContent>
