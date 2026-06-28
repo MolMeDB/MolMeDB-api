@@ -2,10 +2,16 @@
 
 namespace App\Console\Commands\Cron;
 
+use App\Jobs\CheckPredictionStatus;
+use App\Models\NotificationTemplate;
+use App\Models\User;
+use App\Services\NotificationService;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
 use Modules\PredictionWorkers\Enums\RemotePredictionStatus;
 use Modules\PredictionWorkers\Exceptions\RemotePredictionDisabledException;
 use Modules\PredictionWorkers\Models\Prediction;
+use Modules\PredictionWorkers\Models\PredictionDataset;
 use Modules\PredictionWorkers\Models\PredictionStat;
 use Modules\PredictionWorkers\Services\RemotePrediction\RemotePredictionClient;
 use Throwable;
@@ -13,14 +19,14 @@ use Throwable;
 class RunPredictionsWorker extends Command
 {
     protected $signature = 'cron:predictions-worker
-        {--max-status= : Maximum running predictions to refresh}
+        {--max-results= : Maximum completed prediction results to download}
         {--max-submit= : Maximum new predictions to submit}
-        {--events-limit= : Maximum remote events stored per prediction}
         {--skip-stats : Do not fetch remote server statistics}
-        {--skip-status : Do not refresh running prediction statuses}
-        {--skip-submit : Do not submit prepared predictions}';
+        {--skip-results : Do not download completed prediction results}
+        {--skip-submit : Do not submit prepared predictions}
+        {--skip-dispatch : Do not dispatch queue jobs for running predictions}';
 
-    protected $description = 'Synchronize remote prediction statistics, running statuses and queued submissions.';
+    protected $description = 'Fetch remote statistics, submit prepared predictions, download completed results, and dispatch queue jobs for running status checks.';
 
     public function handle(RemotePredictionClient $client): int
     {
@@ -30,28 +36,42 @@ class RunPredictionsWorker extends Command
             return Command::SUCCESS;
         }
 
-        try {
-            $client->ensureValidToken();
-        } catch (Throwable $throwable) {
-            $this->error('Failed to ensure valid token: '.$throwable->getMessage());
+        $lock = Cache::lock('remote-prediction:worker', 600);
 
-            return Command::FAILURE;
+        if (! $lock->get()) {
+            $this->warn('Another remote prediction worker is already running.');
+
+            return Command::SUCCESS;
         }
 
-        $results = [
-            'stats' => $this->option('skip-stats') ? null : $this->refreshStatistics($client),
-            'statuses' => $this->option('skip-status') ? null : $this->refreshStatuses($client),
-            'submissions' => $this->option('skip-submit') ? null : $this->submitPreparedPredictions($client),
-        ];
+        try {
+            try {
+                $client->ensureValidToken();
+            } catch (Throwable $throwable) {
+                $this->error('Failed to ensure valid token: '.$throwable->getMessage());
 
-        $this->info(sprintf(
-            'Remote prediction worker finished. Stats: %s, statuses: %s, submissions: %s.',
-            $results['stats'] === null ? 'skipped' : 'stored',
-            $results['statuses'] === null ? 'skipped' : (string) $results['statuses'],
-            $results['submissions'] === null ? 'skipped' : (string) $results['submissions'],
-        ));
+                return Command::FAILURE;
+            }
 
-        return Command::SUCCESS;
+            $results = [
+                'stats' => $this->option('skip-stats') ? null : $this->refreshStatistics($client),
+                'downloads' => $this->option('skip-results') ? null : $this->downloadCompletedResults($client),
+                'submissions' => $this->option('skip-submit') ? null : $this->submitPreparedPredictions($client),
+                'dispatched' => $this->option('skip-dispatch') ? null : $this->dispatchStatusChecks(),
+            ];
+
+            $this->info(sprintf(
+                'Remote prediction worker finished. Stats: %s, submissions: %s, downloads: %s, dispatched: %s.',
+                $results['stats'] === null ? 'skipped' : 'stored',
+                $results['submissions'] === null ? 'skipped' : (string) $results['submissions'],
+                $results['downloads'] === null ? 'skipped' : (string) $results['downloads'],
+                $results['dispatched'] === null ? 'skipped' : (string) $results['dispatched'],
+            ));
+
+            return Command::SUCCESS;
+        } finally {
+            $lock->release();
+        }
     }
 
     private function refreshStatistics(RemotePredictionClient $client): ?PredictionStat
@@ -71,21 +91,15 @@ class RunPredictionsWorker extends Command
         }
     }
 
-    private function refreshStatuses(RemotePredictionClient $client): int
+    /**
+     * Dispatch a CheckPredictionStatus job for every actively running prediction.
+     * Unique queue jobs prevent duplicate checks for the same prediction.
+     */
+    private function dispatchStatusChecks(): int
     {
-        $limit = $this->integerOption(
-            'max-status',
-            (int) config('prediction-workers.remote.worker.max_status_updates', 20),
-        );
-        $eventsLimit = $this->integerOption(
-            'events-limit',
-            (int) config('prediction-workers.remote.worker.events_limit', 100),
-        );
-        $statusIntervalSeconds = max(
-            1,
-            (int) config('prediction-workers.remote.worker.status_interval_seconds', 300),
-        );
-        $updated = 0;
+        $limit = max(1, (int) config('prediction-workers.remote.worker.max_active', 100));
+        $statusIntervalSeconds = max(30, (int) config('prediction-workers.remote.worker.status_interval_seconds', 300));
+        $dispatched = 0;
 
         Prediction::query()
             ->whereNotNull('remote_calculation_id')
@@ -94,10 +108,7 @@ class RunPredictionsWorker extends Command
             ->where(function ($query): void {
                 $query
                     ->whereNull('remote_status')
-                    ->orWhereNotIn('remote_status', [
-                        RemotePredictionStatus::COMPLETED->value,
-                        RemotePredictionStatus::FAILED->value,
-                    ]);
+                    ->orWhereIn('remote_status', Prediction::activeRemoteStatuses());
             })
             ->where(function ($query) use ($statusIntervalSeconds): void {
                 $query
@@ -109,29 +120,83 @@ class RunPredictionsWorker extends Command
             ->orderBy('id')
             ->limit($limit)
             ->get()
-            ->each(function (Prediction $prediction) use ($client, $eventsLimit, &$updated): void {
+            ->each(function (Prediction $prediction) use (&$dispatched): void {
+                CheckPredictionStatus::dispatch($prediction->getKey());
+                $dispatched++;
+            });
+
+        return $dispatched;
+    }
+
+    private function downloadCompletedResults(RemotePredictionClient $client): int
+    {
+        $limit = $this->integerOption(
+            'max-results',
+            (int) config('prediction-workers.remote.worker.max_result_downloads', 5),
+        );
+        $downloaded = 0;
+        $finishedDatasetIds = [];
+
+        Prediction::query()
+            ->whereNotNull('remote_calculation_id')
+            ->whereNull('result_id')
+            ->where('remote_status', RemotePredictionStatus::COMPLETED->value)
+            ->whereNotIn('state', Prediction::failedStates())
+            ->orderByDesc('priority')
+            ->orderBy('remote_finished_at')
+            ->orderBy('id')
+            ->limit($limit)
+            ->get()
+            ->each(function (Prediction $prediction) use ($client, &$downloaded, &$finishedDatasetIds): void {
                 try {
-                    $prediction->refreshRemotePredictionState($eventsLimit, $client);
-                    $updated++;
+                    $prediction->storeRemotePredictionResult($client);
+                    $downloaded++;
+
+                    // Track which datasets may now be complete
+                    foreach ($prediction->predictionDatasets()->pluck('datasets.id') as $datasetId) {
+                        $finishedDatasetIds[(int) $datasetId] = true;
+                    }
                 } catch (Throwable $throwable) {
                     $prediction->forceFill([
                         'remote_last_status_at' => now(),
                         'remote_error_message' => $throwable->getMessage(),
                     ])->save();
 
-                    $this->warn("Prediction {$prediction->getKey()} status refresh failed: {$throwable->getMessage()}");
+                    $this->warn("Prediction {$prediction->getKey()} result download failed: {$throwable->getMessage()}");
                 }
             });
 
-        return $updated;
+        // Send job-finished notification for datasets where all predictions are now done
+        if ($finishedDatasetIds) {
+            $this->notifyFinishedDatasets(array_keys($finishedDatasetIds));
+        }
+
+        return $downloaded;
     }
 
     private function submitPreparedPredictions(RemotePredictionClient $client): int
     {
-        $limit = $this->integerOption(
+        $requestedLimit = $this->integerOption(
             'max-submit',
             (int) config('prediction-workers.remote.worker.max_submissions', 5),
         );
+        $maxActive = max(1, (int) config('prediction-workers.remote.worker.max_active', 100));
+        $active = Prediction::query()
+            ->whereNotNull('remote_calculation_id')
+            ->whereNull('result_id')
+            ->whereNotIn('state', Prediction::failedStates())
+            ->where(function ($query): void {
+                $query
+                    ->whereNull('remote_status')
+                    ->orWhereIn('remote_status', Prediction::activeRemoteStatuses());
+            })
+            ->count();
+        $limit = min($requestedLimit, max(0, $maxActive - $active));
+
+        if ($limit === 0) {
+            return 0;
+        }
+
         $submitted = 0;
 
         Prediction::query()
@@ -147,6 +212,7 @@ class RunPredictionsWorker extends Command
             ->each(function (Prediction $prediction) use ($client, &$submitted): void {
                 try {
                     $prediction->submitAndStoreRemotePrediction(client: $client);
+                    CheckPredictionStatus::dispatch($prediction->getKey());
                     $submitted++;
                 } catch (Throwable $throwable) {
                     $prediction->forceFill([
@@ -162,6 +228,51 @@ class RunPredictionsWorker extends Command
             });
 
         return $submitted;
+    }
+
+    /**
+     * @param  int[]  $datasetIds
+     */
+    private function notifyFinishedDatasets(array $datasetIds): void
+    {
+        $notificationService = app(NotificationService::class);
+        $frontendUrl = rtrim((string) config('app.frontend_url', config('app.url')), '/');
+
+        PredictionDataset::query()
+            ->whereIn('id', $datasetIds)
+            ->whereNotNull('user_id')
+            ->whereNull('finished_notification_sent_at')
+            ->get()
+            ->each(function (PredictionDataset $dataset) use ($notificationService, $frontendUrl): void {
+                $stats = $dataset->calculateProgressStats();
+                $state = $stats['state'];
+
+                // Only notify when all predictions are done (finished or failed)
+                if (! in_array($state, [PredictionDataset::STATE_FINISHED, PredictionDataset::STATE_FINISHED_WITH_ERRORS, PredictionDataset::STATE_FAILED], true)) {
+                    return;
+                }
+
+                $user = User::find($dataset->user_id);
+                if (! $user) {
+                    return;
+                }
+
+                $membrane = $dataset->predictionMembrane?->name ?? 'N/A';
+                $method = Prediction::$enum_methods[$dataset->method_type] ?? $dataset->method_type;
+                $s = $stats['stats'];
+
+                $notificationService->send($user, NotificationTemplate::KEY_PREDICTION_JOB_FINISHED, [
+                    'comment' => $dataset->comment ?: "Dataset #{$dataset->id}",
+                    'total' => $s['total'],
+                    'done' => $s['done'],
+                    'failed' => $s['failed'],
+                    'membrane' => $membrane,
+                    'method' => $method,
+                    'dataset_url' => "{$frontendUrl}/lab/running-predictions?token={$dataset->token}",
+                ]);
+
+                $dataset->forceFill(['finished_notification_sent_at' => now()])->save();
+            });
     }
 
     private function integerOption(string $name, int $default): int

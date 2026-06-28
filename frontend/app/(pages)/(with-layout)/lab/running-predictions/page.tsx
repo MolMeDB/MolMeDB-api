@@ -5,18 +5,20 @@ import { MdOutlineComputer } from "react-icons/md";
 import { UserSession } from "@/lib/api/admin/interfaces/User";
 import { Cookie } from "@/lib/api/cookies";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import MyJobsTable from "./section/myJobsTable";
 
-export default async function LabNewCalculationPage() {
-  const user: UserSession | undefined =
-    (await Cookie.getUserData()) as UserSession;
+export default async function LabNewCalculationPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ token?: string }>;
+}) {
+  const [user, params] = await Promise.all([
+    Cookie.getUserData() as Promise<UserSession | undefined>,
+    searchParams,
+  ]);
 
-  const isLoggedIn = user && user.id ? true : false;
-
-  if (!isLoggedIn) {
-    return redirect("/lab");
-  }
+  const isLoggedIn = !!(user && user.id);
+  const initialToken = params?.token ?? "";
 
   return (
     <>
@@ -41,7 +43,7 @@ export default async function LabNewCalculationPage() {
       </SimpleSiteHeader>
       <div className="min-h-screen pb-16">
         <SiteContent classNameChildren="flex flex-col gap-16 min-h-screen">
-          <MyJobsTable />
+          <MyJobsTable isLoggedIn={isLoggedIn} initialToken={initialToken} />
         </SiteContent>
       </div>
       <SiteFooter />

@@ -10,6 +10,32 @@ import { IPredictionDataset } from "@/lib/api/admin/interfaces/Predictions";
 import { EyeIcon } from "@/components/ui/icons/eye";
 import Link from "next/link";
 
+export function makeDatasetColumns(useToken: boolean): IUiTableColumn<IPredictionDataset>[] {
+  return [
+    ...datasetBaseColumns,
+    {
+      key: "actions",
+      title: "Actions",
+      render: (item) => (
+        <div className="relative flex items-center w-full gap-2">
+          <Tooltip content="Details">
+            <Link
+              href={
+                useToken && item.token
+                  ? `/lab/running-predictions/${item.id}?token=${encodeURIComponent(item.token)}`
+                  : `/lab/running-predictions/${item.id}`
+              }
+              className="text-lg text-default-400 cursor-pointer active:opacity-50"
+            >
+              <EyeIcon />
+            </Link>
+          </Tooltip>
+        </div>
+      ),
+    },
+  ];
+}
+
 function formatDateTime(value: string) {
   const match = value.match(
     /^(\d{4})\/(\d{2})\/(\d{2}) (\d{2}):(\d{2})/,
@@ -24,7 +50,7 @@ function formatDateTime(value: string) {
   return `${day}. ${month}. ${year} ${hour}:${minute}`;
 }
 
-export const datasetColumns: IUiTableColumn<IPredictionDataset>[] = [
+const datasetBaseColumns: IUiTableColumn<IPredictionDataset>[] = [
   {
     key: "id",
     title: "ID",
@@ -134,21 +160,5 @@ export const datasetColumns: IUiTableColumn<IPredictionDataset>[] = [
     render: (item) => formatDateTime(item.created_at),
     isSortable: true,
     sortKey: "created_at",
-  },
-  {
-    key: "actions",
-    title: "Actions",
-    render: (item) => (
-      <div className="relative flex items-center w-full gap-2">
-        <Tooltip content="Details">
-          <Link
-            href={`/lab/running-predictions/${item.id}`}
-            className="text-lg text-default-400 cursor-pointer active:opacity-50"
-          >
-            <EyeIcon />
-          </Link>
-        </Tooltip>
-      </div>
-    ),
   },
 ];

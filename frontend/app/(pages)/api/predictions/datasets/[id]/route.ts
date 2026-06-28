@@ -2,12 +2,17 @@ import { getJson, post } from "@/lib/api/admin";
 import { NextResponse } from "next/server";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
-    const response = await getJson(`/api/predictions/datasets/${id}`);
+    const { searchParams } = new URL(request.url);
+    const token = searchParams.get("token");
+    const path = token
+      ? `/api/predictions/datasets/${id}?token=${encodeURIComponent(token)}`
+      : `/api/predictions/datasets/${id}`;
+    const response = await getJson(path);
 
     return NextResponse.json(response?.data ?? null, {
       status: response?.code ?? 500,
@@ -23,8 +28,13 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
+    const { searchParams } = new URL(request.url);
+    const token = searchParams.get("token");
+    const path = token
+      ? `/api/predictions/datasets/${id}?token=${encodeURIComponent(token)}`
+      : `/api/predictions/datasets/${id}`;
     const payload = await request.json();
-    const response = await post(`/api/predictions/datasets/${id}`, payload, "PATCH");
+    const response = await post(path, payload, "PATCH");
 
     let json: unknown = null;
     try {

@@ -13,12 +13,13 @@ const remoteLoadError =
 
 export default function CompoundPredictions(props: {
   compound: IPredictionStructure;
+  token?: string;
 }) {
   return (
     <DetailSection title="Prediction results" order={5}>
       <>
         <div className="mt-4">
-          <PredictionsTable structure={props.compound} />
+          <PredictionsTable structure={props.compound} token={props.token} />
         </div>
       </>
     </DetailSection>
@@ -99,12 +100,12 @@ function getLastSolute(item: IPrediction) {
   return solutes[solutes.length - 1];
 }
 
-function PredictionsTable(props: { structure: IPredictionStructure }) {
+function PredictionsTable(props: { structure: IPredictionStructure; token?: string }) {
   const stableApiParams = useMemo(() => {
-    return {
-      hasResults: true,
-    };
-  }, []);
+    return props.token
+      ? { hasResults: true, token: props.token }
+      : { hasResults: true };
+  }, [props.token]);
 
   return (
     <UiTable<IPrediction>

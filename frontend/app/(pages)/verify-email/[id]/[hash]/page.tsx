@@ -27,6 +27,9 @@ export default async function VerifyEmailPage({
     redirect("/login?verified=0");
   }
 
+  const frontendUrl = new URL(
+    process.env.FRONTEND_URL ?? "http://localhost:3000",
+  );
   const response = await fetch(
     `${backendUrl}/verify-email/${id}/${hash}?${query.toString()}`,
     {
@@ -35,6 +38,11 @@ export default async function VerifyEmailPage({
       cache: "no-store",
       headers: {
         Accept: "text/html,application/xhtml+xml,application/json",
+        "X-Forwarded-Host": frontendUrl.host,
+        "X-Forwarded-Proto": frontendUrl.protocol.replace(":", ""),
+        ...(frontendUrl.port
+          ? { "X-Forwarded-Port": frontendUrl.port }
+          : {}),
       },
     },
   );

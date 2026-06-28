@@ -14,6 +14,10 @@ class PredictionDataset extends PredictionBaseModel
 {
     use Filterable;
 
+    protected $attributes = [
+        'priority' => Prediction::PRIORITY_MEDIUM,
+    ];
+
     const STATE_EMPTY = 0;
 
     const STATE_PENDING = 1;
@@ -48,6 +52,7 @@ class PredictionDataset extends PredictionBaseModel
     protected $casts = [
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
+        'finished_notification_sent_at' => 'datetime',
     ];
 
     /**

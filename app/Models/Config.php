@@ -16,6 +16,8 @@ class Config extends Model
 
     public const KEY_LAB_UPLOAD_ADMIN_EMAIL_FALLBACK = 'lab_upload:admin_email_fallback';
 
+    public const KEY_PREDICTION_ADMIN_EMAIL_FALLBACK = 'prediction_admin:email_fallback';
+
     public const KEY_REMOTE_PREDICTION_ENABLED = 'remote_prediction:enabled';
 
     public const KEY_REMOTE_PREDICTION_URL = 'remote_prediction:url';
@@ -74,5 +76,10 @@ class Config extends Model
             ['key' => $key],
             ['value' => $value]
         );
+    }
+
+    public static function isSensitiveKey(string $key): bool
+    {
+        return in_array($key, [self::KEY_REMOTE_PREDICTION_TOKEN], true);
     }
 }

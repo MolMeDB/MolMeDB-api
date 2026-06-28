@@ -8,9 +8,10 @@ import {
   DropdownMenu,
   DropdownTrigger,
   Spinner,
+  Tooltip,
 } from "@heroui/react";
 import { useCallback, useEffect, useState } from "react";
-import { FiBell } from "react-icons/fi";
+import { FiBell, FiTrash2 } from "react-icons/fi";
 
 type UserNotification = {
   id: number;
@@ -32,6 +33,7 @@ export default function SiteNotificationsBell() {
   const [notifications, setNotifications] = useState<UserNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
 
   const loadNotifications = useCallback(async () => {
     setIsLoading(true);
@@ -58,6 +60,18 @@ export default function SiteNotificationsBell() {
   useEffect(() => {
     loadNotifications();
   }, [loadNotifications]);
+
+  async function clearAll() {
+    setIsClearing(true);
+    setNotifications([]);
+    setUnreadCount(0);
+
+    try {
+      await fetch("/api/notifications/clear", { method: "DELETE" });
+    } finally {
+      setIsClearing(false);
+    }
+  }
 
   async function markAsRead() {
     if (unreadCount === 0) {
@@ -108,9 +122,28 @@ export default function SiteNotificationsBell() {
       </DropdownTrigger>
       <DropdownMenu
         aria-label="Notifications"
-        className="w-80"
+        className="w-80 p-0"
+        classNames={{ list: "max-h-96 overflow-y-auto" }}
         emptyContent={isLoading ? "Loading notifications..." : "No notifications"}
-        disabledKeys={["loading"]}
+        disabledKeys={["loading", "header"]}
+        topContent={
+          <div className="flex items-center justify-between px-3 py-2 border-b border-divider">
+            <span className="text-sm font-semibold text-foreground">Notifications</span>
+            <Tooltip content="Clear all">
+              <Button
+                isIconOnly
+                size="sm"
+                variant="light"
+                isLoading={isClearing}
+                isDisabled={notifications.length === 0}
+                onPress={clearAll}
+                className="text-default-400 hover:text-danger"
+              >
+                {!isClearing && <FiTrash2 size={15} />}
+              </Button>
+            </Tooltip>
+          </div>
+        }
       >
         {isLoading ? (
           <DropdownItem key="loading" textValue="Loading">
@@ -123,7 +156,7 @@ export default function SiteNotificationsBell() {
             <DropdownItem
               key={notification.id}
               textValue={notification.title}
-              className={notification.state === "new" ? "bg-primary-50" : ""}
+              className={notification.state === "new" ? "bg-primary-50 dark:bg-primary-900/20" : ""}
             >
               <div className="flex flex-col gap-1 whitespace-normal py-1">
                 <div className="text-sm font-semibold">

@@ -25,6 +25,12 @@ export async function GET(request: Request) {
   res.cookies.set(SESSION_KEY, "", { maxAge: 0, path: "/" });
   res.cookies.set(USER_KEY, "", { maxAge: 0, path: "/" });
   res.cookies.set(XSRF_KEY, "", { maxAge: 0, path: "/" });
+  res.cookies.set("molmedb_guest", "", { maxAge: 0, path: "/" });
+  res.cookies.set("molmedb_guest_access", "", {
+    httpOnly: true,
+    maxAge: 0,
+    path: "/",
+  });
   rememberCookies.forEach((cookie) => {
     res.cookies.set(cookie.name, "", { maxAge: 0, path: "/" });
   });

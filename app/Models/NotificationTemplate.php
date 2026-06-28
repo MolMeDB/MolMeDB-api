@@ -21,6 +21,16 @@ class NotificationTemplate extends Model
 
     public const KEY_UPLOAD_ADMIN_PROCESSING_ERROR = 'upload.admin.processing_error';
 
+    public const KEY_PREDICTION_JOB_SUBMITTED = 'prediction.job.submitted';
+
+    public const KEY_PREDICTION_JOB_FINISHED = 'prediction.job.finished';
+
+    public const KEY_PREDICTION_JOB_DAILY_PROGRESS = 'prediction.job.daily_progress';
+
+    public const KEY_PREDICTION_ADMIN_NEW_SUBMISSION = 'prediction.admin.new_submission';
+
+    public const KEY_PREDICTION_ADMIN_STATS_REPORT = 'prediction.admin.stats_report';
+
     protected $guarded = [];
 
     /**
@@ -36,6 +46,11 @@ class NotificationTemplate extends Model
             self::KEY_UPLOAD_ADMIN_NEW_SUBMISSION => 'Upload admin alert: new submission',
             self::KEY_UPLOAD_ADMIN_REVIEW_REQUIRED => 'Upload admin alert: review required',
             self::KEY_UPLOAD_ADMIN_PROCESSING_ERROR => 'Upload admin alert: processing error',
+            self::KEY_PREDICTION_JOB_SUBMITTED => 'Prediction job submitted',
+            self::KEY_PREDICTION_JOB_FINISHED => 'Prediction job finished',
+            self::KEY_PREDICTION_JOB_DAILY_PROGRESS => 'Prediction job daily progress',
+            self::KEY_PREDICTION_ADMIN_NEW_SUBMISSION => 'Prediction admin: new submission',
+            self::KEY_PREDICTION_ADMIN_STATS_REPORT => 'Prediction admin: statistics report',
         ];
     }
 
@@ -50,7 +65,7 @@ class NotificationTemplate extends Model
             ->all();
 
         return collect(self::keyOptions())
-            ->reject(fn (string $label, string $key): bool => in_array($key, $usedKeys, true))
+            ->reject(fn (string $_label, string $key): bool => in_array($key, $usedKeys, true))
             ->all();
     }
 

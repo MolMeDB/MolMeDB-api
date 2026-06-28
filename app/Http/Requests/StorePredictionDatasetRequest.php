@@ -10,7 +10,7 @@ class StorePredictionDatasetRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user() !== null;
+        return true;
     }
 
     /**
@@ -19,14 +19,13 @@ class StorePredictionDatasetRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'membranes' => ['required', 'array', 'min:1', 'max:10'],
+            'membranes' => ['required', 'array', 'size:1'],
             'membranes.*' => ['integer', 'distinct'],
-            'methods' => ['required', 'array', 'min:1', 'max:5'],
+            'methods' => ['required', 'array', 'size:1'],
             'methods.*' => ['string', 'distinct', Rule::in(array_keys(Prediction::remotePredictionMethodOptions()))],
             'smiles' => ['required', 'array', 'min:1', 'max:100'],
             'smiles.*' => ['string', 'max:4000'],
             'temperature' => ['required', 'numeric', 'between:20,45'],
-            'priority' => ['required'],
             'description' => ['required', 'string', 'max:512'],
         ];
     }

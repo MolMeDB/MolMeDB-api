@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Feedback\RequestFeedbackEmailVerificationRequest;
 use App\Http\Requests\Feedback\StoreFeedbackRequest;
 use App\Http\Requests\Feedback\VerifyFeedbackEmailRequest;
+use App\Http\Resources\UserResource;
 use App\Mail\FeedbackEmailVerificationMail;
 use App\Models\BaseModel;
 use App\Models\Config;
@@ -13,9 +14,9 @@ use App\Models\FeedbackSubmission;
 use App\Models\NotificationTemplate;
 use App\Models\User;
 use App\Notifications\FeedbackReceived;
+use App\Services\EmailLoginService;
 use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
@@ -84,76 +85,16 @@ class FeedbackController extends Controller
             ]);
         }
 
-        $submitToken = Str::random(64);
-        $verification->forceFill([
-            'submit_token_hash' => Hash::make($submitToken),
-            'verified_at' => now(),
-        ])->save();
+        $user = app(EmailLoginService::class)->authenticate($request, $verification, $email);
 
         return response()->json([
-            'verification_id' => $verification->id,
-            'verification_token' => $submitToken,
-            'expires_at' => $verification->expires_at->toISOString(),
+            'data' => UserResource::make($user)->resolve($request),
+            'meta' => [
+                'session_expires_at' => now()
+                    ->addMinutes((int) config('session.lifetime'))
+                    ->toISOString(),
+            ],
         ]);
-    }
-
-    public function storeGuest(StoreFeedbackRequest $request): JsonResponse
-    {
-        $data = $request->validated();
-
-        foreach (['email', 'verification_id', 'verification_token'] as $field) {
-            if (! array_key_exists($field, $data)) {
-                throw ValidationException::withMessages([
-                    $field => ['This field is required.'],
-                ]);
-            }
-        }
-
-        $email = Str::lower($data['email']);
-        $verification = FeedbackEmailVerification::query()
-            ->whereKey($data['verification_id'])
-            ->where('email', $email)
-            ->whereNotNull('verified_at')
-            ->whereNull('consumed_at')
-            ->where('expires_at', '>', now())
-            ->first();
-
-        if (
-            ! $verification ||
-            ! $verification->submit_token_hash ||
-            ! Hash::check($data['verification_token'], $verification->submit_token_hash)
-        ) {
-            throw ValidationException::withMessages([
-                'verification_token' => ['Email verification is invalid or has expired.'],
-            ]);
-        }
-
-        $submission = DB::transaction(function () use ($request, $email, $data, $verification): FeedbackSubmission {
-            $submission = $this->createSubmission(
-                request: $request,
-                email: $email,
-                message: $data['message'],
-                context: $data['context'],
-                user: null,
-                verification: $verification,
-            );
-
-            $verification->forceFill([
-                'consumed_at' => now(),
-            ])->save();
-
-            return $submission;
-        });
-
-        $this->deferFeedbackNotifications(
-            submission: $submission,
-            confirmationEmail: $email,
-            authenticatedUser: null,
-        );
-
-        return response()->json([
-            'message' => 'Feedback has been sent.',
-        ], 201);
     }
 
     public function storeAuthenticated(StoreFeedbackRequest $request): JsonResponse
@@ -172,7 +113,6 @@ class FeedbackController extends Controller
             message: $data['message'],
             context: $data['context'],
             user: $user,
-            verification: null,
         );
 
         $this->deferFeedbackNotifications(
@@ -191,12 +131,11 @@ class FeedbackController extends Controller
         string $email,
         string $message,
         string $context,
-        ?User $user,
-        ?FeedbackEmailVerification $verification,
+        User $user,
     ): FeedbackSubmission {
         return FeedbackSubmission::query()->create([
-            'user_id' => $user?->id,
-            'feedback_email_verification_id' => $verification?->id,
+            'user_id' => $user->id,
+            'feedback_email_verification_id' => null,
             'email' => $email,
             'message' => $message,
             'context' => $context,

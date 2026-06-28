@@ -3,18 +3,25 @@
 namespace App\Providers;
 
 use App\Listeners\RunPredictionsMigrationsAfterDefaultMigrate;
+use App\Models\Config as ConfigModel;
 use App\Models\Filesystem;
 use App\Models\SshCredential;
+use App\Policies\ConfigPolicy;
+use App\Policies\PredictionDatasetPolicy;
 use Exception;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Console\Events\CommandFinished;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
+use Modules\PredictionWorkers\Models\PredictionDataset;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -28,6 +35,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Gate::policy(ConfigModel::class, ConfigPolicy::class);
+        Gate::policy(PredictionDataset::class, PredictionDatasetPolicy::class);
+
+        RateLimiter::for('remote-prediction-status', fn (): Limit => Limit::perMinute(
+            max(1, (int) config('prediction-workers.remote.worker.max_status_requests_per_minute', 30)),
+        )->by('remote-prediction-status'));
+
         Event::listen(CommandFinished::class, RunPredictionsMigrationsAfterDefaultMigrate::class);
 
         ResetPassword::createUrlUsing(function (object $notifiable, string $token) {
@@ -41,7 +55,8 @@ class AppServiceProvider extends ServiceProvider
                 [
                     'id' => $notifiable->getKey(),
                     'hash' => sha1($notifiable->getEmailForVerification()),
-                ]
+                ],
+                absolute: false,
             );
 
             $query = parse_url($url, PHP_URL_QUERY);

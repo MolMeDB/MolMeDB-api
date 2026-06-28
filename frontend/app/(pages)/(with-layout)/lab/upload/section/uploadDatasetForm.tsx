@@ -15,6 +15,7 @@ import {
   Tooltip,
 } from "@heroui/react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { type SyntheticEvent, useEffect, useRef, useState } from "react";
 import { FiHelpCircle } from "react-icons/fi";
 import {
@@ -45,8 +46,7 @@ type ActionState = {
 type UploadEmailStep = "email" | "code" | "verified";
 
 type VerificationPayload = {
-  verification_id: number;
-  verification_token: string;
+  email: string;
 };
 
 type ApiErrorPayload = {
@@ -81,6 +81,7 @@ export default function UploadDatasetForm(props: {
   isLoggedIn: boolean;
   initialToken?: string;
 }) {
+  const router = useRouter();
   const [actionState, setActionState] = useState<ActionState | null>(null);
   const [isPending, setIsPending] = useState(false);
 
@@ -88,9 +89,9 @@ export default function UploadDatasetForm(props: {
   const [emailStep, setEmailStep] = useState<UploadEmailStep>(
     props.isLoggedIn ? "verified" : "email",
   );
+  const [authenticatedViaEmail, setAuthenticatedViaEmail] = useState(false);
+  const isAuthenticated = props.isLoggedIn || authenticatedViaEmail;
   const [emailCode, setEmailCode] = useState("");
-  const [emailVerification, setEmailVerification] =
-    useState<VerificationPayload | null>(null);
   const [emailTurnstileToken, setEmailTurnstileToken] = useState<string | null>(
     null,
   );
@@ -157,7 +158,7 @@ export default function UploadDatasetForm(props: {
     `PMID ${option.pmid} - ${option.citation ?? option.title ?? "Untitled"}`;
 
   const handle401 = useHandle401();
-  const canShowUploadForm = props.isLoggedIn || emailStep === "verified";
+  const canShowUploadForm = isAuthenticated;
 
   useEffect(() => {
     setIsMembraneLoading(true);
@@ -277,19 +278,6 @@ export default function UploadDatasetForm(props: {
       setUploadCaptchaKey((current) => current + 1);
       setReloadKey(reloadKey + 1);
 
-      if (!props.isLoggedIn) {
-        setEmail("");
-        setEmailCode("");
-        setEmailVerification(null);
-        setEmailTurnstileToken(null);
-        setEmailStep("email");
-      }
-
-      const guestToken = actionState.data?.guest_token as string | undefined;
-      if (guestToken) {
-        setTrackTokenInput(guestToken);
-        void loadGuestUpload(guestToken);
-      }
     }
   }, [actionState?.status]);
 
@@ -351,8 +339,10 @@ export default function UploadDatasetForm(props: {
         "/api/lab/upload/email-verification/verify",
         { email, code: emailCode },
       );
-      setEmailVerification(verification);
+      setEmail(verification.email ?? email);
       setEmailStep("verified");
+      setAuthenticatedViaEmail(true);
+      router.refresh();
     } catch (error) {
       setEmailVerificationError(
         error instanceof Error ? error.message : "Email verification failed.",
@@ -466,7 +456,7 @@ export default function UploadDatasetForm(props: {
         email.
       </p>
 
-      {!props.isLoggedIn && (
+      {!isAuthenticated && (
         <div className="mt-6 flex flex-col gap-4 rounded-xl border border-default-200 bg-background/70 p-4">
           <div className="flex flex-col gap-1">
             <h3 className="text-lg font-bold">Track an existing upload</h3>
@@ -503,7 +493,7 @@ export default function UploadDatasetForm(props: {
         </div>
       )}
 
-      {!props.isLoggedIn &&
+      {!isAuthenticated &&
         emailStep !== "verified" &&
         guestUpload &&
         !isEmailVerificationOpen && (
@@ -518,7 +508,7 @@ export default function UploadDatasetForm(props: {
           </div>
         )}
 
-      {!props.isLoggedIn && emailStep !== "verified" && isEmailVerificationOpen && (
+      {!isAuthenticated && emailStep !== "verified" && isEmailVerificationOpen && (
         <div className="mt-6 flex flex-col gap-5 rounded-xl border border-primary-200 bg-primary-50/70 p-4 dark:border-primary-500/40 dark:bg-primary-950/20">
           {guestUpload && (
             <div className="flex justify-end">
@@ -536,9 +526,8 @@ export default function UploadDatasetForm(props: {
             title="Verify your email to start a new upload"
             description={
               <span>
-                We need your email so we can send you a private link for
-                managing the whole upload process and tracking its status. You
-                can also{" "}
+                Verifying your email signs you in and lets us associate the
+                upload with your account. You can also{" "}
                 <Link
                   className="font-semibold underline"
                   href="/login?redirect=/lab/upload"
@@ -631,30 +620,6 @@ export default function UploadDatasetForm(props: {
             color={actionState.status === 201 ? "success" : "danger"}
             title={actionState.message}
           />
-        )}
-
-        {!props.isLoggedIn && (
-          <Alert
-            color="success"
-            title="Email verified"
-            description={`Upload status and management link will be sent to ${email}.`}
-          />
-        )}
-
-        {!props.isLoggedIn && (
-          <>
-            <input type="hidden" name="email" value={email} />
-            <input
-              type="hidden"
-              name="verification_id"
-              value={emailVerification?.verification_id ?? ""}
-            />
-            <input
-              type="hidden"
-              name="verification_token"
-              value={emailVerification?.verification_token ?? ""}
-            />
-          </>
         )}
 
         <div>
@@ -878,7 +843,7 @@ export default function UploadDatasetForm(props: {
 
       <Divider className="my-8" />
 
-      {props.isLoggedIn ? (
+      {isAuthenticated ? (
         <MyUploadsList reloadKey={reloadKey} />
       ) : (
         <p className="text-sm text-foreground-500">

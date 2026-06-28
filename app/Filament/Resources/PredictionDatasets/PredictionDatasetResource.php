@@ -9,16 +9,18 @@ use App\Filament\Resources\PredictionDatasets\Pages\ListPredictionDatasets;
 use App\Filament\Resources\PredictionDatasets\RelationManagers\PredictionsRelationManager;
 use App\Filament\Resources\PredictionDatasets\RelationManagers\StructuresRelationManager;
 use App\Models\File;
+use App\Models\Membrane;
+use App\Models\User;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
-use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Modules\PredictionWorkers\Models\Prediction;
@@ -53,10 +55,6 @@ class PredictionDatasetResource extends Resource
                     ->default(37.0)
                     ->minValue(0)
                     ->required(),
-                Select::make('priority')
-                    ->label('Priority')
-                    ->required()
-                    ->options(Prediction::$enum_priorities),
                 Select::make('method_type')
                     ->label('Method')
                     ->live()
@@ -69,15 +67,15 @@ class PredictionDatasetResource extends Resource
                     ->relationship(
                         name: 'predictionMembrane',
                         titleAttribute: 'abbreviation',
-                        modifyQueryUsing: fn (Builder $query, Get $get) => match ($get('method_type')) {
-                            Prediction::METHOD_COSMOMIC => $query->whereHas('file', fn ($q) => $q->where('type', File::TYPE_COSMO_MEMBRANE)
-                            ),
-                            Prediction::METHOD_COSMOPERM => $query->whereHas('file', fn ($q) => $q->where('type', File::TYPE_COSMO_MEMBRANE)
-                            ),
-                            default => $query
-                        })
+                        modifyQueryUsing: fn (Builder $query) => $query->whereIn(
+                            'remote_id',
+                            Membrane::query()
+                                ->whereHas('files', fn ($q) => $q->where('type', File::TYPE_COSMO_MEMBRANE))
+                                ->pluck('id'),
+                        ),
+                    )
                     ->label('Membrane')
-                    ->hint('Only available options for selected method are shown.')
+                    ->hint('Only membranes with a COSMO file are shown.')
                     ->hintColor('warning')
                     ->reactive()
                     ->required(),
@@ -110,7 +108,24 @@ class PredictionDatasetResource extends Resource
                     ->sortable(),
             ])
             ->filters([
-                //
+                SelectFilter::make('method_type')
+                    ->label('Method')
+                    ->options(Prediction::remotePredictionMethodOptions())
+                    ->multiple(),
+                SelectFilter::make('priority')
+                    ->label('Priority')
+                    ->options(Prediction::$enum_priorities)
+                    ->multiple(),
+                SelectFilter::make('membrane_id')
+                    ->label('Membrane')
+                    ->relationship('predictionMembrane', 'abbreviation')
+                    ->multiple()
+                    ->searchable(),
+                SelectFilter::make('user_id')
+                    ->label('Owner')
+                    ->options(fn () => User::query()->pluck('name', 'id'))
+                    ->multiple()
+                    ->searchable(),
             ])
             ->recordActions([
                 EditAction::make()

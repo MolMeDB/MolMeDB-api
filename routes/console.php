@@ -2,6 +2,8 @@
 
 use App\Console\Commands\Cron\RunDailyCommands;
 use App\Console\Commands\Cron\RunPredictionsWorker;
+use App\Console\Commands\Cron\SendPredictionAdminStatsNotification;
+use App\Console\Commands\Cron\SendPredictionProgressNotifications;
 use App\Console\Commands\ProcessFrontendUploads;
 use App\Console\Commands\SendUploadQueueNotifications;
 use Illuminate\Console\Command;
@@ -57,4 +59,24 @@ Schedule::command(SendUploadQueueNotifications::class)
 
 Schedule::command(RunDailyCommands::class)
     ->dailyAt('01:00')
+    ->withoutOverlapping();
+
+Schedule::command(SendPredictionProgressNotifications::class)
+    ->dailyAt('08:00')
+    ->withoutOverlapping();
+
+Schedule::command(SendPredictionAdminStatsNotification::class, ['period' => 'day'])
+    ->dailyAt('07:00')
+    ->withoutOverlapping();
+
+Schedule::command(SendPredictionAdminStatsNotification::class, ['period' => 'week'])
+    ->weeklyOn(1, '07:05')
+    ->withoutOverlapping();
+
+Schedule::command(SendPredictionAdminStatsNotification::class, ['period' => 'month'])
+    ->monthlyOn(1, '07:10')
+    ->withoutOverlapping();
+
+Schedule::command(SendPredictionAdminStatsNotification::class, ['period' => 'year'])
+    ->yearlyOn(1, 1, '07:15')
     ->withoutOverlapping();

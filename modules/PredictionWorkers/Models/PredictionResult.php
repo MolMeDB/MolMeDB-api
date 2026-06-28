@@ -12,6 +12,18 @@ class PredictionResult extends PredictionBaseModel
 
     protected $table = 'results';
 
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'data' => 'array',
+            'created_at' => 'datetime',
+            'updated_at' => 'datetime',
+        ];
+    }
+
     public function prediction(): HasOne
     {
         return $this->hasOne(Prediction::class, 'result_id');
@@ -25,6 +37,9 @@ class PredictionResult extends PredictionBaseModel
     public function loadParsedResults()
     {
         try {
+            if ($this->data !== null) {
+                return $this->data;
+            }
 
             $parser = new CosmoXmlParser;
 

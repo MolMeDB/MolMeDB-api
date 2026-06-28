@@ -2,10 +2,14 @@
 
 namespace Modules\PredictionWorkers\Models;
 
+use App\Models\Filesystem;
 use Carbon\CarbonInterface;
 use EloquentFilter\Filterable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Modules\PredictionWorkers\DTO\RemotePrediction\RemotePredictionCalculation;
 use Modules\PredictionWorkers\DTO\RemotePrediction\RemotePredictionFile;
 use Modules\PredictionWorkers\DTO\RemotePrediction\RemotePredictionJobSnapshot;
@@ -14,12 +18,19 @@ use Modules\PredictionWorkers\Enums\RemotePredictionArtifact;
 use Modules\PredictionWorkers\Enums\RemotePredictionStatus;
 use Modules\PredictionWorkers\Enums\RemotePredictionStep;
 use Modules\PredictionWorkers\Exceptions\RemotePredictionException;
+use Modules\PredictionWorkers\Services\CosmoXmlParser;
 use Modules\PredictionWorkers\Services\RemotePrediction\RemotePredictionClient;
 use RuntimeException;
+use Throwable;
+use ZipArchive;
 
 class Prediction extends PredictionBaseModel
 {
     use Filterable;
+
+    protected $attributes = [
+        'priority' => self::PRIORITY_MEDIUM,
+    ];
 
     const PRIORITY_LOW = 1;
 
@@ -122,6 +133,20 @@ class Prediction extends PredictionBaseModel
             self::STATE_ERROR,
             self::STATE_REMOVE,
             self::STATE_STOPPED,
+        ];
+    }
+
+    /**
+     * @return array<string>
+     */
+    public static function activeRemoteStatuses(): array
+    {
+        return [
+            RemotePredictionStatus::PENDING->value,
+            RemotePredictionStatus::QUEUED->value,
+            RemotePredictionStatus::RUNNING->value,
+            RemotePredictionStatus::WAITING_FOR_CONFORMERS->value,
+            RemotePredictionStatus::WAITING_FOR_SCRIPT->value,
         ];
     }
 
@@ -332,8 +357,6 @@ class Prediction extends PredictionBaseModel
     }
 
     public function requeueRemotePrediction(
-        RemotePredictionStep $step,
-        bool $force = false,
         ?RemotePredictionClient $client = null,
     ): RemotePredictionJobSnapshot {
         $client = $this->remotePredictionClient($client);
@@ -342,9 +365,149 @@ class Prediction extends PredictionBaseModel
             $this->remotePredictionSmiles(),
             $this->remotePredictionMembraneKey(client: $client),
             (float) $this->temperature,
-            $step,
-            $force,
         );
+    }
+
+    public function forceRequeueRemotePrediction(
+        RemotePredictionStep $step,
+        ?RemotePredictionClient $client = null,
+    ): RemotePredictionJobSnapshot {
+        $client = $this->remotePredictionClient($client);
+
+        return $client->forceRequeueJob(
+            $this->remotePredictionSmiles(),
+            $this->remotePredictionMembraneKey(client: $client),
+            (float) $this->temperature,
+            $step,
+        );
+    }
+
+    public function requeueAndStoreRemotePrediction(
+        ?RemotePredictionStep $step = null,
+        bool $force = false,
+        ?RemotePredictionClient $client = null,
+    ): RemotePredictionJobSnapshot {
+        if ($force && $step === null) {
+            throw new RuntimeException('A target step is required for force requeue.');
+        }
+
+        if ($force && ! array_key_exists($step->value, $this->forceRequeueStepOptions($client))) {
+            throw new RuntimeException("Remote step [{$step->value}] has not been reached by this prediction.");
+        }
+
+        $snapshot = $force
+            ? $this->forceRequeueRemotePrediction($step, $client)
+            : $this->requeueRemotePrediction($client);
+        $requeuedStep = $step ?? $this->remoteStepFromRequeueSnapshot($snapshot);
+        $previousResultId = $this->result_id;
+
+        $this->forceFill([
+            'result_id' => null,
+            'remote_status' => RemotePredictionStatus::QUEUED->value,
+            'remote_current_step' => $requeuedStep?->value,
+            'remote_last_status_at' => now(),
+            'remote_finished_at' => null,
+            'remote_error_message' => null,
+            'state' => self::STATE_RUNNING,
+            'step' => $this->stepForRemoteStep(null, $requeuedStep?->value),
+            'logs' => $this->logsWithWorkerEvent(
+                $force ? 'Remote prediction force requeued.' : 'Remote prediction requeued.',
+                [
+                    'step' => $requeuedStep?->value,
+                    'force' => $force,
+                    'previous_result_id' => $previousResultId,
+                ],
+                'REMOTE REQUEUE',
+            ),
+        ])->save();
+
+        return $snapshot;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function forceRequeueStepOptions(?RemotePredictionClient $client = null): array
+    {
+        $snapshot = $this->remotePredictionStatus(0, $client);
+        $availableSteps = [RemotePredictionStep::RDKIT->value => true];
+
+        foreach ($snapshot->steps as $step) {
+            if (
+                $step->step instanceof RemotePredictionStep
+                && (
+                    $this->remoteStatusValue($step->status) !== RemotePredictionStatus::PENDING->value
+                    || $step->attempts > 0
+                    || $step->startedAt !== null
+                )
+            ) {
+                $availableSteps[$step->step->value] = true;
+            }
+        }
+
+        if ($snapshot->currentStep instanceof RemotePredictionStep) {
+            $availableSteps[$snapshot->currentStep->value] = true;
+        }
+
+        foreach ($snapshot->conformers as $conformer) {
+            if ($conformer->currentStep instanceof RemotePredictionStep) {
+                $availableSteps[$conformer->currentStep->value] = true;
+            }
+
+            foreach ($conformer->steps as $step) {
+                if (
+                    $step->step instanceof RemotePredictionStep
+                    && (
+                        $this->remoteStatusValue($step->status) !== RemotePredictionStatus::PENDING->value
+                        || $step->attempts > 0
+                        || $step->startedAt !== null
+                    )
+                ) {
+                    $availableSteps[$step->step->value] = true;
+                }
+            }
+        }
+
+        $calculation = filled($this->remote_calculation_id)
+            ? $snapshot->calculationById((string) $this->remote_calculation_id)
+            : null;
+
+        if ($calculation !== null && in_array(
+            $this->remoteStatusValue($calculation->status),
+            [
+                RemotePredictionStatus::QUEUED->value,
+                RemotePredictionStatus::RUNNING->value,
+                RemotePredictionStatus::WAITING_FOR_SCRIPT->value,
+                RemotePredictionStatus::COMPLETED->value,
+                RemotePredictionStatus::FAILED->value,
+            ],
+            true,
+        )) {
+            $availableSteps[RemotePredictionStep::COSMO->value] = true;
+        }
+
+        return collect(RemotePredictionStep::cases())
+            ->filter(fn (RemotePredictionStep $step): bool => isset($availableSteps[$step->value]))
+            ->mapWithKeys(fn (RemotePredictionStep $step): array => [$step->value => $step->label()])
+            ->all();
+    }
+
+    public function lastRemotePredictionStepForRequeue(): RemotePredictionStep
+    {
+        if ($this->remote_current_step) {
+            $remoteStep = RemotePredictionStep::tryFrom((string) $this->remote_current_step);
+
+            if ($remoteStep !== null) {
+                return $remoteStep;
+            }
+        }
+
+        return match (true) {
+            (int) $this->step >= self::STEP_COSMO => RemotePredictionStep::COSMO,
+            (int) $this->step >= self::STEP_OPTIMIZATION => RemotePredictionStep::OPTIMIZATION_TURBOMOLE,
+            (int) $this->step >= self::STEP_SDF_READY => RemotePredictionStep::CONFORMERS,
+            default => RemotePredictionStep::RDKIT,
+        };
     }
 
     public function remotePredictionCalculation(
@@ -450,6 +613,142 @@ class Prediction extends PredictionBaseModel
         return $this->downloadRemotePredictionArtifact(RemotePredictionArtifact::COSMO, $client);
     }
 
+    public function storeRemotePredictionResult(
+        ?RemotePredictionClient $client = null,
+    ): PredictionResult {
+        if ($this->result_id !== null) {
+            return $this->predictionResult;
+        }
+
+        if ($this->remote_status !== RemotePredictionStatus::COMPLETED->value) {
+            throw new RuntimeException("Prediction {$this->getKey()} is not completed on remote server.");
+        }
+
+        $download = $this->downloadRemotePredictionResult($client);
+        $diskName = $this->remotePredictionResultsDiskName();
+        $path = $this->remotePredictionResultPath($download);
+
+        if (! Storage::disk($diskName)->put($path, $download->contents)) {
+            throw new RuntimeException("Unable to store remote prediction result to [{$diskName}:{$path}].");
+        }
+
+        $parsed = $this->parseRemotePredictionResult($download, $diskName, $path);
+
+        return DB::connection($this->getConnectionName())->transaction(function () use ($download, $diskName, $path, $parsed): PredictionResult {
+            $file = PredictionFile::query()->create([
+                'type' => $this->remotePredictionResultFileType($download),
+                'name' => $this->remotePredictionResultFilename($download),
+                'mime' => $download->mimeType,
+                'storage' => $diskName,
+                'path' => $path,
+            ]);
+
+            $result = PredictionResult::query()->create([
+                'file_id' => $file->id,
+                'data' => $parsed,
+            ]);
+
+            $this->forceFill([
+                'result_id' => $result->id,
+                'state' => self::STATE_FINISHED,
+                'step' => self::STEP_RESULT_DB_STORE,
+                'remote_last_status_at' => now(),
+                'remote_finished_at' => $this->remote_finished_at ?? now(),
+                'remote_error_message' => null,
+                'logs' => $this->logsWithWorkerEvent('Remote prediction result downloaded and parsed.', [
+                    'disk' => $diskName,
+                    'path' => $path,
+                    'filename' => $download->filename,
+                    'size' => $download->size(),
+                ], 'RESULT DOWNLOAD'),
+            ])->save();
+
+            return $result;
+        });
+    }
+
+    /**
+     * @return array<int, mixed>
+     */
+    private function parseRemotePredictionResult(
+        RemotePredictionFile $download,
+        string $diskName,
+        string $path,
+    ): array {
+        $parser = new CosmoXmlParser;
+
+        try {
+            return $parser->parseString($download->contents)->jsonSerialize();
+        } catch (Throwable $directParseException) {
+            $xmlFromArchive = $this->cosmoXmlFromArchive($download->contents);
+
+            if ($xmlFromArchive !== null) {
+                try {
+                    return $parser->parseString($xmlFromArchive)->jsonSerialize();
+                } catch (Throwable $archiveParseException) {
+                    throw new RuntimeException(
+                        "Downloaded remote prediction result [{$diskName}:{$path}] archive XML could not be parsed: {$archiveParseException->getMessage()}",
+                        previous: $archiveParseException,
+                    );
+                }
+            }
+
+            throw new RuntimeException(
+                "Downloaded remote prediction result [{$diskName}:{$path}] could not be parsed: {$directParseException->getMessage()}",
+                previous: $directParseException,
+            );
+        }
+    }
+
+    private function cosmoXmlFromArchive(string $contents): ?string
+    {
+        if (! str_starts_with($contents, 'PK') || ! class_exists(ZipArchive::class)) {
+            return null;
+        }
+
+        $temporaryPath = tempnam(sys_get_temp_dir(), 'remote-prediction-result-');
+
+        if ($temporaryPath === false || file_put_contents($temporaryPath, $contents) === false) {
+            return null;
+        }
+
+        $archive = new ZipArchive;
+        $isOpen = false;
+
+        try {
+            if ($archive->open($temporaryPath) !== true) {
+                return null;
+            }
+
+            $isOpen = true;
+
+            for ($index = 0; $index < $archive->numFiles; $index++) {
+                $entry = $archive->statIndex($index);
+                $entryName = is_array($entry) ? (string) ($entry['name'] ?? '') : '';
+
+                if (! str_ends_with(strtolower($entryName), '.xml')) {
+                    continue;
+                }
+
+                $xml = $archive->getFromIndex($index);
+
+                if (is_string($xml) && str_contains($xml, '<micoutput')) {
+                    return $xml;
+                }
+            }
+
+            return null;
+        } finally {
+            if ($isOpen) {
+                $archive->close();
+            }
+
+            if (file_exists($temporaryPath)) {
+                unlink($temporaryPath);
+            }
+        }
+    }
+
     private function resolveCurrentStep(
         RemotePredictionJobSnapshot $snapshot,
         ?RemotePredictionCalculation $calculation,
@@ -485,6 +784,66 @@ class Prediction extends PredictionBaseModel
         return $topRunning?->step ?? $snapshot->currentStep;
     }
 
+    private function remoteStepFromRequeueSnapshot(RemotePredictionJobSnapshot $snapshot): RemotePredictionStep
+    {
+        foreach (['step', 'failed_step', 'first_failed_step', 'from_step'] as $key) {
+            $step = data_get($snapshot->requeue, $key);
+
+            if ($step instanceof RemotePredictionStep) {
+                return $step;
+            }
+
+            if (is_string($step) && RemotePredictionStep::tryFrom($step) !== null) {
+                return RemotePredictionStep::from($step);
+            }
+        }
+
+        $failedSteps = [];
+
+        foreach ($snapshot->steps as $step) {
+            if (
+                $step->step instanceof RemotePredictionStep
+                && $this->remoteStatusValue($step->status) === RemotePredictionStatus::FAILED->value
+            ) {
+                $failedSteps[$step->step->value] = true;
+            }
+        }
+
+        foreach ($snapshot->conformers as $conformer) {
+            foreach ($conformer->steps as $step) {
+                if (
+                    $step->step instanceof RemotePredictionStep
+                    && $this->remoteStatusValue($step->status) === RemotePredictionStatus::FAILED->value
+                ) {
+                    $failedSteps[$step->step->value] = true;
+                }
+            }
+        }
+
+        $calculation = filled($this->remote_calculation_id)
+            ? $snapshot->calculationById((string) $this->remote_calculation_id)
+            : null;
+
+        if (
+            $calculation !== null
+            && $this->remoteStatusValue($calculation->status) === RemotePredictionStatus::FAILED->value
+        ) {
+            $failedSteps[RemotePredictionStep::COSMO->value] = true;
+        }
+
+        foreach (RemotePredictionStep::cases() as $step) {
+            if (isset($failedSteps[$step->value])) {
+                return $step;
+            }
+        }
+
+        if ($snapshot->currentStep instanceof RemotePredictionStep) {
+            return $snapshot->currentStep;
+        }
+
+        return $this->lastRemotePredictionStepForRequeue();
+    }
+
     private function remotePredictionCalculationId(?RemotePredictionClient $client): string
     {
         $calculation = $this->remotePredictionCalculation($client);
@@ -494,6 +853,86 @@ class Prediction extends PredictionBaseModel
         }
 
         return $calculation->id;
+    }
+
+    private function remotePredictionResultsDiskName(): string
+    {
+        $filesystem = Filesystem::query()
+            ->where('type', Filesystem::TYPE_PREDICTIONS_STORAGE)
+            ->first();
+
+        if (! $filesystem) {
+            throw new RuntimeException('Prediction results filesystem is not configured.');
+        }
+
+        if (! $filesystem->isInitialized()) {
+            throw new RuntimeException("Prediction results filesystem [{$filesystem->name}] is not initialized.");
+        }
+
+        return $filesystem->systemName;
+    }
+
+    private function remotePredictionResultPath(RemotePredictionFile $download): string
+    {
+        return $this->remotePredictionResultFolder().'/'.$this->remotePredictionResultFilename($download);
+    }
+
+    private function remotePredictionResultFileType(RemotePredictionFile $download): int
+    {
+        $filename = strtolower($download->filename);
+        $mimeType = strtolower($download->mimeType);
+
+        if (
+            str_ends_with($filename, '.zip')
+            || str_contains($mimeType, 'zip')
+            || str_starts_with($download->contents, 'PK')
+        ) {
+            return PredictionFile::TYPE_RESULT_ARCHIVE;
+        }
+
+        return PredictionFile::TYPE_RESULT_COSMO_XML;
+    }
+
+    private function remotePredictionResultFolder(): string
+    {
+        return $this->predictionStructure->id
+            .'/'
+            .(self::$enum_method_shorts[$this->method_type] ?? Str::slug((string) $this->method_type, '-'))
+            .'_'
+            .str_replace('/', '_', (string) $this->predictionMembrane->abbreviation)
+            .'_'
+            .str_replace('.', ',', number_format((float) $this->temperature, 1));
+    }
+
+    private function remotePredictionResultFilename(RemotePredictionFile $download): string
+    {
+        $filename = basename(trim($download->filename));
+
+        if ($filename === '' || $filename === 'download') {
+            return 'cosmo.xml';
+        }
+
+        return Str::of($filename)
+            ->replaceMatches('/[^A-Za-z0-9._-]/', '_')
+            ->toString();
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<int, mixed>
+     */
+    private function logsWithWorkerEvent(string $message, array $payload = [], string $type = 'WORKER'): array
+    {
+        $logs = is_array($this->logs) ? $this->logs : [];
+        $logs[] = [
+            'type' => $type,
+            'context' => 'success',
+            'message' => $message,
+            'payload' => $payload,
+            'timestamp' => now()->toIso8601String(),
+        ];
+
+        return $logs;
     }
 
     private function remoteStatusValue(RemotePredictionStatus|string|null $status): ?string
@@ -533,7 +972,31 @@ class Prediction extends PredictionBaseModel
             fn ($step): bool => $this->remoteStatusValue($step->status) === RemotePredictionStatus::RUNNING->value,
         );
 
-        return $runningStep?->heartbeatAt ?? $calculation?->heartbeatAt;
+        // During conformer optimization, heartbeats live inside each conformer's steps.
+        // Find the most recent heartbeat across all conformer steps.
+        $latestConformerHeartbeat = null;
+        foreach ($snapshot->conformers as $conformer) {
+            foreach ($conformer->steps as $step) {
+                if ($step->heartbeatAt === null) {
+                    continue;
+                }
+                if ($latestConformerHeartbeat === null || $step->heartbeatAt->gt($latestConformerHeartbeat)) {
+                    $latestConformerHeartbeat = $step->heartbeatAt;
+                }
+            }
+        }
+
+        $candidates = array_filter([
+            $runningStep?->heartbeatAt,
+            $latestConformerHeartbeat,
+            $calculation?->heartbeatAt,
+        ]);
+
+        if (empty($candidates)) {
+            return null;
+        }
+
+        return collect($candidates)->sortDesc()->first();
     }
 
     private function remoteFinishedAt(?string $status, ?CarbonInterface $finishedAt): ?CarbonInterface

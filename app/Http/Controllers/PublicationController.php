@@ -15,14 +15,10 @@ class PublicationController extends Controller
      */
     public function index(Request $request)
     {
-        $per_page = 10; // Default value
-        if($request->query('per_page') && is_numeric($request->query('per_page')))
-        {
-            $per_page = intval($request->query('per_page'));
-        }
+        $perPage = min(max($request->integer('per_page', 10), 1), 100);
 
         $pubs = Publication::filter($request->all())
-            ->paginateFilter($per_page);
+            ->paginateFilter($perPage);
 
         return PublicationResource::collection($pubs);
     }
@@ -51,7 +47,7 @@ class PublicationController extends Controller
         $publication->load('files');
 
         $publication->loadCount([
-            'interactionsPassive', 
+            'interactionsPassive',
             'interactionsActive',
             'membranes',
             'methods',

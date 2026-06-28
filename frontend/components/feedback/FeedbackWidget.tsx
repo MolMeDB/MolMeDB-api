@@ -10,7 +10,7 @@ import {
   Textarea,
   Tooltip,
 } from "@heroui/react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { type SyntheticEvent, useEffect, useMemo, useState } from "react";
 import {
   FiCheckCircle,
@@ -22,8 +22,7 @@ import {
 type FeedbackStep = "email" | "code" | "message" | "success";
 
 type VerificationPayload = {
-  verification_id: number;
-  verification_token: string;
+  email: string;
 };
 
 type ApiErrorPayload = {
@@ -45,24 +44,25 @@ class ApiRequestError extends Error {
 
 export default function FeedbackWidget({ user }: { user?: UserSession }) {
   const align = useDockAlign();
+  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const isAuthenticated = Boolean(user?.email);
+  const [authenticatedViaEmail, setAuthenticatedViaEmail] = useState(false);
+  const isAuthenticated = Boolean(user?.email) || authenticatedViaEmail;
   const [requiresEmailVerification, setRequiresEmailVerification] =
     useState(false);
   const shouldVerifyEmail = !isAuthenticated || requiresEmailVerification;
+
   const [isOpen, setIsOpen] = useState(false);
   const [contextUri, setContextUri] = useState(pathname ?? "/");
-  const [step, setStep] = useState<FeedbackStep>(
-    shouldVerifyEmail ? "email" : "message",
-  );
-  const [email, setEmail] = useState(user?.email ?? "");
+  const [step, setStep] = useState<FeedbackStep>(() => {
+    if (!shouldVerifyEmail) return "message";
+    return "email";
+  });
+  const [email, setEmail] = useState(() => user?.email ?? "");
   const [code, setCode] = useState("");
   const [message, setMessage] = useState("");
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-  const [verification, setVerification] = useState<VerificationPayload | null>(
-    null,
-  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -148,8 +148,11 @@ export default function FeedbackWidget({ user }: { user?: UserSession }) {
         "/api/feedback/email-verification/verify",
         { email, code },
       );
-      setVerification(data);
+      setEmail(data.email ?? email);
+      setAuthenticatedViaEmail(true);
+      setRequiresEmailVerification(false);
       setStep("message");
+      router.refresh();
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Email verification failed.",
@@ -166,11 +169,8 @@ export default function FeedbackWidget({ user }: { user?: UserSession }) {
 
     try {
       await requestJson("/api/feedback", {
-        email,
         context: contextUri,
         message,
-        verification_id: verification?.verification_id,
-        verification_token: verification?.verification_token,
       });
       setMessage("");
       setStep("success");
@@ -194,15 +194,14 @@ export default function FeedbackWidget({ user }: { user?: UserSession }) {
   }
 
   function resetForm() {
-    setStep(shouldVerifyEmail ? "email" : "message");
+    if (isAuthenticated && !requiresEmailVerification) {
+      setStep("message");
+      setEmail(user?.email ?? email);
+    } else {
+      setStep("email");
+    }
     setCode("");
     setTurnstileToken(null);
-    setVerification(null);
-
-    if (isAuthenticated && !requiresEmailVerification) {
-      setEmail(user?.email ?? "");
-    }
-
     setErrorMessage(null);
     setMessage("");
   }

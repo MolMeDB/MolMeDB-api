@@ -15,28 +15,23 @@ class InteractionPassiveController extends Controller
     {
         $structure = Structure::where('identifier', $identifier)
             ->with([
-                'interactionsPassive.dataset.method.categories.parent'
+                'interactionsPassive.dataset.method.categories.parent',
             ])
             ->first();
 
-        if(!$structure?->id)
-        {
+        if (! $structure?->id) {
             return response()->json([
-                'message' => 'Structure not found'
+                'message' => 'Structure not found',
             ], 404);
         }
 
-        $per_page = 10; // Default value
-        if($request->query('per_page') && is_numeric($request->query('per_page')))
-        {
-            $per_page = intval($request->query('per_page'));
-        }
+        $perPage = min(max($request->integer('per_page', 10), 1), 100);
 
         $params = $request->all();
         $params['structureId'] = $structure->id;
 
         $interactions = InteractionPassive::filter($params)
-            ->paginateFilter($per_page);
+            ->paginateFilter($perPage);
 
         return InteractionPassiveResource::collection($interactions);
     }

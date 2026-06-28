@@ -1,6 +1,18 @@
 @import "tailwindcss";
 @config "../tailwind.config.ts";
 
+@keyframes heartbeat {
+  0%, 100% { transform: scale(1); }
+  14%       { transform: scale(1.4); }
+  28%       { transform: scale(1); }
+  42%       { transform: scale(1.3); }
+  70%       { transform: scale(1); }
+}
+
+.animate-heartbeat {
+  animation: heartbeat 1.4s ease-in-out infinite;
+}
+
 :root {
   height: 100%;
     @apply light;

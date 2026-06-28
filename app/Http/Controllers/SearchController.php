@@ -16,72 +16,52 @@ use Illuminate\Http\Request;
 
 class SearchController extends Controller
 {
-
-    public function structure(Request $request) {
-        $per_page = 10; // Default value
-        if($request->query('per_page') && is_numeric($request->query('per_page')))
-        {
-            $per_page = intval($request->query('per_page'));
-        }
+    public function structure(Request $request)
+    {
+        $perPage = min(max($request->integer('per_page', 10), 1), 100);
 
         $pubs = Structure::filter($request->all())
-            ->paginateFilter($per_page);
+            ->paginateFilter($perPage);
 
         return SearchStructureResource::collection($pubs);
     }
 
-
-    public function membrane(Request $request) {
-        $per_page = 10; // Default value
-        if($request->query('per_page') && is_numeric($request->query('per_page')))
-        {
-            $per_page = intval($request->query('per_page'));
-        }
+    public function membrane(Request $request)
+    {
+        $perPage = min(max($request->integer('per_page', 10), 1), 100);
 
         $pubs = Membrane::filter($request->all())
-            ->paginateFilter($per_page);
+            ->paginateFilter($perPage);
 
         return SearchMembraneResource::collection($pubs);
     }
 
-
-    public function method(Request $request) {
-        $per_page = 10; // Default value
-        if($request->query('per_page') && is_numeric($request->query('per_page')))
-        {
-            $per_page = intval($request->query('per_page'));
-        }
+    public function method(Request $request)
+    {
+        $perPage = min(max($request->integer('per_page', 10), 1), 100);
 
         $pubs = Method::filter($request->all())
-            ->paginateFilter($per_page);
+            ->paginateFilter($perPage);
 
         return SearchMethodResource::collection($pubs);
     }
 
-
-    public function protein(Request $request) {
-        $per_page = 10; // Default value
-        if($request->query('per_page') && is_numeric($request->query('per_page')))
-        {
-            $per_page = intval($request->query('per_page'));
-        }
+    public function protein(Request $request)
+    {
+        $perPage = min(max($request->integer('per_page', 10), 1), 100);
 
         $pubs = Protein::filter($request->all())
-            ->paginateFilter($per_page);
+            ->paginateFilter($perPage);
 
         return SearchProteinResource::collection($pubs);
     }
 
-    
-    public function dataset(Request $request) {
-        $per_page = 10; // Default value
-        if($request->query('per_page') && is_numeric($request->query('per_page')))
-        {
-            $per_page = intval($request->query('per_page'));
-        }
+    public function dataset(Request $request)
+    {
+        $perPage = min(max($request->integer('per_page', 10), 1), 100);
 
         $pubs = Publication::filter($request->all())
-            ->paginateFilter($per_page);
+            ->paginateFilter($perPage);
 
         return SearchPublicationResource::collection($pubs);
     }

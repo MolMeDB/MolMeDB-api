@@ -1,3 +1,4 @@
+import { authenticatedSessionResponse } from "@/lib/authenticatedSessionResponse";
 import { post } from "@/lib/api/admin";
 import { NextResponse } from "next/server";
 
@@ -8,9 +9,7 @@ export async function POST(request: Request) {
       "/api/lab/upload/email-verification/verify",
       payload,
     );
-    const json = await response.json();
-
-    return NextResponse.json(json, { status: response.status });
+    return authenticatedSessionResponse(response);
   } catch {
     return NextResponse.json(
       { message: "Failed to verify email." },

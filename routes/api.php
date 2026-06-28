@@ -21,11 +21,11 @@ use Illuminate\Support\Facades\Route;
 
 require __DIR__.'/../modules/References/EuropePMC/Routes/api.php';
 
-Route::middleware(['auth:sanctum'])->get('/api/user', function (Request $request) {
+Route::middleware(['auth:sanctum'])->get('/user', function (Request $request) {
     return UserResource::make($request->user());
 });
 
-Route::prefix('/api')->group(function () {
+Route::group([], function () {
     Route::get('test', function () {
         return response()->json(['message' => 'OK'], 200);
     });
@@ -98,14 +98,19 @@ Route::prefix('/api')->group(function () {
 
     Route::prefix('predictions')
         ->controller(PredictionsController::class)
-        ->middleware('auth')
         ->group(function () {
+            // Public — no auth required
             Route::get('/options', 'options');
             Route::get('/server-stats', 'serverStats');
-            Route::get('/datasets', 'index_datasets');
-            Route::post('/datasets', 'storeDataset')->middleware('throttle:10,1');
-            Route::patch('/datasets/{record}', 'updateDataset');
+            Route::post('/by-token', 'datasetByToken')->middleware('throttle:20,1');
+            Route::post('/email-verification', 'requestEmailVerification')->middleware('throttle:5,1');
+            Route::post('/email-verification/verify', 'verifyEmail')->middleware('throttle:10,1');
+            Route::post('/validate-smiles', 'validateSmiles')->middleware('throttle:10,1');
+
+            Route::post('/datasets', 'storeDataset')->middleware(['auth:sanctum', 'throttle:10,1']);
+            Route::get('/datasets', 'index_datasets')->middleware('auth:sanctum');
             Route::get('/datasets/{record}', 'index');
+            Route::patch('/datasets/{record}', 'updateDataset');
             Route::get('/datasets/{record}/records', 'records');
             Route::get('/datasets/{record}/structures', 'structures');
             Route::get('/byStructure/{record}', 'predictionsByStructure');
@@ -124,12 +129,13 @@ Route::prefix('/api')->group(function () {
         ->group(function () {
             Route::get('/', 'index');
             Route::post('/read', 'markAsRead')->middleware('throttle:60,1');
+            Route::delete('/clear', 'clearAll')->middleware('throttle:30,1');
         });
 
     Route::prefix('feedback')
         ->controller(FeedbackController::class)
         ->group(function () {
-            Route::post('/', 'storeGuest')->middleware('throttle:10,1');
+            Route::post('/', 'storeAuthenticated')->middleware(['auth:sanctum', 'throttle:10,1']);
             Route::post('/authenticated', 'storeAuthenticated')->middleware(['auth:sanctum', 'throttle:10,1']);
             Route::post('/email-verification', 'requestEmailVerification')->middleware('throttle:5,1');
             Route::post('/email-verification/verify', 'verifyEmail')->middleware('throttle:10,1');
@@ -152,11 +158,11 @@ Route::prefix('/api')->group(function () {
             Route::get('/methods', 'methods');
             Route::get('/publications', 'publications');
             Route::get('/publications/lookup', 'lookupPublications');
-            Route::get('/my-uploads', 'myUploads');
+            Route::get('/my-uploads', 'myUploads')->middleware('auth:sanctum');
             Route::get('/track/{token}', 'track');
             Route::post('/email-verification', 'requestEmailVerification')->middleware('throttle:5,1');
             Route::post('/email-verification/verify', 'verifyEmail')->middleware('throttle:10,1');
-            Route::post('/', 'store');
+            Route::post('/', 'store')->middleware('auth:sanctum');
             Route::get('/{record}/configure/preview', 'configurePreview');
             Route::post('/{record}/configure/validate', 'validateConfiguration');
             Route::post('/{record}/enqueue', 'enqueue');
@@ -171,7 +177,7 @@ Route::prefix('/api')->group(function () {
             Route::get('/{identifier}', 'show');
             Route::get('mol/3d/{identifier}', 'mol3D');
             Route::get('mol/canonize_smiles/{smiles}', 'molCanonizeSmiles')
-                ->middleware('auth', 'throttle:35,1');
+                ->middleware('throttle:35,1');
             Route::get('/{identifier}/form/select/membranes', 'formSelectMembranes');
             Route::get('/{identifier}/form/select/methods', 'formSelectMethods');
             Route::get('/{identifier}/similarities', 'similarities');

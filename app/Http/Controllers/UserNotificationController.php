@@ -61,4 +61,21 @@ class UserNotificationController extends Controller
             'message' => 'Notifications marked as read.',
         ]);
     }
+
+    public function clearAll(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (! $user) {
+            abort(401);
+        }
+
+        UserNotification::query()
+            ->whereBelongsTo($user)
+            ->delete();
+
+        return response()->json([
+            'message' => 'Notifications cleared.',
+        ]);
+    }
 }

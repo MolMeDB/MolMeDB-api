@@ -49,6 +49,7 @@ const predictionStepOptions = [
 
 export default function PredictionDatasetClient(props: {
   data: IPredictionDataset;
+  token?: string;
 }) {
   const { isOpen, onOpenChange, onOpen } = useDisclosure();
   const [modalRecord, setModalRecord] = useState<IPrediction | null>(null);
@@ -57,13 +58,19 @@ export default function PredictionDatasetClient(props: {
   const [commentDraft, setCommentDraft] = useState(props.data.comment ?? "");
   const [isSavingComment, setIsSavingComment] = useState(false);
 
+  const tokenParam = props.token
+    ? `?token=${encodeURIComponent(props.token)}`
+    : "";
+
   const stableApiParams = useMemo(() => {
-    return {};
-  }, []);
+    return props.token ? { token: props.token } : {};
+  }, [props.token]);
 
   const refreshDataset = useCallback(async () => {
     try {
-      const res = await fetch(`/api/predictions/datasets/${props.data.id}`);
+      const res = await fetch(
+        `/api/predictions/datasets/${props.data.id}${tokenParam}`,
+      );
       if (res.ok) {
         const json = await res.json();
         if (json?.data) setDataset(json.data);
@@ -71,16 +78,19 @@ export default function PredictionDatasetClient(props: {
     } catch {
       // silent
     }
-  }, [props.data.id]);
+  }, [props.data.id, tokenParam]);
 
   const saveComment = useCallback(async () => {
     setIsSavingComment(true);
     try {
-      const res = await fetch(`/api/predictions/datasets/${props.data.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ comment: commentDraft }),
-      });
+      const res = await fetch(
+        `/api/predictions/datasets/${props.data.id}${tokenParam}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ comment: commentDraft }),
+        },
+      );
       if (res.ok) {
         const json = await res.json();
         if (json?.data) setDataset(json.data);
@@ -89,7 +99,7 @@ export default function PredictionDatasetClient(props: {
     } finally {
       setIsSavingComment(false);
     }
-  }, [props.data.id, commentDraft]);
+  }, [props.data.id, commentDraft, tokenParam]);
 
   const columns = useMemo(
     () => [
@@ -289,7 +299,7 @@ export default function PredictionDatasetClient(props: {
         <DrawerContent>
           {(onClose) =>
             modalRecord && (
-              <PredictionDetail onClose={onClose} data={modalRecord} />
+              <PredictionDetail onClose={onClose} data={modalRecord} token={props.token} />
             )
           }
         </DrawerContent>

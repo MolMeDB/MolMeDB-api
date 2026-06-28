@@ -31,17 +31,6 @@ export default function SectionComputationButtons(props: {
       </div>
 
       <div className="relative w-full flex flex-col sm:flex-row justify-center items-center gap-8 lg:gap-16 lg:h-[250px]">
-        {!props.isLoggedIn && (
-          <div className="absolute top-0 left-0 w-full h-full bg-white/70 dark:bg-background-dark/70 z-10 rounded-2xl lg:rounded-4xl flex flex-col justify-center items-center gap-4">
-            <h2 className="text-xl lg:text-2xl font-bold">
-              Please log in to access all laboratory features
-            </h2>
-            <p className="text-center px-8">
-              You need to be logged in to use the computation features of our
-              laboratory. Please log in or create an account to proceed.
-            </p>
-          </div>
-        )}
         <motion.a
           href="/lab/new-predictions"
           whileHover={{ scale: 1.05 }}

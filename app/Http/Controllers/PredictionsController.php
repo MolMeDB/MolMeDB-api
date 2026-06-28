@@ -6,11 +6,27 @@ use App\Http\Requests\StorePredictionDatasetRequest;
 use App\Http\Resources\PredictionDatasetResource;
 use App\Http\Resources\PredictionResource;
 use App\Http\Resources\PredictionStructureResource;
+use App\Http\Resources\UserResource;
+use App\Mail\PredictionsEmailVerificationMail;
+use App\Models\FeedbackEmailVerification;
 use App\Models\File;
 use App\Models\Membrane;
+use App\Models\NotificationTemplate;
+use App\Rules\TurnstileToken;
+use App\Services\EmailLoginService;
+use App\Services\NotificationService;
+use App\Services\PredictionAdminNotifier;
+use App\Services\PredictionSmilesCanonicalizer;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Modules\PredictionWorkers\Models\Prediction;
 use Modules\PredictionWorkers\Models\PredictionDataset;
@@ -72,24 +88,118 @@ class PredictionsController extends Controller
                         'description' => null,
                     ])
                     ->values(),
-                'priorities' => collect(Prediction::$enum_priorities)
-                    ->map(fn (string $label, int $priority): array => [
-                        'id' => $priority,
-                        'short_name' => $label,
-                    ])
-                    ->values(),
             ],
         ];
     }
 
-    public function storeDataset(StorePredictionDatasetRequest $request)
+    private const CODE_ATTEMPTS_LIMIT = 5;
+
+    public function requestEmailVerification(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'email' => ['required', 'string', 'email', 'max:255'],
+            'turnstile_token' => ['required', 'string', new TurnstileToken($request->ip())],
+        ]);
+        $email = Str::lower($data['email']);
+
+        $code = (string) random_int(100000, 999999);
+        $expiresAt = now()->addMinutes(15);
+
+        FeedbackEmailVerification::query()->create([
+            'email' => $email,
+            'code_hash' => Hash::make($code),
+            'expires_at' => $expiresAt,
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+
+        Mail::to($email)->queue(new PredictionsEmailVerificationMail($code, $expiresAt));
+
+        return response()->json([
+            'message' => 'Verification code has been sent.',
+            'expires_at' => $expiresAt->toISOString(),
+        ]);
+    }
+
+    public function verifyEmail(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'email' => ['required', 'string', 'email', 'max:255'],
+            'code' => ['required', 'string', 'size:6'],
+        ]);
+        $email = Str::lower($data['email']);
+
+        $verification = FeedbackEmailVerification::query()
+            ->where('email', $email)
+            ->whereNull('verified_at')
+            ->whereNull('consumed_at')
+            ->where('expires_at', '>', now())
+            ->latest()
+            ->first();
+
+        if (! $verification) {
+            throw ValidationException::withMessages(['code' => ['Verification code is invalid or has expired.']]);
+        }
+
+        if ($verification->attempts >= self::CODE_ATTEMPTS_LIMIT) {
+            throw ValidationException::withMessages(['code' => ['Too many invalid attempts. Please request a new code.']]);
+        }
+
+        if (! Hash::check($data['code'], $verification->code_hash)) {
+            $verification->increment('attempts');
+            throw ValidationException::withMessages(['code' => ['Verification code is invalid or has expired.']]);
+        }
+
+        $user = app(EmailLoginService::class)->authenticate($request, $verification, $email);
+
+        return response()->json([
+            'data' => UserResource::make($user)->resolve($request),
+            'meta' => [
+                'session_expires_at' => now()
+                    ->addMinutes((int) config('session.lifetime'))
+                    ->toISOString(),
+            ],
+        ]);
+    }
+
+    /**
+     * Look up a dataset by its public token (no auth required).
+     */
+    public function datasetByToken(Request $request): JsonResponse
+    {
+        $data = $request->validate(['token' => ['required', 'string', 'max:128']]);
+        $dataset = PredictionDataset::query()->where('token', $data['token'])->first();
+
+        if (! $dataset) {
+            throw ValidationException::withMessages(['token' => ['Invalid or expired token.']]);
+        }
+
+        return response()->json(['data' => ['dataset_id' => $dataset->id]]);
+    }
+
+    public function validateSmiles(Request $request, PredictionSmilesCanonicalizer $canonicalizer): JsonResponse
+    {
+        $validated = $request->validate([
+            'smiles' => ['required', 'array', 'min:1', 'max:100'],
+            'smiles.*' => ['string', 'max:4000'],
+        ]);
+
+        return response()->json([
+            'data' => $canonicalizer->canonicalize($validated['smiles']),
+        ]);
+    }
+
+    public function storeDataset(Request $request, PredictionSmilesCanonicalizer $canonicalizer)
     {
         $this->ensurePredictionMembranesAvailable();
         $availableMembraneIds = $this->availablePredictionMembraneRemoteIds();
 
-        $validated = $request->validated();
         $user = $request->user();
-        $priority = $this->priorityValue($validated['priority']);
+        abort_unless($user, 401);
+
+        $validated = $request->validate((new StorePredictionDatasetRequest)->rules());
+        $userId = $user->id;
+        $priority = Prediction::PRIORITY_MEDIUM;
         $membraneIds = collect($validated['membranes'])
             ->map(fn ($id): int => (int) $id)
             ->unique()
@@ -98,17 +208,8 @@ class PredictionsController extends Controller
             ->map(fn ($method): string => (string) $method)
             ->unique()
             ->values();
-        $smiles = collect($validated['smiles'])
-            ->map(fn ($smiles): string => trim((string) $smiles))
-            ->filter(fn (string $smiles): bool => $smiles !== '' && ! str_starts_with($smiles, '#'))
-            ->unique()
-            ->values();
-
-        if ($smiles->isEmpty()) {
-            throw ValidationException::withMessages([
-                'smiles' => ['At least one non-empty SMILES is required.'],
-            ]);
-        }
+        $canonicalized = $canonicalizer->canonicalize($validated['smiles']);
+        $smiles = collect($canonicalized['smiles']);
 
         $existingMembraneIds = PredictionMembrane::query()
             ->whereIn('id', $membraneIds)
@@ -122,62 +223,89 @@ class PredictionsController extends Controller
             ]);
         }
 
-        $result = DB::connection(config('database.default_predictions'))->transaction(
-            function () use ($validated, $user, $priority, $membraneIds, $methodTypes, $smiles): array {
-                $structures = $smiles->map(fn (string $smiles): PredictionStructure => PredictionStructure::query()
-                    ->firstOrCreate(['canonical_smiles' => $smiles]));
+        $result = Cache::lock('predictions:dataset-store', 30)->block(
+            15,
+            fn (): array => DB::connection(config('database.default_predictions'))->transaction(
+                function () use ($validated, $userId, $priority, $membraneIds, $methodTypes, $smiles): array {
+                    $structures = $smiles->map(fn (string $smiles): PredictionStructure => PredictionStructure::query()
+                        ->firstOrCreate(['canonical_smiles' => $smiles]));
 
-                $datasets = [];
-                $predictionsCreated = 0;
+                    $datasets = [];
+                    $predictionsCreated = 0;
 
-                foreach ($membraneIds as $membraneId) {
-                    foreach ($methodTypes as $methodType) {
-                        $dataset = PredictionDataset::query()->create([
-                            'comment' => $validated['description'],
-                            'token' => null,
-                            'user_id' => $user->id,
-                            'temperature' => (float) $validated['temperature'],
-                            'membrane_id' => $membraneId,
-                            'method_type' => $methodType,
-                            'priority' => $priority,
-                        ]);
+                    foreach ($membraneIds as $membraneId) {
+                        foreach ($methodTypes as $methodType) {
+                            $dataset = PredictionDataset::query()->create([
+                                'comment' => $validated['description'],
+                                'token' => Str::random(32),
+                                'user_id' => $userId,
+                                'temperature' => (float) $validated['temperature'],
+                                'membrane_id' => $membraneId,
+                                'method_type' => $methodType,
+                                'priority' => $priority,
+                            ]);
 
-                        foreach ($structures as $structure) {
-                            $prediction = Prediction::query()->firstOrCreate(
-                                [
-                                    'structure_id' => $structure->id,
-                                    'membrane_id' => $membraneId,
-                                    'method_type' => $methodType,
-                                    'temperature' => (float) $validated['temperature'],
-                                ],
-                                [
-                                    'result_id' => null,
-                                    'state' => Prediction::STATE_PREPARED,
-                                    'step' => Prediction::STEP_PENDING,
-                                    'priority' => $priority,
-                                    'remote_method' => (new Prediction(['method_type' => $methodType]))->remotePredictionMethod(),
-                                    'logs' => [],
-                                ],
-                            );
+                            foreach ($structures as $structure) {
+                                $prediction = Prediction::query()->firstOrCreate(
+                                    [
+                                        'structure_id' => $structure->id,
+                                        'membrane_id' => $membraneId,
+                                        'method_type' => $methodType,
+                                        'temperature' => (float) $validated['temperature'],
+                                    ],
+                                    [
+                                        'result_id' => null,
+                                        'state' => Prediction::STATE_PREPARED,
+                                        'step' => Prediction::STEP_PENDING,
+                                        'priority' => $priority,
+                                        'remote_method' => (new Prediction(['method_type' => $methodType]))->remotePredictionMethod(),
+                                        'logs' => [],
+                                    ],
+                                );
 
-                            $prediction->forceFill([
-                                'priority' => max((int) $prediction->priority, $priority),
-                            ])->save();
+                                $prediction->forceFill(['priority' => Prediction::PRIORITY_MEDIUM])->save();
 
-                            $dataset->predictions()->syncWithoutDetaching([$prediction->id]);
-                            $predictionsCreated++;
+                                $dataset->predictions()->syncWithoutDetaching([$prediction->id]);
+                                $predictionsCreated++;
+                            }
+
+                            $datasets[] = $dataset->fresh(['predictionMembrane', 'user']);
                         }
-
-                        $datasets[] = $dataset->fresh(['predictionMembrane', 'user']);
                     }
-                }
 
-                return [
-                    'datasets' => $datasets,
-                    'predictions_count' => $predictionsCreated,
-                ];
-            }
+                    return [
+                        'datasets' => $datasets,
+                        'predictions_count' => $predictionsCreated,
+                    ];
+                }
+            ),
         );
+
+        $notificationService = app(NotificationService::class);
+        $adminNotifier = app(PredictionAdminNotifier::class);
+        $frontendUrl = rtrim((string) config('app.frontend_url', config('app.url')), '/');
+
+        $uploaderLabel = $user->name;
+
+        foreach ($result['datasets'] as $dataset) {
+            $membrane = $dataset->predictionMembrane?->name ?? 'N/A';
+            $method = Prediction::$enum_methods[$dataset->method_type] ?? $dataset->method_type;
+            $datasetUrl = "{$frontendUrl}/lab/running-predictions?token={$dataset->token}";
+            $notifData = [
+                'comment' => $dataset->comment ?: "Dataset #{$dataset->id}",
+                'total' => $smiles->count(),
+                'membrane' => $membrane,
+                'method' => $method,
+                'dataset_url' => $datasetUrl,
+            ];
+
+            $notificationService->send($user, NotificationTemplate::KEY_PREDICTION_JOB_SUBMITTED, $notifData);
+
+            $adminNotifier->notify(NotificationTemplate::KEY_PREDICTION_ADMIN_NEW_SUBMISSION, [
+                ...$notifData,
+                'uploader_label' => $uploaderLabel,
+            ]);
+        }
 
         return response()->json([
             'message' => 'Prediction calculations were queued.',
@@ -185,21 +313,25 @@ class PredictionsController extends Controller
                 'datasets' => PredictionDatasetResource::collection(collect($result['datasets']))->resolve($request),
                 'dataset_ids' => collect($result['datasets'])->pluck('id')->values(),
                 'predictions_count' => $result['predictions_count'],
+                'duplicates_removed' => $canonicalized['duplicates_removed'],
             ],
         ], 201);
     }
 
     public function index_datasets(Request $request)
     {
-        $per_page = 10; // Default value
-        if ($request->query('per_page') && is_numeric($request->query('per_page'))) {
-            $per_page = intval($request->query('per_page'));
+        $perPage = $this->perPage($request);
+
+        $user = $request->user();
+        abort_unless($user, 401);
+
+        $query = PredictionDataset::with(['user', 'predictionMembrane']);
+
+        if (! Gate::allows('viewAny', PredictionDataset::class)) {
+            $query->where('user_id', $user->id);
         }
 
-        $pubs = PredictionDataset::with(['user', 'predictionMembrane'])
-            ->when(! $request->user()?->hasAdminRole(), fn ($query) => $query->where('user_id', $request->user()?->id))
-            ->filter($request->all())
-            ->paginateFilter($per_page);
+        $pubs = $query->filter($request->all())->paginateFilter($perPage);
 
         return PredictionDatasetResource::collection($pubs);
     }
@@ -229,10 +361,7 @@ class PredictionsController extends Controller
     public function records(Request $request, PredictionDataset $record)
     {
         $this->authorizeDatasetAccess($request, $record);
-        $per_page = 10; // Default value
-        if ($request->query('per_page') && is_numeric($request->query('per_page'))) {
-            $per_page = intval($request->query('per_page'));
-        }
+        $perPage = $this->perPage($request);
 
         // Add dataset id to params
         $request->merge([
@@ -240,7 +369,7 @@ class PredictionsController extends Controller
         ]);
 
         $records = Prediction::filter($request->all())
-            ->paginateFilter($per_page);
+            ->paginateFilter($perPage);
 
         return PredictionResource::collection($records);
     }
@@ -248,10 +377,7 @@ class PredictionsController extends Controller
     public function structures(Request $request, PredictionDataset $record)
     {
         $this->authorizeDatasetAccess($request, $record);
-        $per_page = 10; // Default value
-        if ($request->query('per_page') && is_numeric($request->query('per_page'))) {
-            $per_page = intval($request->query('per_page'));
-        }
+        $perPage = $this->perPage($request);
 
         // Add dataset id to params
         $request->merge([
@@ -259,56 +385,86 @@ class PredictionsController extends Controller
         ]);
 
         $records = PredictionStructure::filter($request->all())
-            ->paginateFilter($per_page);
+            ->paginateFilter($perPage);
 
         return PredictionStructureResource::collection($records);
     }
 
     public function predictionsByStructure(Request $request, PredictionStructure $record)
     {
-        $per_page = 10; // Default value
-        if ($request->query('per_page') && is_numeric($request->query('per_page'))) {
-            $per_page = intval($request->query('per_page'));
+        $token = (string) ($request->query('token') ?? '');
+        $user = $request->user();
+
+        if ($token !== '') {
+            // Token path — verify a dataset containing this structure has this exact token
+            $valid = PredictionDataset::query()
+                ->whereHas('predictions', fn ($q) => $q->where('structure_id', $record->id))
+                ->get()
+                ->contains(fn ($dataset) => $dataset->token !== null && hash_equals($dataset->token, $token));
+
+            if (! $valid) {
+                abort(403);
+            }
+        } elseif ($user) {
+            // Auth path — manage-all OR owns at least one dataset containing this structure
+            if (! Gate::allows('viewAny', PredictionDataset::class)) {
+                $owns = PredictionDataset::query()
+                    ->where('user_id', $user->id)
+                    ->whereHas('predictions', fn ($q) => $q->where('structure_id', $record->id))
+                    ->exists();
+
+                if (! $owns) {
+                    abort(403);
+                }
+            }
+        } else {
+            abort(403);
         }
 
-        // Add dataset id to params
-        $request->merge([
-            'structureId' => $record->id,
-        ]);
+        $perPage = $this->perPage($request);
+
+        $request->merge(['structureId' => $record->id]);
 
         $records = Prediction::filter($request->all())
-            ->when(! $request->user()?->hasAdminRole(), function ($query) use ($request) {
-                $query->whereHas('predictionDatasets', fn ($query) => $query->where('user_id', $request->user()?->id));
-            })
-            ->paginateFilter($per_page);
+            ->when(
+                $user && ! Gate::allows('viewAny', PredictionDataset::class),
+                fn ($q) => $q->whereHas('predictionDatasets', fn ($q2) => $q2->where('user_id', $user->id))
+            )
+            ->paginateFilter($perPage);
 
         return PredictionResource::collectionWithParsedResults($records);
     }
 
+    /**
+     * Token access (unauthenticated, ?token=) is checked first.
+     * Otherwise, the request must be authenticated and pass PredictionDatasetPolicy.
+     *
+     * @throws AuthorizationException
+     */
     private function authorizeDatasetAccess(Request $request, PredictionDataset $record): void
     {
-        if ($request->user()?->hasAdminRole() || $record->user_id === $request->user()?->id) {
-            return;
+        $token = (string) ($request->query('token') ?? '');
+
+        if ($token !== '') {
+            // Token path is exclusive — a wrong token never falls back to session auth
+            if ($record->token !== null && hash_equals($record->token, $token)) {
+                return;
+            }
+            abort(403);
         }
 
-        abort(403);
+        // ID-based path (no token) — must be authenticated and pass Policy
+        $user = $request->user();
+        if (! $user) {
+            abort(403);
+        }
+
+        Gate::authorize('view', $record);
     }
 
-    private function priorityValue(mixed $priority): int
+    private function perPage(Request $request, int $default = 10, int $maximum = 100): int
     {
-        if (is_numeric($priority)) {
-            return match ((int) $priority) {
-                Prediction::PRIORITY_HIGH => Prediction::PRIORITY_HIGH,
-                Prediction::PRIORITY_MEDIUM => Prediction::PRIORITY_MEDIUM,
-                default => Prediction::PRIORITY_LOW,
-            };
-        }
-
-        return match (strtolower((string) $priority)) {
-            'high' => Prediction::PRIORITY_HIGH,
-            'medium' => Prediction::PRIORITY_MEDIUM,
-            default => Prediction::PRIORITY_LOW,
-        };
+        return min(max($request->integer('per_page', $default), 1), $maximum);
     }
 
     private function ensurePredictionMembranesAvailable(): void

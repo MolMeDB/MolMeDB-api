@@ -12,6 +12,8 @@ enum PermissionEnums: string
 
     case SETTINGS_VIEW = 'settings.view';
     case SETTINGS_EDIT = 'settings.edit';
+    case CONFIG_VIEW = 'config.view';
+    case CONFIG_EDIT = 'config.edit';
     case SSH_CREDENTIALS_MANAGE = 'ssh-credentials.manage';
 
     case MEMBRANE_METHOD_VIEW = 'membrane.method.view';
@@ -52,6 +54,8 @@ enum PermissionEnums: string
     case UPLOAD_QUEUE_MANAGE_OWN = 'upload_queue.manage.own';
     case UPLOAD_QUEUE_MANAGE_ALL = 'upload_queue.manage.all';
 
+    case PREDICTION_DATASET_MANAGE_ALL = 'prediction_dataset.manage.all';
+
     case USERS_VIEW = 'users.view';
     case USERS_EDIT = 'users.edit';
     case USERS_DELETE = 'users.delete';
@@ -77,6 +81,7 @@ enum PermissionEnums: string
             self::DATASET_DELETE_FORCE => 'Can force delete datasets',
             self::UPLOAD_QUEUE_MANAGE_OWN => 'Can upload and manage own upload queue records',
             self::UPLOAD_QUEUE_MANAGE_ALL => 'Can manage any upload queue records',
+            self::PREDICTION_DATASET_MANAGE_ALL => 'Can view and manage any prediction dataset',
             self::MEMBRANE_METHOD_VIEW => 'Can view membranes and methods',
             self::MEMBRANE_METHOD_EDIT => 'Can manage membranes and methods',
             self::MEMBRANE_METHOD_EDIT_OWN => 'Can manage own membranes and methods',
@@ -102,6 +107,8 @@ enum PermissionEnums: string
             self::STRUCTURE_DELETE_OWN => 'Can delete own structure records',
             self::SETTINGS_EDIT => 'Can manage settings',
             self::SETTINGS_VIEW => 'Can view settings',
+            self::CONFIG_VIEW => 'Can view application configuration',
+            self::CONFIG_EDIT => 'Can manage application configuration',
             self::SSH_CREDENTIALS_MANAGE => 'Can manage SSH credentials',
             self::ROLES_VIEW => 'Can see user roles',
             self::ROLES_ASSIGN => 'Can assign roles to users',

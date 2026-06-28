@@ -14,6 +14,7 @@ use Filament\Actions\EditAction;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -46,6 +47,9 @@ class ConfigResource extends Resource
                     ->dehydrated()
                     ->columnSpanFull(),
                 Textarea::make('value')
+                    ->rules(fn (Get $get): array => $get('key') === Config::KEY_REMOTE_PREDICTION_URL
+                        ? ['url', 'starts_with:https://']
+                        : [])
                     ->maxLength(512)
                     ->rows(4)
                     ->columnSpanFull(),
@@ -61,6 +65,9 @@ class ConfigResource extends Resource
                     ->sortable()
                     ->copyable(),
                 TextColumn::make('value')
+                    ->formatStateUsing(fn (?string $state, Config $record): ?string => Config::isSensitiveKey($record->key)
+                        ? '••••••••••••'
+                        : $state)
                     ->searchable()
                     ->limit(80)
                     ->wrap()

@@ -7,6 +7,8 @@ import {
   Progress,
 } from "@heroui/react";
 import { IPrediction } from "@/lib/api/admin/interfaces/Predictions";
+import { FaHeart, FaRegHeart } from "react-icons/fa6";
+import { timeAgo } from "@/lib/timeAgo";
 
 function getRemoteStatusColor(
   item: IPrediction,
@@ -118,7 +120,20 @@ export const datasetColumns: IUiTableColumn<IPrediction>[] = [
   {
     key: "remote_heartbeat_at",
     title: "Heartbeat",
-    render: (item) => item.remote_heartbeat_at ?? "-",
+    render: (item) => (
+      <div className="flex items-center gap-1.5">
+        {item.remote_heartbeat_at ? (
+          <span className="animate-heartbeat inline-flex shrink-0 text-danger">
+            <FaHeart size={12} />
+          </span>
+        ) : (
+          <span className="inline-flex shrink-0 text-default-400">
+            <FaRegHeart size={12} />
+          </span>
+        )}
+        {item.remote_heartbeat_at && <span>{timeAgo(item.remote_heartbeat_at)}</span>}
+      </div>
+    ),
     isSortable: false,
   },
   {
@@ -127,7 +142,7 @@ export const datasetColumns: IUiTableColumn<IPrediction>[] = [
     render: (item) => (
       <div className="flex flex-col">
         <span>
-          {latestTimestamp(item.updated_at, item.remote_last_status_at)}
+          {timeAgo(latestTimestamp(item.updated_at, item.remote_last_status_at))}
         </span>
         <span className="text-xs text-default-400">
           Status checked max every 5 min

@@ -16,27 +16,39 @@ import {
 } from "@heroui/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FaCheck } from "react-icons/fa6";
 import { IoSend } from "react-icons/io5";
+import Turnstile from "@/components/auth/Turnstile";
 
-export default function AddNewCalculationForm() {
+const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
+
+type EmailStep = "email" | "code" | "verified";
+
+export default function AddNewCalculationForm({ isLoggedIn }: { isLoggedIn: boolean }) {
   const router = useRouter();
+
+  const [emailStep, setEmailStep] = useState<EmailStep>(
+    isLoggedIn ? "verified" : "email",
+  );
+  const [email, setEmail] = useState("");
+  const [emailCode, setEmailCode] = useState("");
+  const [emailTurnstileToken, setEmailTurnstileToken] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [isEmailSubmitting, setIsEmailSubmitting] = useState(false);
+  const captchaKey = useRef(0);
   const [options, setOptions] = useState<{
     membranes: GridSelectionItemProps[];
     methods: GridSelectionItemProps[];
-    priorities: GridSelectionItemProps[];
   }>({
     membranes: [],
     methods: [],
-    priorities: [],
   });
   const [isLoadingOptions, setIsLoadingOptions] = useState(true);
   const [optionError, setOptionError] = useState<string | null>(null);
   const [setting, setSetting] = useState<{
     membranes: null | any[];
     methods: null | any[];
-    priority: string | number | null;
     description: null | string;
     smiles: null | string;
     validated_smiles?: string[];
@@ -44,7 +56,6 @@ export default function AddNewCalculationForm() {
   }>({
     membranes: null,
     methods: null,
-    priority: null,
     description: null,
     smiles: null,
     validated_smiles: undefined,
@@ -85,7 +96,6 @@ export default function AddNewCalculationForm() {
           setOptions({
             membranes: json?.data?.membranes ?? [],
             methods: json?.data?.methods ?? [],
-            priorities: json?.data?.priorities ?? [],
           });
         }
       } catch (error) {
@@ -116,11 +126,11 @@ export default function AddNewCalculationForm() {
   }, [setting.membranes, setting.methods, setting.smiles, setting.temperature]);
 
   useEffect(() => {
-    if (!setting.description || !setting.priority) {
+    if (!setting.description) {
       setIsValidated(false);
       setValidatingState("Please wait...");
     }
-  }, [setting.description, setting.priority]);
+  }, [setting.description]);
 
   async function validate() {
     setIsValidating(true);
@@ -146,70 +156,39 @@ export default function AddNewCalculationForm() {
     }
 
     // Validate SMILES
-    var validated_smiles: string[] = [];
-    var processed_smiles: string[] = [];
-    var total_duplicates = 0;
+    let validatedSmiles: string[] = [];
+    let totalDuplicates = 0;
 
     if (!setting.smiles || setting.smiles.trim().length === 0) {
       errors.push("Please provide at least one molecule in SMILES format.");
     } else if (errors.length === 0) {
-      const mols = setting.smiles.split("\n");
+      setValidatingState("Validating and canonicalizing SMILES...");
+      const smiles = setting.smiles.split("\n");
 
-      var i = 1;
-      for (const mol of mols) {
-        setValidatingState(
-          "Checking SMILES of molecule " + i + "/" + mols.length + "...",
-        );
+      try {
+        const response = await fetch("/api/predictions/validate-smiles", {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ smiles }),
+        });
+        const json = await response.json();
 
-        if (
-          processed_smiles.includes(mol.trim()) ||
-          validated_smiles.includes(mol.trim())
-        ) {
-          total_duplicates++;
-          continue;
-        }
-
-        if (mol.trim().length === 0 || mol.trim().startsWith("#")) {
-          continue;
-        }
-
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-
-        // Todo: Validate molecule + pridat validaci na slozeni, apod.
-        const validation_response = await fetch(
-          "/api/mol/smiles/canonize?smiles=" + encodeURIComponent(mol.trim()),
-        );
-
-        if (validation_response.status === 503) {
+        if (!response.ok) {
+          const validationErrors = json?.errors?.smiles;
           errors.push(
-            "Cannot canonize smiles. Service is temporarily unavailable.",
+            ...(Array.isArray(validationErrors)
+              ? validationErrors.map(String)
+              : [json?.message ?? "SMILES validation failed."]),
           );
-          break;
+        } else {
+          validatedSmiles = json?.data?.smiles ?? [];
+          totalDuplicates = json?.data?.duplicates_removed ?? 0;
         }
-
-        if (validation_response.status !== 200) {
-          errors.push(
-            "Cannot canonize smiles on line " +
-              i +
-              ". Please, check the smiles and try again.",
-          );
-          break;
-        }
-
-        const response = await validation_response.json();
-
-        if (!response.canonized_smiles) {
-          errors.push(
-            "Cannot canonize smiles on line " +
-              i +
-              ". Please, check the smiles and try again.",
-          );
-          break;
-        }
-
-        validated_smiles.push(response.canonized_smiles);
-        processed_smiles.push(mol.trim());
-        i++;
+      } catch {
+        errors.push("SMILES validation service is temporarily unavailable.");
       }
     }
 
@@ -221,17 +200,12 @@ export default function AddNewCalculationForm() {
       errors.push("Please provide a temperature between 20 and 45 °C.");
     }
 
-    // Validate priority
-    if (setting.priority === null) {
-      errors.push("Please provide a priority for the calculation.");
-    }
-
     if (errors.length === 0) {
       setValidatingState(
         "Everything looks good! You can submit the calculation." +
-          (total_duplicates > 0
+          (totalDuplicates > 0
             ? " Total " +
-              total_duplicates +
+              totalDuplicates +
               " duplicate SMILES will be skipped."
             : ""),
       );
@@ -241,11 +215,57 @@ export default function AddNewCalculationForm() {
     if (errors.length === 0) {
       setSetting((prev) => ({
         ...prev,
-        validated_smiles,
+        validated_smiles: validatedSmiles,
       }));
     }
     setValidatorErrors(errors);
     setIsValidating(false);
+  }
+
+  async function handleRequestCode(e: React.FormEvent) {
+    e.preventDefault();
+    setEmailError(null);
+    if (!emailTurnstileToken) { setEmailError("Please complete the captcha."); return; }
+    setIsEmailSubmitting(true);
+    try {
+      const response = await fetch("/api/predictions/email-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ email, turnstile_token: emailTurnstileToken }),
+      });
+      const json = await response.json();
+      if (!response.ok) {
+        setEmailError(json?.errors?.email?.[0] ?? json?.errors?.turnstile_token?.[0] ?? json?.message ?? "Error.");
+        captchaKey.current += 1;
+        setEmailTurnstileToken(null);
+        return;
+      }
+      setEmailStep("code");
+    } catch { setEmailError("Request failed."); }
+    finally { setIsEmailSubmitting(false); }
+  }
+
+  async function handleVerifyCode(e: React.FormEvent) {
+    e.preventDefault();
+    setEmailError(null);
+    setIsEmailSubmitting(true);
+    try {
+      const response = await fetch("/api/predictions/email-verification/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ email, code: emailCode }),
+      });
+      const json = await response.json();
+      if (!response.ok) {
+        setEmailError(json?.errors?.code?.[0] ?? json?.message ?? "Invalid code.");
+        return;
+      }
+      const verifiedEmail = json.email ?? email;
+      setEmail(verifiedEmail);
+      setEmailStep("verified");
+      router.refresh();
+    } catch { setEmailError("Request failed."); }
+    finally { setIsEmailSubmitting(false); }
   }
 
   async function submit() {
@@ -266,7 +286,6 @@ export default function AddNewCalculationForm() {
         body: JSON.stringify({
           membranes: setting.membranes,
           methods: setting.methods,
-          priority: setting.priority,
           description: setting.description,
           smiles: setting.validated_smiles,
           temperature: setting.temperature,
@@ -296,9 +315,12 @@ export default function AddNewCalculationForm() {
       });
 
       const firstDatasetId = json?.data?.dataset_ids?.[0];
+      const firstDatasetToken = json?.data?.datasets?.[0]?.token;
       router.push(
         firstDatasetId
-          ? `/lab/running-predictions/${firstDatasetId}`
+          ? firstDatasetToken
+            ? `/lab/running-predictions/${firstDatasetId}?token=${encodeURIComponent(firstDatasetToken)}`
+            : `/lab/running-predictions/${firstDatasetId}`
           : "/lab/running-predictions",
       );
     } catch (error) {
@@ -313,11 +335,49 @@ export default function AddNewCalculationForm() {
     }
   }
 
+  // Email verification creates an authenticated session before the form is shown.
+  if (!isLoggedIn && emailStep !== "verified") {
+    return (
+      <div className="w-full">
+        <div className="flex flex-col min-w-lg bg-foreground-200 rounded-xl p-4 gap-4">
+          <h2 className="font-bold text-lg">Verify your email to continue</h2>
+          <p className="text-sm text-foreground/60">
+            Verification signs you in. If the account does not exist yet, it
+            will be created automatically.
+          </p>
+          {emailStep === "code" ? (
+            <form onSubmit={handleVerifyCode} className="flex flex-col gap-3">
+              <p className="text-sm text-default-500">
+                Enter the 6-digit code we sent to <strong>{email}</strong>.
+              </p>
+              <Input label="Verification code" value={emailCode} onChange={(e) => setEmailCode(e.target.value)} maxLength={6} />
+              {emailError && <Alert color="danger" title={emailError} />}
+              <div className="flex gap-2">
+                <Button type="button" variant="flat" onPress={() => { setEmailStep("email"); setEmailCode(""); setEmailError(null); }}>Back</Button>
+                <Button type="submit" color="primary" isLoading={isEmailSubmitting} isDisabled={emailCode.length < 6}>Verify</Button>
+              </div>
+            </form>
+          ) : (
+            <form onSubmit={handleRequestCode} className="flex flex-col gap-3">
+              <Input label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+              <Turnstile key={captchaKey.current} name="turnstile_token" siteKey={turnstileSiteKey} onVerify={setEmailTurnstileToken} />
+              {emailError && <Alert color="danger" title={emailError} />}
+              <Button type="submit" color="primary" isLoading={isEmailSubmitting} isDisabled={!email || !emailTurnstileToken}>Send code</Button>
+            </form>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="w-full">
         <div className="flex flex-col min-w-lg bg-foreground-200 rounded-xl p-4 gap-2">
           <h2 className="font-bold text-lg">Add new calculation</h2>
+          {!isLoggedIn && emailStep === "verified" && (
+            <Alert color="success" title={`Submitting as ${email}`} className="mb-1" />
+          )}
           {optionError && <Alert color="danger" title={optionError} />}
           <Divider />
           <div>
@@ -364,37 +424,9 @@ export default function AddNewCalculationForm() {
                     methods: selected?.length ? selected : null,
                   }))
                 }
-                multiple
                 items={options.methods}
                 isLoading={isLoadingOptions}
                 emptyMessage="No remote prediction methods are available."
-              />
-            </div>
-          </div>
-          <Divider />
-          <div>
-            <h3 className="text-md text-secondary font-semibold">Priority</h3>
-            <label className="text-sm block text-warning-600 text-right">
-              Set the priority of your calculation among other of your pending
-              calculations
-            </label>
-            <div className="border-1 border-foreground-300 p-4 bg-background rounded-xl">
-              <GridSelection
-                onSelectionChange={(selected) =>
-                  setSetting((prev) => ({
-                    ...prev,
-                    priority: selected.length ? selected[0] : null,
-                  }))
-                }
-                items={
-                  options.priorities.length
-                    ? options.priorities
-                    : [
-                        { id: 1, short_name: "Low" },
-                        { id: 2, short_name: "Medium" },
-                        { id: 3, short_name: "High" },
-                      ]
-                }
               />
             </div>
           </div>
@@ -441,7 +473,7 @@ export default function AddNewCalculationForm() {
                 isMultiline
                 minRows={5}
                 maxRows={15}
-                maxLength={5000}
+                maxLength={100000}
               />
             </div>
           </div>

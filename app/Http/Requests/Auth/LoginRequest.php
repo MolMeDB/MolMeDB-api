@@ -2,8 +2,8 @@
 
 namespace App\Http\Requests\Auth;
 
-use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Auth\Events\Lockout;
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
@@ -47,6 +47,15 @@ class LoginRequest extends FormRequest
 
             throw ValidationException::withMessages([
                 'email' => __('auth.failed'),
+            ]);
+        }
+
+        if (! Auth::user()?->hasVerifiedEmail()) {
+            Auth::guard('web')->logout();
+            RateLimiter::hit($this->throttleKey());
+
+            throw ValidationException::withMessages([
+                'email' => ['Verify your email address before signing in.'],
             ]);
         }
 

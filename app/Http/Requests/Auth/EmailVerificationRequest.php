@@ -11,11 +11,13 @@ class EmailVerificationRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
-     *
-     * @return bool
      */
-    public function authorize()
+    public function authorize(): bool
     {
+        if (! $this->hasValidSignature() && ! $this->hasValidSignature(absolute: false)) {
+            return false;
+        }
+
         $user = User::findOrFail($this->route('id'));
 
         if (! hash_equals(sha1($user->getEmailForVerification()), (string) $this->route('hash'))) {
@@ -27,10 +29,8 @@ class EmailVerificationRequest extends FormRequest
 
     /**
      * Get the validation rules that apply to the request.
-     *
-     * @return array
      */
-    public function rules()
+    public function rules(): array
     {
         return [
             //
@@ -39,10 +39,8 @@ class EmailVerificationRequest extends FormRequest
 
     /**
      * Fulfill the email verification request.
-     *
-     * @return void
      */
-    public function fulfill()
+    public function fulfill(): void
     {
         $user = User::findOrFail($this->route('id'));
 
@@ -55,11 +53,8 @@ class EmailVerificationRequest extends FormRequest
 
     /**
      * Configure the validator instance.
-     *
-     * @param Validator $validator
-     * @return Validator
      */
-    public function withValidator(Validator $validator)
+    public function withValidator(Validator $validator): Validator
     {
         return $validator;
     }

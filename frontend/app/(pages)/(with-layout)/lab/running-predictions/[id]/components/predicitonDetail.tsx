@@ -9,6 +9,7 @@ import CompoundPredictions from "./predictionDetail/predictions";
 export default function PredictionDetail(props: {
   data: IPrediction;
   onClose: () => void;
+  token?: string;
 }) {
   return (
     <>
@@ -16,7 +17,7 @@ export default function PredictionDetail(props: {
       <DrawerBody>
         <CompoundBasicProperties compound={props.data} />
         <Compound2DStructure compound={props.data} />
-        <CompoundPredictions compound={props.data.structure} />
+        <CompoundPredictions compound={props.data.structure} token={props.token} />
       </DrawerBody>
       <DrawerFooter>
         <Button color="danger" onPress={props.onClose}>

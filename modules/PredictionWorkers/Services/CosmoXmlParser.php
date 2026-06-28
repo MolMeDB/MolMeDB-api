@@ -15,7 +15,7 @@ class CosmoXmlParser
     {
         $disk = Storage::disk($file->storage);
 
-        if (!$disk->exists($file->path)) {
+        if (! $disk->exists($file->path)) {
             throw new RuntimeException(
                 "COSMO XML file not found on disk [{$file->storage}] path [{$file->path}]"
             );
@@ -23,18 +23,23 @@ class CosmoXmlParser
 
         $content = $disk->get($file->path);
 
-        if (!$content) {
-            throw new RuntimeException("Unable to read COSMO XML file.");
+        if (! $content) {
+            throw new RuntimeException('Unable to read COSMO XML file.');
         }
 
+        return $this->parseString($content);
+    }
+
+    public function parseString(string $content): PredictionResultJson
+    {
         $xml = simplexml_load_string($content);
 
-        if (!$xml || $xml->getName() !== 'micoutput') {
-            throw new RuntimeException("Invalid root element. Expected <micoutput>.");
+        if (! $xml || $xml->getName() !== 'micoutput') {
+            throw new RuntimeException('Invalid root element. Expected <micoutput>.');
         }
 
-        if (!isset($xml->joblist)) {
-            throw new RuntimeException("Missing <joblist> element.");
+        if (! isset($xml->joblist)) {
+            throw new RuntimeException('Missing <joblist> element.');
         }
 
         $jobs = [];
@@ -92,6 +97,7 @@ class CosmoXmlParser
 
         return array_map(function ($v) use ($roundTo) {
             $float = (float) $v;
+
             return $roundTo !== null ? round($float, $roundTo) : $float;
         }, array_filter($values));
     }
@@ -104,7 +110,7 @@ class CosmoXmlParser
 
         foreach ($values as $v) {
 
-            if (!is_numeric($v) || (float)$v == 0.0) {
+            if (! is_numeric($v) || (float) $v == 0.0) {
                 return [];
             }
 
@@ -116,7 +122,7 @@ class CosmoXmlParser
             $energies[] = $deltaG;
         }
 
-        if (!empty($energies)) {
+        if (! empty($energies)) {
             $offset = end($energies);
             $energies = array_map(
                 fn ($e) => round($e - $offset, 2),

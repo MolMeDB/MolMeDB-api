@@ -22,7 +22,7 @@ export default function Compound2DStructure(props: { compound: IPrediction }) {
   return (
     <div className="flex flex-col gap-4">
       <DetailSection title="2D Structure" order={2}>
-        <div className="flex flex-row justify-center items-center pt-8 px-8 relative h-[205px] dark:bg-background/70 rounded-2xl">
+        <div className="flex flex-row justify-center items-center py-6 px-4 relative dark:bg-background/70 rounded-2xl overflow-hidden">
           {isLoading && (
             <div className="absolute inset-0 flex items-center justify-center bg-gray/30 dark:bg-background-dark z-10">
               <Spinner variant="wave" label="Loading..." />
@@ -31,12 +31,11 @@ export default function Compound2DStructure(props: { compound: IPrediction }) {
           <Image
             onClick={onOpen2D}
             onLoad={() => setIsLoading(false)}
-            className={`object-cover transition-opacity duration-500 cursor-pointer ${
+            className={`max-h-48 w-auto max-w-full transition-opacity duration-500 cursor-pointer ${
               isLoading ? "opacity-0" : "opacity-100"
             }`}
             src={props.compound.structure.structure_2d_url}
             alt="2D Structure"
-            height={160}
           />
           <Modal
             size="5xl"

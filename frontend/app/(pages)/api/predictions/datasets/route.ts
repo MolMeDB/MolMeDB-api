@@ -1,5 +1,21 @@
-import { post } from "@/lib/api/admin";
+import { getJson, post } from "@/lib/api/admin";
 import { NextResponse } from "next/server";
+
+export async function GET(request: Request) {
+  try {
+    const searchParams = new URL(request.url).searchParams;
+
+    const response = await getJson(
+      `/api/predictions/datasets?${searchParams.toString()}`,
+    );
+
+    return NextResponse.json(response?.data ?? {}, {
+      status: response?.code ?? 500,
+    });
+  } catch {
+    return NextResponse.json({ message: "Unable to load datasets." }, { status: 500 });
+  }
+}
 
 export async function POST(request: Request) {
   try {

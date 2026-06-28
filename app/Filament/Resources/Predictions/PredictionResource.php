@@ -14,8 +14,11 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\View as SchemaView;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Modules\PredictionWorkers\Models\Prediction;
 
@@ -41,14 +44,9 @@ class PredictionResource extends Resource
                     ->label('Structure canonical smiles')
                     ->hiddenOn('create')
                     ->state(fn (Prediction $record) => $record->predictionStructure->canonical_smiles),
-                TextEntry::make('step')
-                    ->label('Current step')
+                SchemaView::make('filament.predictions.status-panel')
                     ->hiddenOn('create')
-                    ->state(fn (Prediction $record) => $record->enumStep($record->step)),
-                TextEntry::make('state')
-                    ->label('Step state')
-                    ->hiddenOn('create')
-                    ->state(fn (Prediction $record) => $record->enumState($record->state)),
+                    ->columnSpanFull(),
                 TextInput::make('temperature')
                     ->label('Temperature')
                     ->suffix('°C')
@@ -82,6 +80,14 @@ class PredictionResource extends Resource
                     ->hintColor('warning')
                     ->reactive()
                     ->required(),
+                Section::make('Logs')
+                    ->hiddenOn('create')
+                    ->collapsed()
+                    ->columnSpanFull()
+                    ->schema([
+                        SchemaView::make('filament.predictions.logs')
+                            ->columnSpanFull(),
+                    ]),
             ]);
     }
 
@@ -112,6 +118,15 @@ class PredictionResource extends Resource
                 TextColumn::make('state')
                     ->label('State')
                     ->sortable()
+                    ->badge()
+                    ->color(fn (Prediction $record): string => match ((int) $record->state) {
+                        Prediction::STATE_FINISHED => 'success',
+                        Prediction::STATE_RUNNING => 'warning',
+                        Prediction::STATE_ERROR => 'danger',
+                        Prediction::STATE_REMOVE => 'danger',
+                        Prediction::STATE_STOPPED => 'gray',
+                        default => 'info',
+                    })
                     ->description(fn (Prediction $record) => $record->step ? Prediction::enumStep($record->step) : null)
                     ->formatStateUsing(fn (string $state) => Prediction::enumState($state)),
                 TextColumn::make('priority')
@@ -121,7 +136,27 @@ class PredictionResource extends Resource
 
             ])
             ->filters([
-                //
+                SelectFilter::make('state')
+                    ->label('State')
+                    ->options(Prediction::$enum_states)
+                    ->multiple(),
+                SelectFilter::make('step')
+                    ->label('Step')
+                    ->options(Prediction::$enum_steps)
+                    ->multiple(),
+                SelectFilter::make('method_type')
+                    ->label('Method')
+                    ->options(Prediction::remotePredictionMethodOptions())
+                    ->multiple(),
+                SelectFilter::make('membrane_id')
+                    ->label('Membrane')
+                    ->relationship('predictionMembrane', 'abbreviation')
+                    ->multiple()
+                    ->searchable(),
+                SelectFilter::make('priority')
+                    ->label('Priority')
+                    ->options(Prediction::$enum_priorities)
+                    ->multiple(),
             ])
             ->recordActions([
                 EditAction::make()

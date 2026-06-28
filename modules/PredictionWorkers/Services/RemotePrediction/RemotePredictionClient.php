@@ -8,6 +8,8 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Modules\PredictionWorkers\DTO\RemotePrediction\RemotePredictionFile;
 use Modules\PredictionWorkers\DTO\RemotePrediction\RemotePredictionHealth;
@@ -35,10 +37,19 @@ class RemotePredictionClient
 
     public function baseUrl(): string
     {
-        return rtrim((string) Config::get(
+        $url = rtrim(trim((string) Config::get(
             Config::KEY_REMOTE_PREDICTION_URL,
             config('prediction-workers.remote.base_url'),
-        ), '/');
+        )), '/');
+
+        if (
+            filter_var($url, FILTER_VALIDATE_URL) === false
+            || strtolower((string) parse_url($url, PHP_URL_SCHEME)) !== 'https'
+        ) {
+            throw new RemotePredictionException('Remote prediction service URL must be a valid HTTPS URL.');
+        }
+
+        return $url;
     }
 
     public function health(): RemotePredictionHealth
@@ -146,15 +157,28 @@ class RemotePredictionClient
         string $smiles,
         string $membraneKey,
         float $temperatureC,
+    ): RemotePredictionJobSnapshot {
+        return RemotePredictionJobSnapshot::fromArray(
+            $this->jsonRequest('POST', '/jobs/requeue', [
+                'smiles' => $smiles,
+                'membrane_key' => $membraneKey,
+                'temperature_c' => $temperatureC,
+            ]),
+        );
+    }
+
+    public function forceRequeueJob(
+        string $smiles,
+        string $membraneKey,
+        float $temperatureC,
         RemotePredictionStep $step,
-        bool $force = false,
     ): RemotePredictionJobSnapshot {
         return RemotePredictionJobSnapshot::fromArray(
             $this->jsonRequest('POST', '/jobs/requeue/'.$step->value, [
                 'smiles' => $smiles,
                 'membrane_key' => $membraneKey,
                 'temperature_c' => $temperatureC,
-                'force' => $force,
+                'force' => true,
             ]),
         );
     }
@@ -230,35 +254,46 @@ class RemotePredictionClient
 
     public function ensureValidToken(): void
     {
+        if ($this->hasValidToken()) {
+            return;
+        }
+
+        Cache::lock('remote-prediction:token-refresh', 60)->block(15, function (): void {
+            if (! $this->hasValidToken()) {
+                $this->refreshToken();
+            }
+        });
+    }
+
+    private function hasValidToken(): bool
+    {
         $token = Config::get(Config::KEY_REMOTE_PREDICTION_TOKEN);
         $expiresAt = Config::get(Config::KEY_REMOTE_PREDICTION_TOKEN_EXPIRES_AT);
 
-        $isValid = $token !== null && $token !== ''
+        return $token !== null && $token !== ''
             && $expiresAt !== null
             && now()->lt(CarbonImmutable::parse($expiresAt)->subDay());
-
-        if (! $isValid) {
-            $this->refreshToken();
-        }
     }
 
     private function refreshToken(): void
     {
         $oldTokenId = Config::get(Config::KEY_REMOTE_PREDICTION_TOKEN_ID);
 
-        if ($oldTokenId !== null && $oldTokenId !== '') {
+        $newToken = $this->createToken('molmedb-worker', 30);
+
+        DB::transaction(function () use ($newToken): void {
+            Config::set(Config::KEY_REMOTE_PREDICTION_TOKEN, $newToken->token);
+            Config::set(Config::KEY_REMOTE_PREDICTION_TOKEN_ID, (string) $newToken->id);
+            Config::set(Config::KEY_REMOTE_PREDICTION_TOKEN_EXPIRES_AT, $newToken->expiresAt?->toIso8601String());
+        });
+
+        if ($oldTokenId !== null && $oldTokenId !== '' && (int) $oldTokenId !== $newToken->id) {
             try {
                 $this->revokeToken((int) $oldTokenId);
             } catch (Throwable) {
                 // Old token may already be expired or revoked
             }
         }
-
-        $newToken = $this->createToken('molmedb-worker', 30);
-
-        Config::set(Config::KEY_REMOTE_PREDICTION_TOKEN, $newToken->token);
-        Config::set(Config::KEY_REMOTE_PREDICTION_TOKEN_ID, (string) $newToken->id);
-        Config::set(Config::KEY_REMOTE_PREDICTION_TOKEN_EXPIRES_AT, $newToken->expiresAt?->toIso8601String());
     }
 
     private function request(bool $download = false): PendingRequest

@@ -6,18 +6,13 @@ import { UserSession } from "@/lib/api/admin/interfaces/User";
 import { Cookie } from "@/lib/api/cookies";
 import Link from "next/link";
 import AddNewCalculationForm from "./section/newCalcForm";
-import { redirect } from "next/navigation";
 import PredictionStatsWidget from "@/components/ui/predictionStatsWidget";
 
 export default async function LabNewCalculationPage() {
   const user: UserSession | undefined =
     (await Cookie.getUserData()) as UserSession;
 
-  const isLoggedIn = user && user.id ? true : false;
-
-  if (!isLoggedIn) {
-    return redirect("/lab");
-  }
+  const isLoggedIn = !!(user && user.id);
 
   return (
     <>
@@ -45,7 +40,7 @@ export default async function LabNewCalculationPage() {
       <div className="min-h-screen pb-16">
         <SiteContent classNameChildren="flex flex-col gap-4 min-h-screen">
           <PredictionStatsWidget />
-          <AddNewCalculationForm />
+          <AddNewCalculationForm isLoggedIn={isLoggedIn} />
         </SiteContent>
       </div>
       <SiteFooter />

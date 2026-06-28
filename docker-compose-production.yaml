@@ -104,7 +104,34 @@ services:
       - db-predictions
       - redis
     command: php artisan queue:work --queue=upload,default --sleep=3 --tries=3 --timeout=1800 --memory=512
-    restart: unless-stopped 
+    restart: unless-stopped
+
+  app-predictions-queue-worker:
+    image: molmedb-backend
+    container_name: molmedb-predictions-queue-worker
+    tty: true
+    env_file:
+      - .env
+    environment:
+      - SERVICE_TAGS=dev
+      - SERVICE_NAME=molmedb-predictions-queue-worker
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_PREDICTIONS_HOST=db-predictions
+      - DB_PREDICTIONS_PORT=5432
+      - DB_QUEUE_RETRY_AFTER=1900
+      - REDIS_HOST=redis
+    working_dir: /var/www
+    volumes:
+      - ./:/var/www
+    networks:
+      - molmedb-network
+    depends_on:
+      - app
+      - db-predictions
+      - redis
+    command: php artisan queue:work --queue=predictions --sleep=5 --tries=1 --timeout=150 --memory=256
+    restart: unless-stopped
 
   # frontend:
   #   container_name: molmedb-frontend
