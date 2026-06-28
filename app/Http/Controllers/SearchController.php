@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\SearchStructureRequest;
 use App\Http\Resources\Search\SearchMembraneResource;
 use App\Http\Resources\Search\SearchMethodResource;
 use App\Http\Resources\Search\SearchProteinResource;
@@ -16,12 +17,14 @@ use Illuminate\Http\Request;
 
 class SearchController extends Controller
 {
-    public function structure(Request $request)
+    public function structure(SearchStructureRequest $request)
     {
-        $perPage = min(max($request->integer('per_page', 10), 1), 100);
+        $filters = $request->filters();
+        $query = Structure::filter($filters);
 
-        $pubs = Structure::filter($request->all())
-            ->paginateFilter($perPage);
+        $pubs = array_key_exists('substructure', $filters)
+            ? $query->simplePaginateFilter($request->perPage())
+            : $query->paginateFilter($request->perPage());
 
         return SearchStructureResource::collection($pubs);
     }

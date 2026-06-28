@@ -19,6 +19,7 @@ import {
 
 export default function SearchListItems(props: {
   searchOptions: ISearchQuery;
+  onRecordOpen: () => void;
 }) {
   const { addItem, isAdded } = useDownloader();
   const [isSearching, setIsSearching] = useState(false);
@@ -36,12 +37,42 @@ export default function SearchListItems(props: {
     setErrorMessage(null);
 
     async function runSearch() {
+      // Validate SMILES before running substructure search
+      if (
+        props.searchOptions.type === "Structures" &&
+        props.searchOptions.structureMatch === "substructure" &&
+        !props.searchOptions.isDrawnStructure
+      ) {
+        try {
+          const validateResponse = await fetch(
+            `/api/mol/smiles/canonize?smiles=${encodeURIComponent(props.searchOptions.query)}`,
+          );
+          if (!isCurrentSearch) return;
+          const validateJson = await validateResponse.json();
+          if (!validateResponse.ok || !validateJson?.canonized_smiles) {
+            setIsSearching(false);
+            setErrorMessage(
+              "Invalid SMILES. Please enter a valid molecule structure for substructure search.",
+            );
+            return;
+          }
+        } catch {
+          if (!isCurrentSearch) return;
+          setIsSearching(false);
+          setErrorMessage("SMILES validation failed. Please try again.");
+          return;
+        }
+      }
+
       try {
         const response = await getJson(
           `/api/search/${props.searchOptions.type.toLowerCase()}`,
-          props.searchOptions.isDrawnStructure
-            ? { smiles: props.searchOptions.query }
-            : { query: props.searchOptions.query },
+          props.searchOptions.type === "Structures" &&
+            props.searchOptions.structureMatch === "substructure"
+            ? { substructure: props.searchOptions.query }
+            : props.searchOptions.isDrawnStructure
+              ? { smiles: props.searchOptions.query }
+              : { query: props.searchOptions.query },
         );
 
         if (!isCurrentSearch) {
@@ -93,10 +124,13 @@ export default function SearchListItems(props: {
   }, [
     props.searchOptions.isDrawnStructure,
     props.searchOptions.query,
+    props.searchOptions.structureMatch,
     props.searchOptions.type,
   ]);
 
-  const total = records?.meta.total ?? 0;
+  const total = records?.meta.total;
+  const resultCount = total ?? records?.data.length ?? 0;
+  const hasMoreResults = total === undefined && Boolean(records?.links.next);
 
   return (
     <div className="flex flex-col gap-3 w-full">
@@ -106,7 +140,11 @@ export default function SearchListItems(props: {
             Results for &quot;{props.searchOptions.query}&quot;
           </h2>
           <p className="text-sm text-foreground-500">
-            Filtered by {props.searchOptions.type.toLowerCase()}.
+            Filtered by {props.searchOptions.type.toLowerCase()}
+            {props.searchOptions.type === "Structures"
+              ? ` · ${props.searchOptions.structureMatch === "substructure" ? "substructure" : "exact structure"}`
+              : ""}
+            .
           </p>
         </div>
         <Chip color="primary" size="sm" variant="flat">
@@ -114,7 +152,7 @@ export default function SearchListItems(props: {
             ? "Searching"
             : errorMessage
               ? "Error"
-              : `${total} results`}
+              : `${resultCount}${hasMoreResults ? "+" : ""} results`}
         </Chip>
       </div>
 
@@ -221,6 +259,7 @@ export default function SearchListItems(props: {
               >
                 <Link
                   href={recordLink}
+                  onClick={props.onRecordOpen}
                   className="flex min-w-0 flex-1 items-center gap-3 rounded-md px-1 py-1 outline-none transition-colors hover:bg-default-100 focus-visible:ring-2 focus-visible:ring-primary dark:hover:bg-default-50/10"
                 >
                   {content}

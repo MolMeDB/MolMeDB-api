@@ -19,9 +19,15 @@ export interface ISearchQuery {
   query: string;
   type: "Structures" | "Membranes" | "Methods" | "Proteins" | "Datasets";
   isDrawnStructure?: boolean;
+  structureMatch?: "exact" | "substructure";
 }
 
-export interface ISearchResult extends FilteredResponse<ISearchItem> {}
+export interface ISearchResult
+  extends Omit<FilteredResponse<ISearchItem>, "meta"> {
+  meta: Omit<FilteredResponse<ISearchItem>["meta"], "total"> & {
+    total?: number;
+  };
+}
 
 export interface IRecentSearchQuery extends ISearchQuery {
   datetime: string;

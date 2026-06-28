@@ -31,8 +31,23 @@ class StructureFilter extends ModelFilter
         );
     }
 
+    public function substructure($smiles)
+    {
+        $smiles = trim((string) $smiles);
+
+        if ($smiles === '') {
+            return $this;
+        }
+
+        return $this->containingSubstructure($smiles);
+    }
+
     public function setup()
     {
+        if ($this->input('substructure')) {
+            return;
+        }
+
         $this->defaultOrder();
     }
 

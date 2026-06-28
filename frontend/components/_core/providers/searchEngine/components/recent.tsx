@@ -21,9 +21,16 @@ export default function RecentSearchList(props: {
     addSearch({
       query: props.submittedQuery.query,
       type: props.submittedQuery.type,
+      isDrawnStructure: props.submittedQuery.isDrawnStructure,
+      structureMatch: props.submittedQuery.structureMatch,
       datetime: new Date().toISOString(),
     });
-  }, [props.submittedQuery.query, props.submittedQuery.type]);
+  }, [
+    props.submittedQuery.isDrawnStructure,
+    props.submittedQuery.query,
+    props.submittedQuery.structureMatch,
+    props.submittedQuery.type,
+  ]);
 
   return (
     <div className="flex flex-col gap-4 py-1">
@@ -77,6 +84,10 @@ export default function RecentSearchList(props: {
                   </span>
                   <Chip color="primary" size="sm" variant="flat">
                     {search.type}
+                    {search.type === "Structures" &&
+                    search.structureMatch === "substructure"
+                      ? " · Substructure"
+                      : ""}
                   </Chip>
                 </div>
               </div>
@@ -118,7 +129,12 @@ function useRecentSearches(max = 5) {
     setRecentSearches((prev) => {
       const updated = [
         term,
-        ...prev.filter((t) => t.query !== term.query || t.type !== term.type),
+        ...prev.filter(
+          (t) =>
+            t.query !== term.query ||
+            t.type !== term.type ||
+            t.structureMatch !== term.structureMatch,
+        ),
       ].slice(0, max);
       return updated;
     });

@@ -7,6 +7,7 @@ import {
   Modal,
   ModalBody,
   ModalContent,
+  Switch,
   useDisclosure,
   cn,
 } from "@heroui/react";
@@ -29,10 +30,12 @@ export default function SearchEngine({ isOpenSE = false, onClose = () => {} }) {
   const [currentQuery, setCurrentQuery] = useState<ISearchQuery>({
     query: "",
     type: "Structures",
+    structureMatch: "exact",
   });
   const [submittedQuery, setSubmittedQuery] = useState<ISearchQuery>({
     query: "",
     type: "Structures",
+    structureMatch: "exact",
   });
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isStructureEditorOpen, setIsStructureEditorOpen] = useState(false);
@@ -150,8 +153,22 @@ export default function SearchEngine({ isOpenSE = false, onClose = () => {} }) {
       query: smiles,
       type: "Structures",
       isDrawnStructure: true,
+      structureMatch: currentQuery.structureMatch ?? "exact",
     });
     setIsStructureEditorOpen(false);
+  }
+
+  function setStructureMatch(includeSubstructures: boolean) {
+    const query: ISearchQuery = {
+      ...currentQuery,
+      structureMatch: includeSubstructures ? "substructure" : "exact",
+    };
+
+    setCurrentQuery(query);
+
+    if (isSubmitted && query.query.trim() !== "") {
+      submitQuery(query);
+    }
   }
 
   return (
@@ -262,6 +279,29 @@ export default function SearchEngine({ isOpenSE = false, onClose = () => {} }) {
                     ) : null}
                   </div>
 
+                  {currentQuery.type === "Structures" ? (
+                    <div className="flex flex-col gap-1 rounded-lg border border-default-200 bg-default-50 px-4 py-3 dark:bg-background-dark-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                      <div className="flex min-w-0 flex-col gap-0.5">
+                        <span className="text-sm font-medium text-foreground">
+                          Include substructure matches
+                        </span>
+                        <span className="text-xs text-foreground-500">
+                          Return molecules containing the entered or drawn
+                          structure.
+                        </span>
+                      </div>
+                      <Switch
+                        aria-label="Include substructure matches"
+                        color="primary"
+                        isSelected={
+                          currentQuery.structureMatch === "substructure"
+                        }
+                        onValueChange={setStructureMatch}
+                        size="sm"
+                      />
+                    </div>
+                  ) : null}
+
                   <div className="grid grid-cols-1 gap-2 rounded-lg bg-default-50 p-2 dark:bg-background-dark-2 sm:grid-cols-2 lg:grid-cols-5">
                     {searchGroups.map((group) => {
                       const isSelected = currentQuery.type === group.key;
@@ -301,7 +341,10 @@ export default function SearchEngine({ isOpenSE = false, onClose = () => {} }) {
                       />
                     </div>
                     <div className={cn(!isSubmitted && "hidden")}>
-                      <SearchListItems searchOptions={submittedQuery} />
+                      <SearchListItems
+                        searchOptions={submittedQuery}
+                        onRecordOpen={onClose}
+                      />
                     </div>
                   </div>
                 </div>

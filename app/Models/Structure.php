@@ -5,6 +5,7 @@ namespace App\Models;
 use Database\Factories\SubstanceFactory;
 use EloquentFilter\Filterable;
 use Exception;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -21,6 +22,19 @@ class Structure extends BaseModel
     use HasFactory, SoftDeletes;
 
     protected $with = ['identifiers'];
+
+    public function scopeContainingSubstructure(Builder $query, string $smiles): Builder
+    {
+        $canonicalSmiles = $query->getModel()->qualifyColumn('canonical_smiles');
+
+        return $query
+            ->whereNotNull($canonicalSmiles)
+            ->whereRaw("bingo.checkMolecule($canonicalSmiles) IS NULL")
+            ->whereRaw(
+                "$canonicalSmiles @ (?, '')::bingo.sub",
+                [trim($smiles)],
+            );
+    }
 
     protected static function boot()
     {

@@ -80,7 +80,7 @@ Route::group([], function () {
     Route::prefix('search')
         ->controller(SearchController::class)
         ->group(function () {
-            Route::get('/structures', 'structure');
+            Route::get('/structures', 'structure')->middleware('throttle:30,1');
             Route::get('/membranes', 'membrane');
             Route::get('/methods', 'method');
             Route::get('/proteins', 'protein');
