@@ -64,7 +64,7 @@ class PublicationsRelationManager extends RelationManager
                     ->icon(IconEnums::ADD->value),
                 AttachAction::make()
                     ->label('Attach existing')
-                    ->recordSelectSearchColumns(['citation', 'pmid'])
+                    ->recordSelectSearchColumns(['citation', 'identifier'])
                     ->recordTitle(fn (Model $record) => $record->getSelectTitle())
                     ->schema(function (AttachAction $action) 
                     {
