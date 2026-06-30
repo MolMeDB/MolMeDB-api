@@ -10,12 +10,11 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Modules\PredictionWorkers\DTO\RemotePrediction\RemotePredictionFile;
 use Modules\PredictionWorkers\DTO\RemotePrediction\RemotePredictionJobSnapshot;
 use Modules\PredictionWorkers\Services\RemotePrediction\RemotePredictionClient;
-use Modules\PredictionWorkers\Traits\HasRemoteConformers;
 use RuntimeException;
 
 class PredictionStructure extends PredictionBaseModel
 {
-    use Filterable, HasRemoteConformers;
+    use Filterable;
 
     protected $connection = 'predictions';
 

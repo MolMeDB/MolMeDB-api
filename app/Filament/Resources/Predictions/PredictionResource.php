@@ -8,6 +8,7 @@ use App\Filament\Resources\Predictions\Pages\EditPrediction;
 use App\Filament\Resources\Predictions\Pages\ListPredictions;
 use App\Filament\Resources\Predictions\RelationManagers\PredictionDatasetsRelationManager;
 use App\Filament\Resources\Predictions\RelationManagers\PredictionResultsRelationManager;
+use App\Filament\Resources\PredictionStructures\PredictionStructureResource;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
@@ -43,7 +44,9 @@ class PredictionResource extends Resource
                 TextEntry::make('structure_id')
                     ->label('Structure canonical smiles')
                     ->hiddenOn('create')
-                    ->state(fn (Prediction $record) => $record->predictionStructure->canonical_smiles),
+                    ->state(fn (Prediction $record) => $record->predictionStructure->canonical_smiles)
+                    ->url(fn (Prediction $record) => PredictionStructureResource::getUrl('edit', ['record' => $record->predictionStructure]))
+                    ->openUrlInNewTab(),
                 SchemaView::make('filament.predictions.status-panel')
                     ->hiddenOn('create')
                     ->columnSpanFull(),

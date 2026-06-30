@@ -6,6 +6,7 @@ use App\Console\Commands\Cron\SendPredictionAdminStatsNotification;
 use App\Console\Commands\Cron\SendPredictionProgressNotifications;
 use App\Console\Commands\ProcessFrontendUploads;
 use App\Console\Commands\SendUploadQueueNotifications;
+use App\Jobs\ImportFinishedPredictionResults;
 use App\Services\SystemActivityLogger;
 use Illuminate\Console\Command;
 use Illuminate\Foundation\Inspiring;
@@ -55,6 +56,12 @@ Schedule::command('predictions:refresh-dataset-stats')
 Schedule::command(RunPredictionsWorker::class)
     ->everyMinute()
     ->withoutOverlapping(10);
+
+// ShouldBeUnique on the job itself (not ->withoutOverlapping()) is what
+// actually guarantees only one instance is ever queued-or-running, since
+// that holds regardless of how many queue:work processes are running.
+Schedule::job(new ImportFinishedPredictionResults())
+    ->everyMinute();
 
 Schedule::command(ProcessFrontendUploads::class)
     ->everyMinute()

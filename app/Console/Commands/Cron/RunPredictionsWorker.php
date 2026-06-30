@@ -336,7 +336,7 @@ class RunPredictionsWorker extends Command
                 }
 
                 $membrane = $dataset->predictionMembrane?->name ?? 'N/A';
-                $method = Prediction::$enum_methods[$dataset->method_type] ?? $dataset->method_type;
+                $method = Prediction::enumMethod($dataset->method_type);
                 $s = $stats['stats'];
 
                 $notificationService->send($user, NotificationTemplate::KEY_PREDICTION_JOB_FINISHED, [

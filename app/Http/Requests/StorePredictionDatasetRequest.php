@@ -22,7 +22,7 @@ class StorePredictionDatasetRequest extends FormRequest
             'membranes' => ['required', 'array', 'size:1'],
             'membranes.*' => ['integer', 'distinct'],
             'methods' => ['required', 'array', 'size:1'],
-            'methods.*' => ['string', 'distinct', Rule::in(array_keys(Prediction::remotePredictionMethodOptions()))],
+            'methods.*' => ['string', 'distinct', Rule::in(array_keys(Prediction::enabledPredictionMethodOptions()))],
             'smiles' => ['required', 'array', 'min:1', 'max:100'],
             'smiles.*' => ['string', 'max:4000'],
             'temperature' => ['required', 'numeric', 'between:20,45'],

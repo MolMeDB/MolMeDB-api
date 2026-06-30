@@ -22,12 +22,7 @@ return [
             'max_submissions' => (int) env('REMOTE_PREDICTION_MAX_SUBMISSIONS', 5),
             'events_limit' => (int) env('REMOTE_PREDICTION_EVENTS_LIMIT', 100),
             'admin_bulk_limit' => (int) env('REMOTE_PREDICTION_ADMIN_BULK_LIMIT', 20),
-        ],
-        'methods' => [
-            'cosmoperm' => [
-                'remote_method' => 'cosmoperm',
-                'label' => 'CosmoPerm',
-            ],
+            'result_import_batch_size' => (int) env('PREDICTION_RESULT_IMPORT_BATCH_SIZE', 50),
         ],
     ],
 ];

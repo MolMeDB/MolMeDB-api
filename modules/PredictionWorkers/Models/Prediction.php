@@ -7,6 +7,7 @@ use Carbon\CarbonInterface;
 use EloquentFilter\Filterable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -67,21 +68,6 @@ class Prediction extends PredictionBaseModel
     const STEP_RESULT_PARSE = 6;
 
     const STEP_RESULT_DB_STORE = 7;
-
-    /** METHODS */
-    const METHOD_COSMOPERM = 'cosmoperm';
-
-    const METHOD_COSMOMIC = 'cosmomic';
-
-    public static $enum_methods = [
-        self::METHOD_COSMOMIC => 'CosmoMic',
-        self::METHOD_COSMOPERM => 'CosmoPerm',
-    ];
-
-    public static $enum_method_shorts = [
-        self::METHOD_COSMOMIC => 'mic',
-        self::METHOD_COSMOPERM => 'perm',
-    ];
 
     public static $enum_steps = [
         self::STEP_PENDING => 'Pending',
@@ -178,7 +164,17 @@ class Prediction extends PredictionBaseModel
 
     public static function enumMethod($method): string
     {
-        return self::$enum_methods[$method];
+        return static::methods()->get($method)?->label ?? (string) $method;
+    }
+
+    /**
+     * Short code used in COSMO result file paths (e.g. "perm"). Falls back to a
+     * slug of the method key when the prediction_methods row has none set.
+     */
+    public static function methodShortKey($method): string
+    {
+        return static::methods()->get($method)?->short_key
+            ?: Str::slug((string) $method, '-');
     }
 
     public static function enumStep($step): string
@@ -222,35 +218,75 @@ class Prediction extends PredictionBaseModel
     }
 
     /**
+     * In-process cache of prediction_methods, keyed by method key. This table
+     * rarely changes and these lookups can run once per row inside loops
+     * (e.g. RunPredictionsWorker), so avoid a query per call.
+     */
+    protected static ?Collection $methodsCache = null;
+
+    protected static function methods(): Collection
+    {
+        return static::$methodsCache ??= PredictionMethod::query()->get()->keyBy('key');
+    }
+
+    /**
+     * All methods that have a remote prediction mapping, regardless of
+     * `enabled` - used wherever already-existing predictions/datasets need to
+     * keep being processed even if the method was since disabled for new
+     * uploads (e.g. the remote submission worker).
+     *
      * @return array<string, string>
      */
     public static function remotePredictionMethodOptions(): array
     {
-        return collect(config('prediction-workers.remote.methods', []))
-            ->filter(fn (mixed $definition): bool => is_array($definition)
-                && filled($definition['remote_method'] ?? null))
-            ->mapWithKeys(fn (array $definition, string $methodType): array => [
-                $methodType => (string) ($definition['label'] ?? self::$enum_methods[$methodType] ?? $methodType),
-            ])
+        return static::methods()
+            ->mapWithKeys(fn (PredictionMethod $method): array => [$method->key => $method->label])
+            ->all();
+    }
+
+    /**
+     * Methods currently allowed for new prediction/dataset uploads - used by
+     * creation-facing validation and the frontend "new prediction" form.
+     *
+     * @return array<string, string>
+     */
+    public static function enabledPredictionMethodOptions(): array
+    {
+        return static::methods()
+            ->where('enabled', true)
+            ->mapWithKeys(fn (PredictionMethod $method): array => [$method->key => $method->label])
             ->all();
     }
 
     public static function hasRemotePredictionMethod(?string $methodType): bool
     {
-        return $methodType !== null
-            && filled(config("prediction-workers.remote.methods.{$methodType}.remote_method"));
+        return $methodType !== null && static::methods()->has($methodType);
+    }
+
+    /**
+     * Nullable variant of remotePredictionMethod() for places that just want
+     * to display the remote key without needing a Prediction instance and
+     * without throwing when the method is unmapped.
+     */
+    public static function remoteMethodKeyFor(?string $methodType): ?string
+    {
+        if ($methodType === null) {
+            return null;
+        }
+
+        return static::methods()->get($methodType)?->remote_key;
     }
 
     public function remotePredictionMethod(): string
     {
         $methodType = (string) $this->method_type;
-        $remoteMethod = (string) config("prediction-workers.remote.methods.{$methodType}.remote_method", '');
+        $remoteKey = static::remoteMethodKeyFor($methodType);
 
-        if ($remoteMethod === '') {
+        if ($remoteKey === null) {
             throw new RuntimeException("Prediction method {$methodType} has no remote prediction mapping.");
         }
 
-        return $remoteMethod;
+        return $remoteKey;
     }
 
     public function predictionDatasets(): BelongsToMany
@@ -651,7 +687,10 @@ class Prediction extends PredictionBaseModel
             $this->forceFill([
                 'result_id' => $result->id,
                 'state' => self::STATE_FINISHED,
-                'step' => self::STEP_RESULT_DB_STORE,
+                // Not the final step - ImportFinishedPredictionResults still needs to
+                // turn this parsed result into a real interaction record before this
+                // prediction is truly "stored" (step advances to STEP_RESULT_DB_STORE there).
+                'step' => self::STEP_RESULT_PARSE,
                 'remote_last_status_at' => now(),
                 'remote_finished_at' => $this->remote_finished_at ?? now(),
                 'remote_error_message' => null,
@@ -897,7 +936,7 @@ class Prediction extends PredictionBaseModel
     {
         return $this->predictionStructure->id
             .'/'
-            .(self::$enum_method_shorts[$this->method_type] ?? Str::slug((string) $this->method_type, '-'))
+            .self::methodShortKey($this->method_type)
             .'_'
             .str_replace('/', '_', (string) $this->predictionMembrane->abbreviation)
             .'_'
@@ -921,12 +960,12 @@ class Prediction extends PredictionBaseModel
      * @param  array<string, mixed>  $payload
      * @return array<int, mixed>
      */
-    private function logsWithWorkerEvent(string $message, array $payload = [], string $type = 'WORKER'): array
+    public function logsWithWorkerEvent(string $message, array $payload = [], string $type = 'WORKER', string $context = 'success'): array
     {
         $logs = is_array($this->logs) ? $this->logs : [];
         $logs[] = [
             'type' => $type,
-            'context' => 'success',
+            'context' => $context,
             'message' => $message,
             'payload' => $payload,
             'timestamp' => now()->toIso8601String(),

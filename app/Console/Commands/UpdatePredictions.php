@@ -40,19 +40,6 @@ class UpdatePredictions extends Command
         return in_array((int) $priority, $valid, true) ? (int) $priority : Prediction::PRIORITY_MEDIUM;
     }
 
-    private function old_conformer_folder($id_fragment, $id_ion = null)
-    {
-        $group = intval($id_fragment / 10000);
-        $group = $group * 10000;
-        $group .= '-'.($group + 10000);
-
-        if (! $id_ion) {
-            return $group.'/'.$id_fragment.'/';
-        }
-
-        return $group.'/'.$id_fragment.'/'.$id_ion.'/';
-    }
-
     /**
      * Execute the console command.
      */
@@ -85,17 +72,10 @@ class UpdatePredictions extends Command
                 foreach ($ions as $ion) {
                     // Make structure
                     $s = PredictionStructure::firstOrCreate([
-                        // 'id' => $ion->id
                         'canonical_smiles' => $ion->smiles,
-                    ], [
-                        // 'id' => $ion->id,
-                        'base_path' => $this->old_conformer_folder($prediction->id_fragment, $ion->id),
                     ]);
 
                     $structures[] = $s;
-
-                    $s->total_conformers = $s->totalRemoteConformers();
-                    $s->save();
                 }
             } else {
                 $fragment = $old_db->table('fragments')
@@ -109,8 +89,6 @@ class UpdatePredictions extends Command
                 // Make structure
                 $s = PredictionStructure::firstOrCreate([
                     'canonical_smiles' => $fragment->smiles,
-                ], [
-                    'base_path' => $this->old_conformer_folder($prediction->id_fragment),
                 ]);
 
                 $structures[] = $s;
@@ -131,7 +109,10 @@ class UpdatePredictions extends Command
                 ]);
             }
 
-            $method = $prediction->method == 2 ? Prediction::METHOD_COSMOMIC : Prediction::METHOD_COSMOPERM;
+            // Legacy import is no longer run; method type constants were retired in
+            // favour of the prediction_methods table, so this just keeps the same
+            // literal values the constants used to hold.
+            $method = $prediction->method == 2 ? 'cosmomic' : 'cosmoperm';
             $priority = $this->normalizePriority($prediction->priority);
 
             $predictions = [];

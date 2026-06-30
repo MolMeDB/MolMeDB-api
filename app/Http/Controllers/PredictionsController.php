@@ -81,7 +81,7 @@ class PredictionsController extends Controller
                             : null,
                     ])
                     ->values(),
-                'methods' => collect(Prediction::remotePredictionMethodOptions())
+                'methods' => collect(Prediction::enabledPredictionMethodOptions())
                     ->map(fn (string $label, string $method): array => [
                         'id' => $method,
                         'short_name' => $label,
@@ -290,7 +290,7 @@ class PredictionsController extends Controller
 
         foreach ($result['datasets'] as $dataset) {
             $membrane = $dataset->predictionMembrane?->name ?? 'N/A';
-            $method = Prediction::$enum_methods[$dataset->method_type] ?? $dataset->method_type;
+            $method = Prediction::enumMethod($dataset->method_type);
             $datasetUrl = "{$frontendUrl}/lab/running-predictions?token={$dataset->token}";
             $notifData = [
                 'comment' => $dataset->comment ?: "Dataset #{$dataset->id}",

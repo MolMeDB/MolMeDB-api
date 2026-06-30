@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use JsonSerializable;
 
-class Method extends Model
+class Method extends BaseModel
 {
     /** @use HasFactory<MethodFactory> */
     use HasFactory, SoftDeletes;

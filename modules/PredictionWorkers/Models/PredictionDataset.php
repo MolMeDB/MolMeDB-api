@@ -160,7 +160,7 @@ class PredictionDataset extends PredictionBaseModel
 
     public static function method($method): string
     {
-        return Prediction::$enum_methods[$method];
+        return Prediction::enumMethod($method);
     }
 
     public static function enum_priority($priority): string
