@@ -40,9 +40,30 @@ export default function AddNewCalculationForm({ isLoggedIn }: { isLoggedIn: bool
   const [options, setOptions] = useState<{
     membranes: GridSelectionItemProps[];
     methods: GridSelectionItemProps[];
+    structureValidation: {
+      maxAtoms: number;
+      allowedElements: string[];
+      singleConnectedMolecule: boolean;
+    };
   }>({
     membranes: [],
     methods: [],
+    structureValidation: {
+      maxAtoms: 120,
+      allowedElements: [
+        "C",
+        "H",
+        "O",
+        "N",
+        "P",
+        "S",
+        "F",
+        "Cl",
+        "Br",
+        "I",
+      ],
+      singleConnectedMolecule: true,
+    },
   });
   const [isLoadingOptions, setIsLoadingOptions] = useState(true);
   const [optionError, setOptionError] = useState<string | null>(null);
@@ -96,6 +117,15 @@ export default function AddNewCalculationForm({ isLoggedIn }: { isLoggedIn: bool
           setOptions({
             membranes: json?.data?.membranes ?? [],
             methods: json?.data?.methods ?? [],
+            structureValidation: {
+              maxAtoms: json?.data?.structure_validation?.max_atoms ?? 120,
+              allowedElements:
+                json?.data?.structure_validation?.allowed_elements ??
+                ["C", "H", "O", "N", "P", "S", "F", "Cl", "Br", "I"],
+              singleConnectedMolecule:
+                json?.data?.structure_validation?.single_connected_molecule ??
+                true,
+            },
           });
         }
       } catch (error) {
@@ -460,7 +490,21 @@ export default function AddNewCalculationForm({ isLoggedIn }: { isLoggedIn: bool
             <label className="text-sm block text-warning-600 text-right">
               Put one SMILES per line
             </label>
-            <div className="border-1 border-foreground-300 p-4 bg-white rounded-xl">
+            <div className="flex flex-col gap-3 border-1 border-foreground-300 p-4 bg-white rounded-xl dark:bg-background">
+              <Alert
+                color="primary"
+                title="Prediction structure limits"
+                description={
+                  <span>
+                    Each SMILES must describe one connected molecule containing
+                    at most {options.structureValidation.maxAtoms} atoms
+                    including all hydrogens. Allowed elements:{" "}
+                    {options.structureValidation.allowedElements.join(", ")}.
+                    {options.structureValidation.singleConnectedMolecule &&
+                      " Salts and disconnected structures are not supported."}
+                  </span>
+                }
+              />
               <Textarea
                 type="text"
                 className=""

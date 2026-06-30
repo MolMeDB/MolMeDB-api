@@ -64,6 +64,7 @@ class PredictionsController extends Controller
 
         return [
             'data' => [
+                'structure_validation' => config('prediction-workers.structure_validation'),
                 'membranes' => PredictionMembrane::query()
                     ->select(['id', 'remote_id', 'name', 'abbreviation'])
                     ->whereIn('remote_id', $availableMembraneIds)

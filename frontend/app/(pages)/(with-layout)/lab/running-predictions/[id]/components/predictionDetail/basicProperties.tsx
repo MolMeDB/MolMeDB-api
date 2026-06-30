@@ -12,17 +12,10 @@ import {
 } from "react-icons/md";
 import { Chip, Link, Progress } from "@heroui/react";
 import { RiProgress3Line } from "react-icons/ri";
-
-function getRemoteStatusColor(
-  compound: IPrediction,
-): "danger" | "success" | "warning" | "default" {
-  if (compound.remote_error_message) return "danger";
-  const status = compound.remote_status ?? null;
-  if (status === "running") return "warning";
-  if (status === "completed") return "success";
-  if (status === "failed") return "danger";
-  return "default";
-}
+import {
+  getRemoteStatusColor,
+  getRemoteStatusLabel,
+} from "@/lib/predictionRemoteStatus";
 
 function getProgressColor(
   compound: IPrediction,
@@ -106,9 +99,7 @@ export default function CompoundBasicProperties(props: {
                   variant="flat"
                   color={getRemoteStatusColor(props.compound)}
                 >
-                  {props.compound.enum_remote_status ??
-                    props.compound.remote_current_step ??
-                    "Pending"}
+                  {getRemoteStatusLabel(props.compound)}
                 </Chip>
                 {props.compound.remote_current_step && (
                   <Chip size="sm" variant="flat" color="secondary">

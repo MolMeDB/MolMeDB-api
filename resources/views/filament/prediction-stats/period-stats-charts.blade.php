@@ -2,7 +2,7 @@
     $record  = $getRecord();
     $payload = $record->payload;
 
-    $periods = ['day' => 'Today', 'week' => 'This week', 'month' => 'This month', 'year' => 'This year'];
+    $periods = ['day' => 'Today', 'week' => 'This week', 'month' => 'This month', 'year' => 'This year', 'total' => 'Total'];
     $steps   = [
         'rdkit'                  => 'RDKit',
         'conformers'             => 'Conformers',
@@ -11,34 +11,50 @@
         'cosmo'                  => 'COSMO',
     ];
 
-    function psFmtDuration(?float $sec): string {
-        if ($sec === null || $sec < 0) return '—';
-        if ($sec < 60) return round($sec) . 's';
-        if ($sec < 3600) return round($sec / 60, 1) . 'm';
-        return round($sec / 3600, 1) . 'h';
+    if (! function_exists('psFmtDuration')) {
+        function psFmtDuration(?float $sec): string {
+            if ($sec === null || $sec < 0) return '—';
+            if ($sec < 60) return round($sec) . 's';
+            if ($sec < 3600) return round($sec / 60, 1) . 'm';
+            return round($sec / 3600, 1) . 'h';
+        }
     }
 
-    function psConic(int $completed, int $failed, int $inProgress, int $started): string {
-        if ($started === 0) return '#e5e7eb 0% 100%';
-        $stops = [];
-        $cum   = 0;
-        $segments = [
-            ['value' => $completed,  'color' => '#22c55e'],
-            ['value' => $inProgress, 'color' => '#f97316'],
-            ['value' => $failed,     'color' => '#ef4444'],
-        ];
-        foreach ($segments as $seg) {
-            if ($seg['value'] <= 0) continue;
-            $pct   = $seg['value'] / $started * 100;
-            $from  = round($cum, 3);
-            $to    = round($cum + $pct, 3);
-            $stops[] = "{$seg['color']} {$from}% {$to}%";
-            $cum  += $pct;
+    if (! function_exists('psFmtNumber')) {
+        function psFmtNumber(int $n): string {
+            if ($n < 1000) return (string) $n;
+
+            $suffix    = $n < 1_000_000 ? 'k' : 'M';
+            $divisor   = $n < 1_000_000 ? 1_000 : 1_000_000;
+            $formatted = rtrim(rtrim(sprintf('%.1f', $n / $divisor), '0'), '.');
+
+            return $formatted . $suffix;
         }
-        if ($cum < 100) {
-            $stops[] = '#e5e7eb ' . round($cum, 3) . '% 100%';
+    }
+
+    if (! function_exists('psConic')) {
+        function psConic(int $completed, int $failed, int $inProgress, int $started): string {
+            if ($started === 0) return '#e5e7eb 0% 100%';
+            $stops = [];
+            $cum   = 0;
+            $segments = [
+                ['value' => $completed,  'color' => '#22c55e'],
+                ['value' => $inProgress, 'color' => '#f97316'],
+                ['value' => $failed,     'color' => '#ef4444'],
+            ];
+            foreach ($segments as $seg) {
+                if ($seg['value'] <= 0) continue;
+                $pct   = $seg['value'] / $started * 100;
+                $from  = round($cum, 3);
+                $to    = round($cum + $pct, 3);
+                $stops[] = "{$seg['color']} {$from}% {$to}%";
+                $cum  += $pct;
+            }
+            if ($cum < 100) {
+                $stops[] = '#e5e7eb ' . round($cum, 3) . '% 100%';
+            }
+            return implode(', ', $stops);
         }
-        return implode(', ', $stops);
     }
 @endphp
 
@@ -76,24 +92,25 @@
                         </div>
 
                         {{-- Donut --}}
-                        <div style="position:relative; width:90px; height:90px; flex-shrink:0;">
+                        <div style="position:relative; width:112px; height:112px; flex-shrink:0;">
                             <div style="
-                                width:90px; height:90px; border-radius:50%;
+                                width:112px; height:112px; border-radius:50%;
                                 background: conic-gradient({{ $conic }});
                             "></div>
                             {{-- Hole --}}
                             <div style="
                                 position:absolute; top:50%; left:50%;
                                 transform:translate(-50%,-50%);
-                                width:58px; height:58px; border-radius:50%;
+                                width:72px; height:72px; border-radius:50%;
                                 background:#fff;
                                 display:flex; flex-direction:column;
                                 align-items:center; justify-content:center;
                                 gap:1px;
                             ">
                                 @if ($hasData)
-                                    <span style="font-size:1rem; font-weight:700; color:#111827; line-height:1;">
-                                        {{ $completed }}/{{ $started }}
+                                    <span style="font-size:1.05rem; font-weight:700; color:#111827; line-height:1; white-space:nowrap;"
+                                          title="{{ $completed }}/{{ $started }}">
+                                        {{ psFmtNumber($completed) }}/{{ psFmtNumber($started) }}
                                     </span>
                                     <span style="font-size:.65rem; color:#9ca3af; line-height:1;">
                                         {{ psFmtDuration($avg) }}
@@ -110,19 +127,19 @@
                                 @if ($completed > 0)
                                     <div style="display:flex; justify-content:space-between; font-size:.65rem; color:#6b7280;">
                                         <span>Done</span>
-                                        <span style="font-weight:600; color:#22c55e;">{{ $completed }}</span>
+                                        <span style="font-weight:600; color:#22c55e;" title="{{ $completed }}">{{ psFmtNumber($completed) }}</span>
                                     </div>
                                 @endif
                                 @if ($inProgress > 0)
                                     <div style="display:flex; justify-content:space-between; font-size:.65rem; color:#6b7280;">
                                         <span>Running</span>
-                                        <span style="font-weight:600; color:#f97316;">{{ $inProgress }}</span>
+                                        <span style="font-weight:600; color:#f97316;" title="{{ $inProgress }}">{{ psFmtNumber($inProgress) }}</span>
                                     </div>
                                 @endif
                                 @if ($failed > 0)
                                     <div style="display:flex; justify-content:space-between; font-size:.65rem; color:#6b7280;">
                                         <span>Failed</span>
-                                        <span style="font-weight:600; color:#ef4444;">{{ $failed }}</span>
+                                        <span style="font-weight:600; color:#ef4444;" title="{{ $failed }}">{{ psFmtNumber($failed) }}</span>
                                     </div>
                                 @endif
                             </div>

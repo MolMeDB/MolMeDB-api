@@ -1,10 +1,10 @@
 @php
-$periods = ['day' => 'Today', 'week' => 'This week', 'month' => 'This month', 'year' => 'This year'];
+$periods = ['day' => 'Today', 'week' => 'This week', 'month' => 'This month', 'year' => 'This year', 'total' => 'Total'];
 $stepLabels = [
     'rdkit'                   => 'RDKit',
     'conformers'              => 'Conformers',
-    'optimization-turbomole'  => 'Opt. Turbomole',
     'optimization-orca'       => 'Opt. Orca',
+    'optimization-turbomole'  => 'Opt. Turbomole',
     'cosmo'                   => 'COSMO',
 ];
 

@@ -46,6 +46,8 @@ class Filesystem extends BaseModel
 
     const TYPE_DB_PUBLIC_BACKUP = 9;
 
+    const TYPE_DB_PREDICTIONS_BACKUP = 10;
+
     public static $types = [
         self::TYPE_PUBLIC => 'Public',
         self::TYPE_PRIVATE => 'Private',
@@ -58,6 +60,7 @@ class Filesystem extends BaseModel
         self::TYPE_RDF_STORAGE => 'RDF related-files storage',
         self::TYPE_DB_FULL_BACKUP => 'Database full backups',
         self::TYPE_DB_PUBLIC_BACKUP => 'Database public backups (restricted)',
+        self::TYPE_DB_PREDICTIONS_BACKUP => 'Predictions database backups',
     ];
 
     public static function drivers(): array

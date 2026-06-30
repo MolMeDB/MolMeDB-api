@@ -2,61 +2,30 @@
 
 namespace App\Console\Commands\Database;
 
-use App\Models\Config;
 use App\Models\Filesystem;
-use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
 use Spatie\TemporaryDirectory\TemporaryDirectory;
 use Symfony\Component\Process\Process;
 use Throwable;
 
-class BackupDbIdsm extends Command
+class BackupDbPredictions extends Command
 {
     /**
      * The name and signature of the console command.
      *
      * @var string
      */
-    protected $signature = 'db:dump-idsm';
+    protected $signature = 'db:dump-predictions';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Creates a safe database backup for IDSM and saves it to the config specified location.';
+    protected $description = 'Creates a backup of the predictions database and saves it to the config specified location.';
 
-    private array $excludedTables = [
-        'public.activity_log',
-        'public.authors',
-        'public.cache',
-        'public.cache_locks',
-        'public.configs',
-        'public.dataset_groups',
-        'public.failed_jobs',
-        'public.files',
-        'public.filesystems',
-        'public.job_batches',
-        'public.jobs',
-        'public.migrations',
-        'public.model_has_files',
-        'public.model_has_permissions',
-        'public.model_has_roles',
-        'public.password_reset_tokens',
-        'public.permissions',
-        'public.personal_access_tokens',
-        'public.publication_has_authors',
-        'public.role_has_permissions',
-        'public.roles',
-        'public.sessions',
-        'public.ssh_credentials',
-        'public.stats',
-        'public.upload_queue',
-        'public.users',
-    ];
-
-    public static function datePath(?string $date = null): string
+    public function datePath(?string $date = null): string
     {
         $timestamp = $date ? strtotime($date) : time();
 
@@ -67,7 +36,7 @@ class BackupDbIdsm extends Command
     {
         if ($disk) {
             // Make basic directories if not exists
-            $disk->makeDirectory(self::datePath());
+            $disk->makeDirectory($this->datePath());
         }
     }
 
@@ -76,23 +45,23 @@ class BackupDbIdsm extends Command
      */
     public function handle(): int
     {
-        $lastBackup = Config::get('db_backup_idsm_last');
+        $this->info('Making predictions database backup...');
 
-        if ($lastBackup && now()->diffInDays(Carbon::parse($lastBackup)) < 7) {
-            $this->info('Last IDSM backup was made at '.$lastBackup.', skipping (younger than 7 days).');
+        $driver = config('database.connections.predictions.driver');
 
-            return Command::SUCCESS;
+        if ($driver !== 'pgsql') {
+            $this->error('Predictions connection driver is "'.$driver.'", but only "pgsql" is supported by this command.');
+
+            return Command::FAILURE;
         }
 
-        $this->info('Making IDSM database backup...');
+        $db = config('database.connections.predictions.database');
+        $user = config('database.connections.predictions.username');
+        $pass = config('database.connections.predictions.password');
+        $host = config('database.connections.predictions.host');
+        $port = config('database.connections.predictions.port');
 
-        $db = config('database.connections.pgsql.database');
-        $user = config('database.connections.pgsql.username');
-        $pass = config('database.connections.pgsql.password');
-        $host = config('database.connections.pgsql.host');
-        $port = config('database.connections.pgsql.port');
-
-        $filesystem = Filesystem::where('type', Filesystem::TYPE_DB_PUBLIC_BACKUP)->first();
+        $filesystem = Filesystem::where('type', Filesystem::TYPE_DB_PREDICTIONS_BACKUP)->first();
 
         if (! $filesystem) {
             $this->error('No backup filesystem configured! Aborting.');
@@ -110,13 +79,13 @@ class BackupDbIdsm extends Command
         $this->make_folder_structure($disk);
 
         $date = date('Y-m-d');
-        $targetFilename = self::datePath($date).'backup-idsm-'.$date.'.sql.gz';
+        $targetFilename = $this->datePath($date).'backup-predictions-'.$date.'.sql.gz';
         $temporaryDirectory = TemporaryDirectory::make();
-        $tmpFile = $temporaryDirectory->path('backup-idsm-'.$date.'.sql');
+        $tmpFile = $temporaryDirectory->path('backup-predictions-'.$date.'.sql');
         $compressedTmpFile = $tmpFile.'.gz';
 
         try {
-            $arguments = [
+            $this->runPgDump([
                 'pg_dump',
                 '-U',
                 (string) $user,
@@ -124,15 +93,8 @@ class BackupDbIdsm extends Command
                 (string) $port,
                 '-h',
                 (string) $host,
-            ];
-
-            foreach ($this->excludedTables as $table) {
-                $arguments[] = '--exclude-table='.$table.'*';
-            }
-
-            $arguments[] = (string) $db;
-
-            $this->runPgDump($arguments, $tmpFile, (string) $pass);
+                (string) $db,
+            ], $tmpFile, (string) $pass);
 
             $this->info('# Dump created.');
             $this->info('# Archiving...');
@@ -160,8 +122,6 @@ class BackupDbIdsm extends Command
                     fclose($stream);
                 }
             }
-
-            Config::set('db_backup_idsm_last', date('Y-m-d H:i:s'));
 
             $this->info('Backup created and uploaded.');
 

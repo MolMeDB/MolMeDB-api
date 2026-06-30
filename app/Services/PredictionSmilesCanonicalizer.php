@@ -7,6 +7,7 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
+use RuntimeException;
 
 class PredictionSmilesCanonicalizer
 {
@@ -34,26 +35,26 @@ class PredictionSmilesCanonicalizer
 
         $uniqueEntries = $entries->unique('smiles')->values();
         $duplicatesRemoved = $entries->count() - $uniqueEntries->count();
-        $canonicalByInput = [];
+        $validationByInput = [];
         $uncachedEntries = [];
 
         foreach ($uniqueEntries as $entry) {
             $cacheKey = $this->cacheKey($entry['smiles']);
             $cached = Cache::get($cacheKey);
 
-            if (is_string($cached) && $cached !== '') {
-                $canonicalByInput[$entry['smiles']] = $cached;
+            if (is_array($cached) && is_string($cached['canonical_smiles'] ?? null)) {
+                $validationByInput[$entry['smiles']] = $cached;
             } else {
                 $uncachedEntries[] = $entry;
             }
         }
 
         if ($uncachedEntries !== []) {
-            $this->canonicalizeUncached($uncachedEntries, $canonicalByInput);
+            $this->validateUncached($uncachedEntries, $validationByInput);
         }
 
         $canonical = $uniqueEntries
-            ->map(fn (array $entry): ?string => $canonicalByInput[$entry['smiles']] ?? null)
+            ->map(fn (array $entry): ?string => $validationByInput[$entry['smiles']]['canonical_smiles'] ?? null)
             ->filter()
             ->values();
         $uniqueCanonical = $canonical->unique()->values();
@@ -67,11 +68,11 @@ class PredictionSmilesCanonicalizer
 
     /**
      * @param  array<int, array{line: int, smiles: string}>  $entries
-     * @param  array<string, string>  $canonicalByInput
+     * @param  array<string, array<string, mixed>>  $validationByInput
      *
      * @throws ValidationException
      */
-    private function canonicalizeUncached(array $entries, array &$canonicalByInput): void
+    private function validateUncached(array $entries, array &$validationByInput): void
     {
         $baseUrl = rtrim((string) config('services.rdkit.url'), '/');
 
@@ -88,7 +89,7 @@ class PredictionSmilesCanonicalizer
                     ->acceptJson()
                     ->connectTimeout(3)
                     ->timeout(30)
-                    ->get($baseUrl.'/structure/canonize', ['smi' => $entry['smiles']]))
+                    ->get($baseUrl.'/structure/predictions/validate', ['smi' => $entry['smiles']]))
                 ->all(),
             concurrency: 10,
         );
@@ -96,19 +97,41 @@ class PredictionSmilesCanonicalizer
 
         foreach ($entries as $index => $entry) {
             $response = $responses[(string) $index] ?? null;
-            $canonical = $response instanceof Response && $response->successful()
+            $validation = $response instanceof Response
                 ? $response->json('data')
                 : null;
+            $canonical = is_array($validation)
+                ? $validation['canonical_smiles'] ?? null
+                : null;
 
-            if (! is_string($canonical) || trim($canonical) === '') {
-                $errors[] = "SMILES on line {$entry['line']} is invalid.";
+            if (! $response instanceof Response || $response->serverError()) {
+                throw new RuntimeException('SMILES validation service is temporarily unavailable.');
+            }
+
+            if (! is_array($validation)) {
+                throw new RuntimeException('SMILES validation service returned an invalid response.');
+            }
+
+            if (
+                ! $response->successful()
+                || ($validation['valid'] ?? false) !== true
+                || ! is_string($canonical)
+                || trim($canonical) === ''
+            ) {
+                $validationErrors = is_array($validation['errors'] ?? null)
+                    ? $validation['errors']
+                    : ['The structure could not be validated.'];
+
+                foreach ($validationErrors as $validationError) {
+                    $errors[] = "SMILES on line {$entry['line']}: ".(string) $validationError;
+                }
 
                 continue;
             }
 
-            $canonical = trim($canonical);
-            $canonicalByInput[$entry['smiles']] = $canonical;
-            Cache::put($this->cacheKey($entry['smiles']), $canonical, now()->addDay());
+            $validation['canonical_smiles'] = trim($canonical);
+            $validationByInput[$entry['smiles']] = $validation;
+            Cache::put($this->cacheKey($entry['smiles']), $validation, now()->addDay());
         }
 
         if ($errors !== []) {
@@ -118,6 +141,8 @@ class PredictionSmilesCanonicalizer
 
     private function cacheKey(string $smiles): string
     {
-        return 'prediction:canonical-smiles:'.hash('sha256', $smiles);
+        $constraints = (array) config('prediction-workers.structure_validation', []);
+
+        return 'prediction:validated-smiles:v1:'.hash('sha256', json_encode($constraints).'|'.$smiles);
     }
 }

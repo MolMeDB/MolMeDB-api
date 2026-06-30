@@ -7,6 +7,7 @@ use BackedEnum;
 use Filament\Actions;
 use Filament\Infolists;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\View as SchemaView;
 use Filament\Schemas\Schema;
@@ -42,77 +43,49 @@ class PredictionStatsResource extends Resource
         return $schema->components([
 
             // ─── Snapshot meta ────────────────────────────────────────────────
-            Section::make('Snapshot')
-                ->columns(3)
-                ->schema([
-                    Infolists\Components\TextEntry::make('stats_date')
-                        ->label('Date')
-                        ->date()
-                        ->badge(),
-                    Infolists\Components\TextEntry::make('server_url')
-                        ->label('Server URL')
-                        ->copyable()
-                        ->columnSpan(2),
-                    Infolists\Components\TextEntry::make('fetched_at')
-                        ->label('Fetched')
-                        ->dateTime()
-                        ->since()
-                        ->dateTimeTooltip(),
-                    Infolists\Components\TextEntry::make('created_at')
-                        ->label('Created')
-                        ->dateTime(),
-                    Infolists\Components\TextEntry::make('updated_at')
-                        ->label('Updated')
-                        ->dateTime(),
-                ]),
-
-            // ─── Totals ───────────────────────────────────────────────────────
-            Section::make('Totals')
-                ->schema([
-                    SchemaView::make('filament.prediction-stats.totals-charts')
-                        ->columnSpanFull(),
-                ]),
-
-            // ─── Queue depth ──────────────────────────────────────────────────
-            Section::make('Queue depth')
-                ->columns(5)
-                ->schema([
-                    Infolists\Components\TextEntry::make('queue_rdkit')
-                        ->label('RDKit')
-                        ->state(fn (PredictionStat $record): string => (string) ($record->payload['queue']['rdkit'] ?? 0))
-                        ->badge()
-                        ->color(fn (string $state): string => (int) $state > 0 ? 'warning' : 'gray'),
-                    Infolists\Components\TextEntry::make('queue_conformers')
-                        ->label('Conformers')
-                        ->state(fn (PredictionStat $record): string => (string) ($record->payload['queue']['conformers'] ?? 0))
-                        ->badge()
-                        ->color(fn (string $state): string => (int) $state > 0 ? 'warning' : 'gray'),
-                    Infolists\Components\TextEntry::make('queue_turbomole')
-                        ->label('Opt. Turbomole')
-                        ->state(fn (PredictionStat $record): string => (string) ($record->payload['queue']['optimization-turbomole'] ?? 0))
-                        ->badge()
-                        ->color(fn (string $state): string => (int) $state > 0 ? 'warning' : 'gray'),
-                    Infolists\Components\TextEntry::make('queue_orca')
-                        ->label('Opt. Orca')
-                        ->state(fn (PredictionStat $record): string => (string) ($record->payload['queue']['optimization-orca'] ?? 0))
-                        ->badge()
-                        ->color(fn (string $state): string => (int) $state > 0 ? 'warning' : 'gray'),
-                    Infolists\Components\TextEntry::make('queue_cosmo')
-                        ->label('COSMO')
-                        ->state(fn (PredictionStat $record): string => (string) ($record->payload['queue']['cosmo'] ?? 0))
-                        ->badge()
-                        ->color(fn (string $state): string => (int) $state > 0 ? 'warning' : 'gray'),
-                ]),
-
+                    Section::make('Snapshot')
+                        ->schema([
+                            Infolists\Components\TextEntry::make('stats_date')
+                                ->label('Date')
+                                ->date()
+                                ->badge(),
+                            Infolists\Components\TextEntry::make('server_url')
+                                ->label('Server URL')
+                                ->copyable()
+                                ->columnSpan(2),
+                            Infolists\Components\TextEntry::make('fetched_at')
+                                ->label('Fetched')
+                                ->dateTime()
+                                ->since()
+                                ->dateTimeTooltip(),
+                            Infolists\Components\TextEntry::make('created_at')
+                                ->label('Created')
+                                ->dateTime(),
+                            Infolists\Components\TextEntry::make('updated_at')
+                                ->label('Updated')
+                                ->dateTime(),
+                    ])->columns(3),
+                    Section::make('Live stats')
+                        ->schema([
+                            Infolists\Components\TextEntry::make('queue_chart')
+                                ->label('')
+                                ->state(fn (PredictionStat $record): string => view('filament.prediction-stats.live-stats-chart', [
+                                    'queue' => $record->payload['queue'] ?? [],
+                                ])->render())
+                                ->html()
+                                ->columnSpanFull(),
+                        ]),
             // ─── Period statistics ─────────────────────────────────────────────
             Section::make('Statistics by period')
                 ->schema([
                     SchemaView::make('filament.prediction-stats.period-stats-charts')
                         ->columnSpanFull(),
-                ]),
+                ])
+                ->columnSpanFull(),
 
             // ─── Running jobs ──────────────────────────────────────────────────
             Section::make('Running jobs')
+                ->columnSpanFull()
                 ->schema([
                     Infolists\Components\TextEntry::make('running_jobs')
                         ->label('')

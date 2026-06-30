@@ -6,6 +6,7 @@ use App\Console\Commands\Cron\SendPredictionAdminStatsNotification;
 use App\Console\Commands\Cron\SendPredictionProgressNotifications;
 use App\Console\Commands\ProcessFrontendUploads;
 use App\Console\Commands\SendUploadQueueNotifications;
+use App\Services\SystemActivityLogger;
 use Illuminate\Console\Command;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -37,6 +38,12 @@ Artisan::command('predictions:refresh-dataset-stats {--chunk=200}', function () 
         });
 
     $this->info("Refreshed {$refreshed} prediction dataset stats.");
+
+    app(SystemActivityLogger::class)->log(
+        event: 'prediction_dataset_stats_refreshed',
+        description: "Prediction dataset statistics cache refreshed for {$refreshed} dataset(s).",
+        properties: ['datasets' => $refreshed],
+    );
 
     return Command::SUCCESS;
 })->purpose('Refresh cached prediction dataset progress statistics.');

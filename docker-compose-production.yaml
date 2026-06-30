@@ -41,11 +41,12 @@ services:
       - REDIS_HOST=redis
     networks:
       - molmedb-network
-    # healthcheck: // TODO
-    #   test: ["CMD-SHELL", "php-fpm-healthcheck || exit 1"]
-    #   interval: 10s
-    #   timeout: 5s
-    #   retries: 3
+    healthcheck:
+      test: ["CMD-SHELL", "php-fpm-healthcheck || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
     depends_on:
       db:
         condition: service_healthy
@@ -70,12 +71,22 @@ services:
     working_dir: /var/www
     volumes:
       - ./:/var/www
+      - molmedb-storage-production:/var/www/storage
     networks:
       - molmedb-network
     depends_on:
-      - app
-      - db-predictions
-    command: php artisan schedule:work
+      app:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+      db-predictions:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rdkit:
+        condition: service_healthy
+    entrypoint: []
+    command: ["php", "artisan", "schedule:work"]
     restart: unless-stopped 
 
   app-queue-worker:
@@ -100,10 +111,16 @@ services:
     networks:
       - molmedb-network
     depends_on:
-      - app
-      - db-predictions
-      - redis
-    command: php artisan queue:work --queue=upload,default --sleep=3 --tries=3 --timeout=1800 --memory=512
+      app:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+      db-predictions:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    entrypoint: []
+    command: ["php", "artisan", "queue:work", "--queue=upload,default", "--sleep=3", "--tries=3", "--timeout=1800", "--memory=512"]
     restart: unless-stopped
 
   app-predictions-queue-worker:
@@ -127,10 +144,16 @@ services:
     networks:
       - molmedb-network
     depends_on:
-      - app
-      - db-predictions
-      - redis
-    command: php artisan queue:work --queue=predictions --sleep=5 --tries=1 --timeout=150 --memory=256
+      app:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+      db-predictions:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    entrypoint: []
+    command: ["php", "artisan", "queue:work", "--queue=predictions", "--sleep=5", "--tries=1", "--timeout=150", "--memory=256"]
     restart: unless-stopped
 
   # frontend:
@@ -216,12 +239,20 @@ services:
     container_name: molmedb-redis
     restart: unless-stopped
     command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD}"
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
     ports:
       - "6379:6379"
     volumes:
       - molmedb-redis:/data
     networks:
       - molmedb-network
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   rdkit:
     build:
@@ -234,7 +265,7 @@ services:
     networks:
       - molmedb-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/test"]
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost/test', timeout=5)"]
       interval: 120s
       timeout: 10s
       retries: 5

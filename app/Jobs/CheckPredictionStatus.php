@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Services\SystemActivityLogger;
 use DateTimeInterface;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -67,6 +68,17 @@ class CheckPredictionStatus implements ShouldBeUnique, ShouldQueue
                 'remote_last_status_at' => now(),
                 'remote_error_message' => $e->getMessage(),
             ])->save();
+
+            app(SystemActivityLogger::class)->logThrottled(
+                event: 'prediction_status_check_failed',
+                description: 'Remote prediction status checks are failing.',
+                properties: [
+                    'prediction_id' => $prediction->getKey(),
+                    'exception' => $e::class,
+                    'error' => $e->getMessage(),
+                ],
+                throttleKey: 'remote-prediction-status',
+            );
         }
     }
 

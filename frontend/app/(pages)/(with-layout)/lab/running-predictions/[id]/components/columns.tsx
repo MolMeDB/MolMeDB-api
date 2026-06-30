@@ -9,18 +9,10 @@ import {
 import { IPrediction } from "@/lib/api/admin/interfaces/Predictions";
 import { FaHeart, FaRegHeart } from "react-icons/fa6";
 import { timeAgo } from "@/lib/timeAgo";
-
-function getRemoteStatusColor(
-  item: IPrediction,
-): "danger" | "success" | "warning" | "default" {
-  if (item.remote_error_message) return "danger";
-
-  const status = item.remote_status ?? null;
-  if (status === "running") return "warning";
-  if (status === "completed") return "success";
-  if (status === "failed") return "danger";
-  return "default";
-}
+import {
+  getRemoteStatusColor,
+  getRemoteStatusLabel,
+} from "@/lib/predictionRemoteStatus";
 
 function latestTimestamp(
   a: string | null | undefined,
@@ -106,7 +98,7 @@ export const datasetColumns: IUiTableColumn<IPrediction>[] = [
     render: (item) => (
       <div className="flex flex-col gap-1">
         <Chip size="sm" variant="flat" color={getRemoteStatusColor(item)}>
-          {item.enum_remote_status ?? item.remote_current_step ?? "Pending"}
+          {getRemoteStatusLabel(item)}
         </Chip>
         {item.remote_error_message && (
           <span className="text-xs text-danger line-clamp-2">

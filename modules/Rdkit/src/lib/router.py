@@ -41,6 +41,19 @@ class Router:
                 'expected': 'Cc1ccccc1'
             },
         ]
+        ##### Validate SMILES for predictions
+        self.add(
+            path='structure/predictions/validate',
+            handler=R.RDKIT().validatePredictionSmiles,
+            required=['smi']
+        )
+        # - tests
+        self.tests['structure/predictions/validate'] = [
+            {
+                'input': {'smi': 'CCO'},
+                'expected': 'object'
+            },
+        ]
         ##############################
         ##### Neutralize SMILES
         self.add(path='structure/neutralize', handler=R.RDKIT().neutralizeSmiles, required=['smi'])

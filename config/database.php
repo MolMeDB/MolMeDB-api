@@ -113,6 +113,22 @@ return [
             'sslmode' => 'prefer',
         ],
 
+        'molmedb_old' => [
+            'driver' => 'mysql',
+            // 'url' => "molmedb.upol.cz",
+            'host' => 'molmedb.upol.cz',
+            'port' => '3307',
+            'database' => 'molmedb',
+            'username' => 'umolmedb',
+            'password' => 'K.[wVKSc2lEV-6UY',
+            // 'charset' => env('DB_OLD_CHARSET', 'utf8mb4'),
+            // 'collation' => env('DB_OLD_COLLATION', 'utf8mb4_unicode_ci'),
+            // 'prefix' => '',
+            // 'prefix_indexes' => true,
+            // 'strict' => true,
+            // 'engine' => null,
+        ],
+
         'sqlsrv' => [
             'driver' => 'sqlsrv',
             'url' => env('DB_URL'),
@@ -147,7 +163,7 @@ return [
     ],
 
     'migrations_predictions' => [
-        'table' => env('DB_PREDICTIONS_MIGRATIONS_TABLE', 'predictions_migrations'),
+        'table' => env('DB_PREDICTIONS_MIGRATIONS_TABLE', 'migrations'),
     ],
 
     /*

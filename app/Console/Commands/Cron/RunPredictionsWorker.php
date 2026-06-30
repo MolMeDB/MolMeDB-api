@@ -6,6 +6,8 @@ use App\Jobs\CheckPredictionStatus;
 use App\Models\NotificationTemplate;
 use App\Models\User;
 use App\Services\NotificationService;
+use App\Services\PredictionSubmissionStructureValidator;
+use App\Services\SystemActivityLogger;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Modules\PredictionWorkers\Enums\RemotePredictionStatus;
@@ -18,6 +20,14 @@ use Throwable;
 
 class RunPredictionsWorker extends Command
 {
+    private int $statisticsErrors = 0;
+
+    private int $downloadErrors = 0;
+
+    private int $submissionErrors = 0;
+
+    private int $rejectedStructures = 0;
+
     protected $signature = 'cron:predictions-worker
         {--max-results= : Maximum completed prediction results to download}
         {--max-submit= : Maximum new predictions to submit}
@@ -28,8 +38,11 @@ class RunPredictionsWorker extends Command
 
     protected $description = 'Fetch remote statistics, submit prepared predictions, download completed results, and dispatch queue jobs for running status checks.';
 
-    public function handle(RemotePredictionClient $client): int
-    {
+    public function handle(
+        RemotePredictionClient $client,
+        PredictionSubmissionStructureValidator $structureValidator,
+        SystemActivityLogger $activityLogger,
+    ): int {
         if (! $client->isEnabled()) {
             $this->warn('Remote prediction service is disabled.');
 
@@ -50,13 +63,25 @@ class RunPredictionsWorker extends Command
             } catch (Throwable $throwable) {
                 $this->error('Failed to ensure valid token: '.$throwable->getMessage());
 
+                $activityLogger->logThrottled(
+                    event: 'prediction_worker_authentication_failed',
+                    description: 'Remote prediction worker could not authenticate.',
+                    properties: [
+                        'exception' => $throwable::class,
+                        'error' => $throwable->getMessage(),
+                    ],
+                    throttleKey: 'remote-prediction-authentication',
+                );
+
                 return Command::FAILURE;
             }
 
             $results = [
                 'stats' => $this->option('skip-stats') ? null : $this->refreshStatistics($client),
                 'downloads' => $this->option('skip-results') ? null : $this->downloadCompletedResults($client),
-                'submissions' => $this->option('skip-submit') ? null : $this->submitPreparedPredictions($client),
+                'submissions' => $this->option('skip-submit')
+                    ? null
+                    : $this->submitPreparedPredictions($client, $structureValidator),
                 'dispatched' => $this->option('skip-dispatch') ? null : $this->dispatchStatusChecks(),
             ];
 
@@ -67,6 +92,46 @@ class RunPredictionsWorker extends Command
                 $results['downloads'] === null ? 'skipped' : (string) $results['downloads'],
                 $results['dispatched'] === null ? 'skipped' : (string) $results['dispatched'],
             ));
+
+            $errorCount = $this->statisticsErrors
+                + $this->downloadErrors
+                + $this->submissionErrors
+                + $this->rejectedStructures;
+            $processedCount = ($results['submissions'] ?? 0) + ($results['downloads'] ?? 0);
+
+            if ($processedCount > 0 || $errorCount > 0) {
+                $description = sprintf(
+                    'Prediction worker submitted %d and downloaded %d prediction(s); encountered %d error(s).',
+                    $results['submissions'] ?? 0,
+                    $results['downloads'] ?? 0,
+                    $errorCount,
+                );
+                $properties = [
+                    'statistics_stored' => $results['stats'] instanceof PredictionStat,
+                    'submissions' => $results['submissions'],
+                    'downloads' => $results['downloads'],
+                    'dispatched' => $results['dispatched'],
+                    'statistics_errors' => $this->statisticsErrors,
+                    'download_errors' => $this->downloadErrors,
+                    'submission_errors' => $this->submissionErrors,
+                    'rejected_structures' => $this->rejectedStructures,
+                ];
+
+                if ($errorCount > 0) {
+                    $activityLogger->logThrottled(
+                        event: 'prediction_worker_completed_with_errors',
+                        description: $description,
+                        properties: $properties,
+                        throttleKey: 'prediction-worker-errors',
+                    );
+                } else {
+                    $activityLogger->log(
+                        event: 'prediction_worker_completed',
+                        description: $description,
+                        properties: $properties,
+                    );
+                }
+            }
 
             return Command::SUCCESS;
         } finally {
@@ -85,6 +150,7 @@ class RunPredictionsWorker extends Command
         } catch (RemotePredictionDisabledException $throwable) {
             throw $throwable;
         } catch (Throwable $throwable) {
+            $this->statisticsErrors++;
             $this->error('Remote statistics refresh failed: '.$throwable->getMessage());
 
             return null;
@@ -157,6 +223,7 @@ class RunPredictionsWorker extends Command
                         $finishedDatasetIds[(int) $datasetId] = true;
                     }
                 } catch (Throwable $throwable) {
+                    $this->downloadErrors++;
                     $prediction->forceFill([
                         'remote_last_status_at' => now(),
                         'remote_error_message' => $throwable->getMessage(),
@@ -174,8 +241,10 @@ class RunPredictionsWorker extends Command
         return $downloaded;
     }
 
-    private function submitPreparedPredictions(RemotePredictionClient $client): int
-    {
+    private function submitPreparedPredictions(
+        RemotePredictionClient $client,
+        PredictionSubmissionStructureValidator $structureValidator,
+    ): int {
         $requestedLimit = $this->integerOption(
             'max-submit',
             (int) config('prediction-workers.remote.worker.max_submissions', 5),
@@ -200,6 +269,7 @@ class RunPredictionsWorker extends Command
         $submitted = 0;
 
         Prediction::query()
+            ->with('predictionStructure')
             ->whereNull('remote_calculation_id')
             ->whereNull('result_id')
             ->where('state', Prediction::STATE_PREPARED)
@@ -209,12 +279,20 @@ class RunPredictionsWorker extends Command
             ->orderBy('id')
             ->limit($limit)
             ->get()
-            ->each(function (Prediction $prediction) use ($client, &$submitted): void {
+            ->each(function (Prediction $prediction) use ($client, $structureValidator, &$submitted): void {
                 try {
+                    if (! $structureValidator->passes($prediction)) {
+                        $this->rejectedStructures++;
+                        $this->warn("Prediction {$prediction->getKey()} was not submitted: {$prediction->remote_error_message}");
+
+                        return;
+                    }
+
                     $prediction->submitAndStoreRemotePrediction(client: $client);
                     CheckPredictionStatus::dispatch($prediction->getKey());
                     $submitted++;
                 } catch (Throwable $throwable) {
+                    $this->submissionErrors++;
                     $prediction->forceFill([
                         'remote_method' => Prediction::hasRemotePredictionMethod((string) $prediction->method_type)
                             ? $prediction->remotePredictionMethod()

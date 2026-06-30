@@ -174,6 +174,8 @@ Route::group([], function () {
     Route::prefix('structure')
         ->controller(StructureController::class)
         ->group(function () {
+            Route::post('/predictions/validate', [PredictionsController::class, 'validateSmiles'])
+                ->middleware('throttle:10,1');
             Route::get('/{identifier}', 'show');
             Route::get('mol/3d/{identifier}', 'mol3D');
             Route::get('mol/canonize_smiles/{smiles}', 'molCanonizeSmiles')

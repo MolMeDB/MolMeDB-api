@@ -1,6 +1,11 @@
 <?php
 
 return [
+    'structure_validation' => [
+        'max_atoms' => 120,
+        'allowed_elements' => ['C', 'H', 'O', 'N', 'P', 'S', 'F', 'Cl', 'Br', 'I'],
+        'single_connected_molecule' => true,
+    ],
     'remote' => [
         'manager_secret' => env('REMOTE_PREDICTION_MANAGER_SECRET'),
         'send_method_parameter' => (bool) env('REMOTE_PREDICTION_SEND_METHOD_PARAMETER', false),

@@ -4,6 +4,7 @@ namespace App\Console\Commands\Cron;
 
 use App\Models\NotificationTemplate;
 use App\Services\PredictionAdminNotifier;
+use App\Services\SystemActivityLogger;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Modules\PredictionWorkers\Models\Prediction;
@@ -15,8 +16,10 @@ class SendPredictionAdminStatsNotification extends Command
 
     protected $description = 'Send admin statistics report for predictions over the previous calendar period.';
 
-    public function handle(PredictionAdminNotifier $notifier): int
-    {
+    public function handle(
+        PredictionAdminNotifier $notifier,
+        SystemActivityLogger $activityLogger,
+    ): int {
         $period = $this->argument('period');
 
         [$label, $from, $to] = match ($period) {
@@ -71,6 +74,21 @@ class SendPredictionAdminStatsNotification extends Command
         ]);
 
         $this->info("Sent admin stats report ({$label}): added={$added} optimized={$optimized} cosmo_done={$cosmoDone} failed={$failed}.");
+
+        $activityLogger->log(
+            event: 'prediction_admin_stats_sent',
+            description: "Prediction admin statistics report sent for {$label}.",
+            properties: [
+                'period' => $period,
+                'period_label' => $label,
+                'added' => $added,
+                'optimized' => $optimized,
+                'cosmo_done' => $cosmoDone,
+                'failed' => $failed,
+                'running' => $running,
+                'total' => $totalAll,
+            ],
+        );
 
         return Command::SUCCESS;
     }

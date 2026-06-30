@@ -14,6 +14,7 @@ use App\Rules\UploadFile\Identifiers\ColumnPubchem;
 use App\Services\AdminUrlGenerator;
 use App\Services\External\Chemical\Unichem\Unichem;
 use App\Services\NotificationService;
+use App\Services\SystemActivityLogger;
 use App\Services\UploadQueueDetailedValidator;
 use App\Services\UploadQueueImporter;
 use Illuminate\Bus\Queueable;
@@ -79,6 +80,7 @@ class ProcessUploadQueueRecord implements ShouldBeUnique, ShouldQueue
     public function handle(
         UploadQueueDetailedValidator $validator,
         UploadQueueImporter $importer,
+        SystemActivityLogger $activityLogger,
     ): void {
         $record = UploadQueue::query()
             ->with(['file', 'dataset', 'user'])
@@ -151,6 +153,7 @@ class ProcessUploadQueueRecord implements ShouldBeUnique, ShouldQueue
                     ->info('Upload waiting for administrator review', $summary);
 
                 $this->notifyAdmins(NotificationTemplate::KEY_UPLOAD_ADMIN_REVIEW_REQUIRED, $record);
+                $this->logCompletedActivity($activityLogger, $record, 'review_required', $summary);
 
                 return;
             }
@@ -194,6 +197,8 @@ class ProcessUploadQueueRecord implements ShouldBeUnique, ShouldQueue
 
             Log::channel('upload')
                 ->info('Upload import preparation finished', $summary);
+
+            $this->logCompletedActivity($activityLogger, $record, 'imported', $summary);
         } catch (Throwable $throwable) {
             $record->refresh();
 
@@ -237,6 +242,31 @@ class ProcessUploadQueueRecord implements ShouldBeUnique, ShouldQueue
                 'error_message' => $throwable?->getMessage() ?? 'Upload processing failed.',
             ]);
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $summary
+     */
+    private function logCompletedActivity(
+        SystemActivityLogger $activityLogger,
+        UploadQueue $record,
+        string $outcome,
+        array $summary,
+    ): void {
+        $activityLogger->logThrottled(
+            event: 'upload_processing_completed',
+            description: 'Upload queue worker completed a record successfully.',
+            properties: [
+                'record_id' => $record->getKey(),
+                'outcome' => $outcome,
+                'prepared_rows' => $summary['prepared_rows'] ?? null,
+                'created_rows' => $summary['created_rows'] ?? null,
+                'skipped_rows' => $summary['skipped_rows'] ?? null,
+            ],
+            severity: SystemActivityLogger::SEVERITY_INFO,
+            throttleKey: 'upload-processing-completed',
+            seconds: 300,
+        );
     }
 
     /**

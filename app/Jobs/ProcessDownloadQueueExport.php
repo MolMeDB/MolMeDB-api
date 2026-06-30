@@ -11,6 +11,7 @@ use App\Models\InteractionPassive;
 use App\Models\Publication;
 use App\Models\Structure;
 use App\Services\DownloaderFilterService;
+use App\Services\SystemActivityLogger;
 use Generator;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -43,8 +44,10 @@ class ProcessDownloadQueueExport implements ShouldQueue
         $this->runToken = $runToken ?? (string) Str::uuid();
     }
 
-    public function handle(DownloaderFilterService $filters): void
-    {
+    public function handle(
+        DownloaderFilterService $filters,
+        SystemActivityLogger $activityLogger,
+    ): void {
         $this->download->refresh();
 
         if ($this->download->state === DownloadQueue::STATE_DONE
@@ -136,7 +139,19 @@ class ProcessDownloadQueueExport implements ShouldQueue
             $disk->delete('downloader/'.$folder.'/passive_interactions.csv');
             $disk->delete('downloader/'.$folder.'/active_interactions.csv');
 
-            $this->download->completeProcessing($this->runToken, $zipPath);
+            if ($this->download->completeProcessing($this->runToken, $zipPath)) {
+                $activityLogger->logThrottled(
+                    event: 'download_export_completed',
+                    description: 'Download export worker completed an export successfully.',
+                    properties: [
+                        'download_id' => $this->download->getKey(),
+                        'processed_rows' => $total,
+                    ],
+                    severity: SystemActivityLogger::SEVERITY_INFO,
+                    throttleKey: 'download-export-completed',
+                    seconds: 300,
+                );
+            }
         } catch (Throwable $exception) {
             $this->download->failProcessing($this->runToken, $exception->getMessage());
 

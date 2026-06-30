@@ -6,6 +6,7 @@ use App\Enums\UploadQueueLogContextEnums;
 use App\Enums\UploadQueueLogTypeEnums;
 use App\Jobs\ProcessUploadQueueRecord;
 use App\Models\UploadQueue;
+use App\Services\SystemActivityLogger;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -16,7 +17,7 @@ class ProcessFrontendUploads extends Command
 
     protected $description = 'Dispatches pending frontend upload records to the upload queue.';
 
-    public function handle(): int
+    public function handle(SystemActivityLogger $activityLogger): int
     {
         $limit = max(1, (int) $this->option('limit'));
 
@@ -52,6 +53,20 @@ class ProcessFrontendUploads extends Command
         }
 
         $this->info("Queued: {$queuedCount}; errors: {$errorCount}");
+
+        if ($queuedCount > 0 || $errorCount > 0) {
+            $activityLogger->log(
+                event: $errorCount > 0 ? 'frontend_upload_dispatch_completed_with_errors' : 'frontend_uploads_dispatched',
+                description: "Frontend upload dispatcher queued {$queuedCount} job(s) with {$errorCount} error(s).",
+                properties: [
+                    'queued' => $queuedCount,
+                    'errors' => $errorCount,
+                ],
+                severity: $errorCount > 0
+                    ? SystemActivityLogger::SEVERITY_ERROR
+                    : SystemActivityLogger::SEVERITY_INFO,
+            );
+        }
 
         return self::SUCCESS;
     }

@@ -5,6 +5,7 @@ namespace App\Console\Commands\Cron;
 use App\Models\NotificationTemplate;
 use App\Models\User;
 use App\Services\NotificationService;
+use App\Services\SystemActivityLogger;
 use Illuminate\Console\Command;
 use Modules\PredictionWorkers\Models\Prediction;
 use Modules\PredictionWorkers\Models\PredictionDataset;
@@ -15,8 +16,10 @@ class SendPredictionProgressNotifications extends Command
 
     protected $description = 'Send daily progress emails for all in-progress prediction datasets.';
 
-    public function handle(NotificationService $notificationService): int
-    {
+    public function handle(
+        NotificationService $notificationService,
+        SystemActivityLogger $activityLogger,
+    ): int {
         $frontendUrl = rtrim((string) config('app.frontend_url', config('app.url')), '/');
         $sent = 0;
 
@@ -58,6 +61,12 @@ class SendPredictionProgressNotifications extends Command
             });
 
         $this->info("Sent {$sent} daily prediction progress notification(s).");
+
+        $activityLogger->log(
+            event: 'prediction_progress_notifications_completed',
+            description: "Daily prediction progress notifier completed; sent {$sent} notification(s).",
+            properties: ['sent' => $sent],
+        );
 
         return Command::SUCCESS;
     }

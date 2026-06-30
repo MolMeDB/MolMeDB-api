@@ -6,6 +6,7 @@ use App\Enums\UploadQueueLogContextEnums;
 use App\Enums\UploadQueueLogTypeEnums;
 use App\Jobs\SendUploadQueueStatusUpdate;
 use App\Models\UploadQueue;
+use App\Services\SystemActivityLogger;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 
@@ -19,12 +20,23 @@ class SendUploadQueueNotifications extends Command
 
     private const DIGEST_MIN_AGE_MINUTES = 10;
 
-    public function handle(): int
+    public function handle(SystemActivityLogger $activityLogger): int
     {
         $remindersInjected = $this->injectStaleReminders();
         $digestsQueued = $this->queuePendingNotifications();
 
         $this->info("Reminders injected: {$remindersInjected}; digests queued: {$digestsQueued}.");
+
+        if ($remindersInjected > 0 || $digestsQueued > 0) {
+            $activityLogger->log(
+                event: 'upload_notifications_dispatched',
+                description: "Upload notifier added {$remindersInjected} reminder(s) and queued {$digestsQueued} digest(s).",
+                properties: [
+                    'reminders_injected' => $remindersInjected,
+                    'digests_queued' => $digestsQueued,
+                ],
+            );
+        }
 
         return self::SUCCESS;
     }

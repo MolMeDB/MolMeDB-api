@@ -4,9 +4,13 @@ namespace App\Console\Commands\Cron;
 
 use App\Console\Commands\CheckStructureInternalIdentifiers;
 use App\Console\Commands\CleanupExpiredDownloadFiles;
+use App\Console\Commands\Database\BackupDb;
+use App\Console\Commands\Database\BackupDbIdsm;
+use App\Console\Commands\Database\BackupDbPredictions;
 use App\Console\Commands\UpdateExportFiles;
 use App\Console\Commands\UpdateStatistics;
 use App\Models\Config;
+use App\Services\SystemActivityLogger;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Console\Command;
@@ -36,7 +40,7 @@ class RunDailyCommands extends Command
     /**
      * Execute the console command.
      */
-    public function handle()
+    public function handle(SystemActivityLogger $activityLogger): int
     {
         $commands = [
             [
@@ -61,6 +65,21 @@ class RunDailyCommands extends Command
                     // '--startId' => Config::get('cron:daily:check_structure_identifier:start_id', 1),
                     '--startId' => 497600,
                 ],
+            ],
+            [
+                'name' => BackupDb::class,
+                'label' => 'Backup database (full)',
+                'parameters' => [],
+            ],
+            [
+                'name' => BackupDbPredictions::class,
+                'label' => 'Backup predictions database',
+                'parameters' => [],
+            ],
+            [
+                'name' => BackupDbIdsm::class,
+                'label' => 'Backup database (IDSM, weekly)',
+                'parameters' => [],
             ],
         ];
 
@@ -128,11 +147,32 @@ class RunDailyCommands extends Command
             $this->summaryLog($results, $startedAt, $finishedAt)
         );
 
+        $successful = collect($results)->every(fn (array $result): bool => $result['successful']);
+        $failedCommands = collect($results)
+            ->reject(fn (array $result): bool => $result['successful'])
+            ->pluck('label')
+            ->values()
+            ->all();
+
+        $activityLogger->log(
+            event: $successful ? 'daily_maintenance_completed' : 'daily_maintenance_failed',
+            description: $successful
+                ? 'Daily maintenance completed successfully.'
+                : 'Daily maintenance finished with one or more failed commands.',
+            properties: [
+                'commands' => count($results),
+                'failed_commands' => $failedCommands,
+                'duration_seconds' => $startedAt->diffInSeconds($finishedAt),
+                'summary_log' => $logDirectory.'/summary.log',
+            ],
+            severity: $successful
+                ? SystemActivityLogger::SEVERITY_INFO
+                : SystemActivityLogger::SEVERITY_ERROR,
+        );
+
         $this->sendSummaryEmail($results, $startedAt, $finishedAt);
 
-        return collect($results)->every(fn (array $result): bool => $result['successful'])
-            ? Command::SUCCESS
-            : Command::FAILURE;
+        return $successful ? Command::SUCCESS : Command::FAILURE;
     }
 
     private function prepareLogDirectory(CarbonInterface $startedAt): string
