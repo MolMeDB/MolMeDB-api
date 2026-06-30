@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureEmailIsVerified;
+use App\Http\Middleware\NormalizeLivewireUploadUrl;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -35,6 +36,9 @@ return Application::configure(basePath: dirname(__DIR__))
         );
         $middleware->api(prepend: [
             EnsureFrontendRequestsAreStateful::class,
+        ]);
+        $middleware->web(prepend: [
+            NormalizeLivewireUploadUrl::class,
         ]);
 
         $middleware->alias([
