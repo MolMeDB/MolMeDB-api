@@ -1,20 +1,48 @@
 services:
   web:
-    image: nginx:alpine
+    image: molmedb-nginx
+    build:
+      context: .
+      dockerfile: ./docker/production/nginx/Dockerfile
+      target: production
     container_name: molmedb-nginx
     restart: unless-stopped
     volumes:
-     - ./:/var/www
-     - molmedb-storage-production:/var/www/storage
-     - ./docker/production/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./storage:/var/www/storage
     tty: true
     ports:
       - "8443:443"
     networks:
       - molmedb-network
     depends_on:
-      - app
-        # condition: service_healthy 
+      app:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
+
+  # One-shot setup step: ./storage is a host bind-mount, so it can be empty on
+  # a fresh host and silently shadow whatever directory structure the image
+  # creates at build time. Every other service waits for this to finish
+  # successfully before starting, regardless of whether it goes through
+  # entrypoint.sh (the worker services bypass it via entrypoint: []).
+  storage-init:
+    image: molmedb-backend
+    container_name: molmedb-storage-init
+    user: "root"
+    entrypoint: []
+    command:
+      - sh
+      - -c
+      - |
+        mkdir -p storage/app/public storage/framework/cache storage/framework/sessions storage/framework/views storage/logs
+        chown -R www-data:www-data storage
+        chmod -R 775 storage
+    working_dir: /var/www
+    volumes:
+      - ./storage:/var/www/storage
+    networks:
+      - molmedb-network
+    restart: "no"
 
   app:
     image: molmedb-backend
@@ -26,8 +54,7 @@ services:
     restart: unless-stopped
     container_name: molmedb-backend
     volumes:
-      - ./:/var/www
-      - molmedb-storage-production:/var/www/storage
+      - ./storage:/var/www/storage
     env_file:
       - .env
     environment:
@@ -52,6 +79,8 @@ services:
         condition: service_healthy
       db-predictions:
         condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
 
   app-scheduler-worker:
     image: molmedb-backend 
@@ -70,8 +99,7 @@ services:
       - REDIS_HOST=redis
     working_dir: /var/www
     volumes:
-      - ./:/var/www
-      - molmedb-storage-production:/var/www/storage
+      - ./storage:/var/www/storage
     networks:
       - molmedb-network
     depends_on:
@@ -85,6 +113,8 @@ services:
         condition: service_healthy
       rdkit:
         condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
     entrypoint: []
     command: ["php", "artisan", "schedule:work"]
     restart: unless-stopped 
@@ -106,8 +136,7 @@ services:
       - REDIS_HOST=redis
     working_dir: /var/www
     volumes:
-      - ./:/var/www
-      - molmedb-storage-production:/var/www/storage
+      - ./storage:/var/www/storage
     networks:
       - molmedb-network
     depends_on:
@@ -119,6 +148,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
     entrypoint: []
     command: ["php", "artisan", "queue:work", "--queue=upload,default", "--sleep=3", "--tries=3", "--timeout=1800", "--memory=512"]
     restart: unless-stopped
@@ -140,7 +171,7 @@ services:
       - REDIS_HOST=redis
     working_dir: /var/www
     volumes:
-      - ./:/var/www
+      - ./storage:/var/www/storage
     networks:
       - molmedb-network
     depends_on:
@@ -152,6 +183,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
     entrypoint: []
     command: ["php", "artisan", "queue:work", "--queue=predictions", "--sleep=5", "--tries=1", "--timeout=150", "--memory=256"]
     restart: unless-stopped
@@ -159,7 +192,7 @@ services:
   # frontend:
   #   container_name: molmedb-frontend
   #   build:
-  #     context: ./frontend/src
+  #     context: ./frontend
   #     dockerfile: ../../docker/production/frontend/Dockerfile
   #   restart: unless-stopped
   #   networks:
@@ -282,7 +315,6 @@ services:
 
 
 volumes:
-  molmedb-storage-production:
   molmedb-db:
   molmedb-predictions-db:
   molmedb-redis:

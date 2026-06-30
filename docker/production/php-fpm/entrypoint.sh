@@ -15,27 +15,25 @@ set -e
 # Remove storage-init directory
 rm -rf /var/www/storage-init
 
-rm -f bootstrap/cache/*.php
-
-php artisan config:clear
-
 # Run Laravel migrations
 # -----------------------------------------------------------
 # Ensure the database schema is up to date.
 # -----------------------------------------------------------
-php artisan migrate --force
+if [ "${1:-}" = "php-fpm" ]; then
+    php artisan config:clear
 
-php artisan config:clear && php artisan cache:clear && php artisan route:clear && php artisan view:clear && php artisan optimize:clear
+    php artisan migrate --force
 
-php artisan storage:link --silent
+    php artisan config:clear && php artisan cache:clear && php artisan route:clear && php artisan view:clear && php artisan optimize:clear
 
-# php artisan key:generate --silent
+    php artisan storage:link --silent
 
-# Clear and cache configurations
-# -----------------------------------------------------------
-# Improves performance by caching config and routes.
-# -----------------------------------------------------------
-php artisan optimize
+    # Clear and cache configurations
+    # -----------------------------------------------------------
+    # Improves performance by caching config and routes.
+    # -----------------------------------------------------------
+    php artisan optimize
+fi
 
 # Run the default command
 exec "$@"
