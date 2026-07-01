@@ -10,15 +10,13 @@ import CompoundSimilarEntries from "./section/similarEntries";
 import CompoundActiveInteractions from "./section/interactionActive";
 import CompoundPassiveInteractions from "./section/interactionPassive";
 import IStructure from "@/lib/api/admin/interfaces/Structure";
-import { getViewData } from "@/lib/api/frontend";
-
-export const revalidate = 3600;
+import { getJson } from "@/lib/api/admin";
 
 export default async function CompoundDetailPage(props: {
   params: Promise<{ id: string }>;
 }) {
   const id = (await props.params).id;
-  const compound: IStructure = (await getViewData(`/structure/${id}`))?.data
+  const compound: IStructure = (await getJson(`/api/structure/${id}`, {}, { auth: false, revalidate: 3600 }))?.data
     ?.data;
 
   if (!compound) {

@@ -111,7 +111,7 @@ export default function UiTable<TData>(props: {
   const handle401 = useHandle401();
 
   let list = useAsyncList({
-    async load({ signal }) {
+    async load() {
       try {
         setIsLoading(true);
         props.onTotalItemsChange?.(0);
@@ -128,7 +128,6 @@ export default function UiTable<TData>(props: {
             )?.sortKey,
             sortByDirection: sortBy.direction === "ascending" ? "asc" : "desc",
           },
-          signal,
         );
 
         if(response?.code === 401) {

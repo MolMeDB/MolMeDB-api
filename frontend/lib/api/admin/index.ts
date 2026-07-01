@@ -465,6 +465,12 @@ function handleBackendException(
   };
 }
 
+type GetOptions = {
+  signal?: AbortSignal;
+  revalidate?: number;
+  auth?: boolean;
+};
+
 async function _get(
   uri: string,
   data:
@@ -472,13 +478,10 @@ async function _get(
     | {
         [key: string]: Set<string | number>;
       } = {},
-  signal?: AbortSignal,
+  options: GetOptions = {},
 ) {
-  const cks = await Cookies();
+  const { signal, revalidate, auth = true } = options;
 
-  const SESSION = cks.get(FE_SESSION_KEY)?.value as string;
-  const XSRF_TOKEN = cks.get(XSRF_KEY)?.value as string;
-  const REMEMBER_COOKIES = rememberCookiesHeader(cks);
   const proxyHeaders = await forwardedHeaders();
 
   let queryString = data;
@@ -490,6 +493,16 @@ async function _get(
 
   logger.info(`GET ${baseUrl}${uri}`);
 
+  const authHeaders: Record<string, string> = {};
+  if (auth) {
+    const cks = await Cookies();
+    const SESSION = cks.get(FE_SESSION_KEY)?.value as string;
+    const XSRF_TOKEN = cks.get(XSRF_KEY)?.value as string;
+    const REMEMBER_COOKIES = rememberCookiesHeader(cks);
+    authHeaders["Cookie"] = backendCookieHeader(XSRF_TOKEN, SESSION, REMEMBER_COOKIES);
+    authHeaders["X-XSRF-TOKEN"] = XSRF_TOKEN;
+  }
+
   let result: Response;
   try {
     result = await fetch(`${baseUrl}${uri}`, {
@@ -499,10 +512,11 @@ async function _get(
         "Content-Type": "application/json",
         Accept: "application/json",
         Referer: process.env.FRONTEND_URL as string,
-        Cookie: backendCookieHeader(XSRF_TOKEN, SESSION, REMEMBER_COOKIES),
-        "X-XSRF-TOKEN": XSRF_TOKEN,
+        ...authHeaders,
         ...proxyHeaders,
       },
+      signal,
+      ...(revalidate !== undefined ? { next: { revalidate } } : {}),
     });
   } catch (e) {
     logger.error(`GET ${uri} fetch failed`, e);
@@ -511,12 +525,13 @@ async function _get(
 
   logger.info(`GET ${uri} →`, result.status);
 
-  if (result.status == 419) {
-    logger.warn(`GET ${uri} → 419 CSRF mismatch, will retry after refresh`);
-    return false;
+  if (auth) {
+    if (result.status == 419) {
+      logger.warn(`GET ${uri} → 419 CSRF mismatch, will retry after refresh`);
+      return false;
+    }
+    await updateCookies(result);
   }
-
-  await updateCookies(result);
 
   return result;
 }
@@ -528,14 +543,18 @@ export async function get(
     | {
         [key: string]: Set<string | number>;
       } = {},
-  signal?: AbortSignal,
+  options: GetOptions = {},
 ) {
   "use server";
-  let result = await _get(uri, data, signal);
+  if (options.auth === false) {
+    return _get(uri, data, options);
+  }
+
+  let result = await _get(uri, data, options);
   if (result === false) {
     logger.info(`GET ${uri} — retrying after CSRF refresh`);
     await refreshCSRF();
-    result = await _get(uri, data, signal);
+    result = await _get(uri, data, options);
     if (result === false) {
       logger.error(`GET ${uri} — CSRF refresh did not help, aborting`);
       throw new Error("Cannot refresh CSRF.");
@@ -547,13 +566,13 @@ export async function get(
 export async function getJson(
   uri: string,
   data = {},
-  signal?: AbortSignal,
+  options: GetOptions = {},
 ): Promise<HttpJsonResponse | null> {
-  const result = await get(uri, data, signal);
+  const result = await get(uri, data, options);
 
   try {
-    const json = await result.json();
-    const response = handleBackendException(json, result);
+    const json = await (result as Response).json();
+    const response = handleBackendException(json, result as Response);
     if (response.code >= 400) {
       logger.error(`GET ${uri} — error response`, response.code, response.message ?? response.errors);
     }
