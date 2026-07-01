@@ -544,10 +544,10 @@ export async function get(
         [key: string]: Set<string | number>;
       } = {},
   options: GetOptions = {},
-) {
+): Promise<Response> {
   "use server";
   if (options.auth === false) {
-    return _get(uri, data, options);
+    return _get(uri, data, options) as Promise<Response>;
   }
 
   let result = await _get(uri, data, options);
@@ -571,8 +571,8 @@ export async function getJson(
   const result = await get(uri, data, options);
 
   try {
-    const json = await (result as Response).json();
-    const response = handleBackendException(json, result as Response);
+    const json = await result.json();
+    const response = handleBackendException(json, result);
     if (response.code >= 400) {
       logger.error(`GET ${uri} — error response`, response.code, response.message ?? response.errors);
     }
