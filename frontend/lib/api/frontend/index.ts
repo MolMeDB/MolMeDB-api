@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import HttpJsonResponse from "../admin/interfaces/http/jsonResponse";
 import logger from "@/lib/logger";
 
-const DOMAIN = process.env.FRONTEND_URL as string;
+const DOMAIN = (process.env.NEXT_SELF_URL ?? process.env.FRONTEND_URL) as string;
 const XSRF_KEY = process.env.COOKIES_BACKEND_XSRF_KEY as string;
 const FE_SESSION_KEY = process.env.COOKIES_FRONTEND_SESSION_KEY as string;
 
