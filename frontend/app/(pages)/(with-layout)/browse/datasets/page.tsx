@@ -4,6 +4,8 @@ import SiteFooter from "@/components/_core/layout/SiteFooter";
 import { FaMagnifyingGlass } from "react-icons/fa6";
 import SectionWrapper from "./section/wrapper";
 
+export const revalidate = 3600;
+
 export default async function BrowseDatasetsPage() {
   // const publications: FilteredResponse<IPublication> = (
   //   await getViewData(`/publication`)

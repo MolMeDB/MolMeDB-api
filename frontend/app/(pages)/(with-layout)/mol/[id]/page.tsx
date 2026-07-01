@@ -12,6 +12,8 @@ import CompoundPassiveInteractions from "./section/interactionPassive";
 import IStructure from "@/lib/api/admin/interfaces/Structure";
 import { getViewData } from "@/lib/api/frontend";
 
+export const revalidate = 3600;
+
 export default async function CompoundDetailPage(props: {
   params: Promise<{ id: string }>;
 }) {
