@@ -1,6 +1,7 @@
 "use server";
 import { cookies as Cookies } from "next/headers";
 import { headers as Headers } from "next/headers";
+import logger from "@/lib/logger";
 import { DEFAULT_COOKIES_CONFIG } from "../cookies";
 import { ResponseCookie } from "next/dist/compiled/@edge-runtime/cookies";
 import { selectedValuesToSearchParamsString } from "@/utils/searchParams";
@@ -225,19 +226,24 @@ async function updateCookies(res: Response): Promise<BackendCookies | null> {
 }
 
 async function refreshCSRF() {
-  console.log("Refreshing CSRF");
+  logger.info("Refreshing CSRF token", `${baseUrl}/sanctum/csrf-cookie`);
   const proxyHeaders = await forwardedHeaders();
-  const res = await fetch(`${baseUrl}/sanctum/csrf-cookie`, {
-    method: "GET",
-    credentials: "include",
-    headers: {
-      Accept: "application/json",
-      Referer: process.env.FRONTEND_URL as string,
-      ...proxyHeaders,
-    },
-  });
-
-  return await updateCookies(res);
+  try {
+    const res = await fetch(`${baseUrl}/sanctum/csrf-cookie`, {
+      method: "GET",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        Referer: process.env.FRONTEND_URL as string,
+        ...proxyHeaders,
+      },
+    });
+    logger.info("CSRF response", res.status);
+    return await updateCookies(res);
+  } catch (e) {
+    logger.error("CSRF refresh failed", e);
+    throw e;
+  }
 }
 
 async function _post(
@@ -255,26 +261,32 @@ async function _post(
   const REMEMBER_COOKIES = rememberCookiesHeader(cks);
   const proxyHeaders = await forwardedHeaders();
 
-  // console.log("POST", uri);
-  // console.log("COOK", SESSION);
-  // console.log("COOK2", XSRF_TOKEN);
+  logger.info(`${method} ${baseUrl}${uri}`);
 
-  // Přidáme credentials a X-XSRF-TOKEN
-  const result = await fetch(`${baseUrl}${uri}`, {
-    method,
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      Referer: process.env.FRONTEND_URL as string,
-      Cookie: backendCookieHeader(XSRF_TOKEN, SESSION, REMEMBER_COOKIES),
-      "X-XSRF-TOKEN": XSRF_HEADER,
-      ...proxyHeaders,
-    },
-    body: JSON.stringify(data),
-  });
+  let result: Response;
+  try {
+    result = await fetch(`${baseUrl}${uri}`, {
+      method,
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Referer: process.env.FRONTEND_URL as string,
+        Cookie: backendCookieHeader(XSRF_TOKEN, SESSION, REMEMBER_COOKIES),
+        "X-XSRF-TOKEN": XSRF_HEADER,
+        ...proxyHeaders,
+      },
+      body: JSON.stringify(data),
+    });
+  } catch (e) {
+    logger.error(`${method} ${uri} fetch failed`, e);
+    throw e;
+  }
+
+  logger.info(`${method} ${uri} →`, result.status);
 
   if (result.status == 419) {
+    logger.warn(`${method} ${uri} → 419 CSRF mismatch, will retry after refresh`);
     return false;
   }
 
@@ -298,20 +310,31 @@ async function _postForm(
   const REMEMBER_COOKIES = rememberCookiesHeader(cks);
   const proxyHeaders = await forwardedHeaders();
 
-  const result = await fetch(`${baseUrl}${uri}`, {
-    method,
-    credentials: "include",
-    headers: {
-      Accept: "application/json",
-      Referer: process.env.FRONTEND_URL as string,
-      Cookie: backendCookieHeader(XSRF_TOKEN, SESSION, REMEMBER_COOKIES),
-      "X-XSRF-TOKEN": XSRF_HEADER,
-      ...proxyHeaders,
-    },
-    body: data,
-  });
+  logger.info(`${method} (form) ${baseUrl}${uri}`);
+
+  let result: Response;
+  try {
+    result = await fetch(`${baseUrl}${uri}`, {
+      method,
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        Referer: process.env.FRONTEND_URL as string,
+        Cookie: backendCookieHeader(XSRF_TOKEN, SESSION, REMEMBER_COOKIES),
+        "X-XSRF-TOKEN": XSRF_HEADER,
+        ...proxyHeaders,
+      },
+      body: data,
+    });
+  } catch (e) {
+    logger.error(`${method} (form) ${uri} fetch failed`, e);
+    throw e;
+  }
+
+  logger.info(`${method} (form) ${uri} →`, result.status);
 
   if (result.status == 419) {
+    logger.warn(`${method} (form) ${uri} → 419 CSRF mismatch, will retry after refresh`);
     return false;
   }
 
@@ -323,12 +346,12 @@ async function _postForm(
 export async function post(uri: string, data = {}, method = "POST") {
   let result = await _post(uri, data, method);
   if (result === false) {
-    // refresh CSRF
+    logger.info(`${method} ${uri} — retrying after CSRF refresh`);
     const backendCookies = await refreshCSRF();
     result = await _post(uri, data, method, backendCookies);
     if (result === false) {
-      // Cannot refresch CSRF? Error!
-      throw new Error("Cannot refresh CSRF."); // TODO RemoteServerError?
+      logger.error(`${method} ${uri} — CSRF refresh did not help, aborting`);
+      throw new Error("Cannot refresh CSRF.");
     }
   }
   return result;
@@ -341,9 +364,11 @@ export async function postForm(
 ) {
   let result = await _postForm(uri, data, method);
   if (result === false) {
+    logger.info(`${method} (form) ${uri} — retrying after CSRF refresh`);
     const backendCookies = await refreshCSRF();
     result = await _postForm(uri, data, method, backendCookies);
     if (result === false) {
+      logger.error(`${method} (form) ${uri} — CSRF refresh did not help, aborting`);
       throw new Error("Cannot refresh CSRF.");
     }
   }
@@ -363,9 +388,14 @@ export async function postJson(
         data: null,
       };
     }
-    return handleBackendException(await result.json(), result);
+    const json = await result.json();
+    const response = handleBackendException(json, result);
+    if (response.code >= 400) {
+      logger.error(`POST ${uri} — error response`, response.code, response.message ?? response.errors);
+    }
+    return response;
   } catch (e) {
-    console.error(e);
+    logger.error(`POST ${uri} — failed to parse response`, e);
     return null;
   }
 }
@@ -383,9 +413,14 @@ export async function deleteJson(
         data: null,
       };
     }
-    return handleBackendException(await result.json(), result);
+    const json = await result.json();
+    const response = handleBackendException(json, result);
+    if (response.code >= 400) {
+      logger.error(`DELETE ${uri} — error response`, response.code, response.message ?? response.errors);
+    }
+    return response;
   } catch (e) {
-    console.error(e);
+    logger.error(`DELETE ${uri} — failed to parse response`, e);
     return null;
   }
 }
@@ -445,17 +480,7 @@ async function _get(
   const XSRF_TOKEN = cks.get(XSRF_KEY)?.value as string;
   const REMEMBER_COOKIES = rememberCookiesHeader(cks);
   const proxyHeaders = await forwardedHeaders();
-  // Filter data
-  // data = Object.fromEntries(
-  //   Object.entries(data).filter(
-  //     ([_, value]) =>
-  //       value !== undefined &&
-  //       value !== "undefined" &&
-  //       value?.toString().trim() !== ""
-  //   )
-  // );
 
-  // Add params
   let queryString = data;
   if (data instanceof Object)
     queryString = selectedValuesToSearchParamsString(data);
@@ -463,23 +488,31 @@ async function _get(
     uri = `${uri}?${queryString}`;
   }
 
-  // console.log("TO BE", uri);
+  logger.info(`GET ${baseUrl}${uri}`);
 
-  // Přidáme credentials a X-XSRF-TOKEN
-  const result = await fetch(`${baseUrl}${uri}`, {
-    method: "get",
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      Referer: process.env.FRONTEND_URL as string,
-      Cookie: backendCookieHeader(XSRF_TOKEN, SESSION, REMEMBER_COOKIES),
-      "X-XSRF-TOKEN": XSRF_TOKEN,
-      ...proxyHeaders,
-    },
-  });
+  let result: Response;
+  try {
+    result = await fetch(`${baseUrl}${uri}`, {
+      method: "get",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Referer: process.env.FRONTEND_URL as string,
+        Cookie: backendCookieHeader(XSRF_TOKEN, SESSION, REMEMBER_COOKIES),
+        "X-XSRF-TOKEN": XSRF_TOKEN,
+        ...proxyHeaders,
+      },
+    });
+  } catch (e) {
+    logger.error(`GET ${uri} fetch failed`, e);
+    throw e;
+  }
+
+  logger.info(`GET ${uri} →`, result.status);
 
   if (result.status == 419) {
+    logger.warn(`GET ${uri} → 419 CSRF mismatch, will retry after refresh`);
     return false;
   }
 
@@ -500,13 +533,12 @@ export async function get(
   "use server";
   let result = await _get(uri, data, signal);
   if (result === false) {
-    // console.log("Repeating request");
-    // refresh CSRF
+    logger.info(`GET ${uri} — retrying after CSRF refresh`);
     await refreshCSRF();
     result = await _get(uri, data, signal);
     if (result === false) {
-      // Cannot refresch CSRF? Error!
-      throw new Error("Cannot refresh CSRF."); // TODO RemoteServerError?
+      logger.error(`GET ${uri} — CSRF refresh did not help, aborting`);
+      throw new Error("Cannot refresh CSRF.");
     }
   }
   return result;
@@ -520,8 +552,14 @@ export async function getJson(
   const result = await get(uri, data, signal);
 
   try {
-    return handleBackendException(await result.json(), result);
-  } catch {
+    const json = await result.json();
+    const response = handleBackendException(json, result);
+    if (response.code >= 400) {
+      logger.error(`GET ${uri} — error response`, response.code, response.message ?? response.errors);
+    }
+    return response;
+  } catch (e) {
+    logger.error(`GET ${uri} — failed to parse response`, e);
     return null;
   }
 }

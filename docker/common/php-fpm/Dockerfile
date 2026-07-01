@@ -80,8 +80,9 @@ RUN apt-get update && apt-get install -y \
     libicu-dev \
     libzip-dev \
     libfcgi-bin \
+    postgresql-client \
     nano \
-    procps 
+    procps
     
 RUN apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
