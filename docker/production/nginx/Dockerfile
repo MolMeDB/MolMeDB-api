@@ -9,6 +9,8 @@ FROM nginx:alpine AS production
 # -----------------------------------------------------------
 COPY ./docker/production/nginx/nginx.conf /etc/nginx/nginx.conf
 
+RUN mkdir -p /var/cache/nginx/fastcgi && chown -R nginx:nginx /var/cache/nginx
+
 # Nginx only needs Laravel's versioned public files. Application source and PHP
 # dependencies remain in the backend image.
 COPY public /var/www/public
