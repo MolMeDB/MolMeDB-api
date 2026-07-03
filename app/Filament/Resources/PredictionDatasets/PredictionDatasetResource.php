@@ -79,6 +79,13 @@ class PredictionDatasetResource extends Resource
                     ->hintColor('warning')
                     ->reactive()
                     ->required(),
+                Select::make('priority')
+                    ->label('Priority')
+                    ->options(Prediction::$enum_priorities)
+                    ->default(Prediction::PRIORITY_MEDIUM)
+                    ->required()
+                    ->hint('Changing priority will update all linked predictions to the highest priority across their datasets.')
+                    ->hintColor('warning'),
             ]);
     }
 
@@ -102,6 +109,16 @@ class PredictionDatasetResource extends Resource
                     ->tooltip(function (PredictionDataset $record) {
                         return $record->user?->name;
                     }),
+                TextColumn::make('priority')
+                    ->label('Priority')
+                    ->sortable()
+                    ->badge()
+                    ->color(fn (int $state): string => match ($state) {
+                        Prediction::PRIORITY_HIGH => 'danger',
+                        Prediction::PRIORITY_MEDIUM => 'warning',
+                        default => 'gray',
+                    })
+                    ->formatStateUsing(fn (int $state): string => Prediction::$enum_priorities[$state] ?? 'N/A'),
                 TextColumn::make('created_at')
                     ->since()
                     ->dateTimeTooltip()

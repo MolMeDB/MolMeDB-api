@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class PredictionDataset extends PredictionBaseModel
 {
@@ -17,6 +18,15 @@ class PredictionDataset extends PredictionBaseModel
     protected $attributes = [
         'priority' => Prediction::PRIORITY_MEDIUM,
     ];
+
+    protected static function booted(): void
+    {
+        static::updated(function (PredictionDataset $dataset) {
+            if ($dataset->wasChanged('priority')) {
+                $dataset->syncLinkedPredictionPriorities();
+            }
+        });
+    }
 
     const STATE_EMPTY = 0;
 
@@ -218,6 +228,30 @@ class PredictionDataset extends PredictionBaseModel
     public function membrane(): BelongsTo
     {
         return $this->predictionMembrane->membrane();
+    }
+
+    /**
+     * After this dataset's priority changes, update every linked prediction's priority
+     * to the maximum priority across all datasets it belongs to.
+     */
+    public function syncLinkedPredictionPriorities(): void
+    {
+        $connection = DB::connection($this->connection);
+
+        $connection->table('predictions')
+            ->whereIn('id',
+                $connection->table('prediction_has_datasets')
+                    ->where('dataset_id', $this->getKey())
+                    ->select('prediction_id'),
+            )
+            ->update([
+                'priority' => $connection->raw(
+                    '(SELECT COALESCE(MAX(d.priority), ' . Prediction::PRIORITY_MEDIUM . ')
+                      FROM datasets d
+                      JOIN prediction_has_datasets phd ON phd.dataset_id = d.id
+                      WHERE phd.prediction_id = predictions.id)'
+                ),
+            ]);
     }
 
     public function predictionStructures(): HasManyThrough
