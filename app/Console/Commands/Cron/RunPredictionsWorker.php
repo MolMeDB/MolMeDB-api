@@ -111,7 +111,7 @@ class RunPredictionsWorker extends Command
                 'submissions' => $this->option('skip-submit') ? null : $activation['submitted'],
                 'dispatched' => $this->option('skip-dispatch')
                     ? null
-                    : $this->dispatchStatusChecks($reconciliation['desired_ids']),
+                    : $this->dispatchStatusChecks(),
             ];
 
             $this->info(sprintf(
@@ -217,19 +217,18 @@ class RunPredictionsWorker extends Command
     }
 
     /**
-     * Dispatch a CheckPredictionStatus job for every selected active prediction.
-     * Unique queue jobs prevent duplicate checks for the same prediction.
-     *
-     * @param  int[]  $desiredIds
+     * Dispatch status checks for every active remote prediction, regardless
+     * of whether it is currently inside the priority execution window.
+     * Priority controls execution, never monitoring. Oldest checks go first
+     * so low-priority jobs cannot starve behind repeatedly checked rows.
      */
-    private function dispatchStatusChecks(array $desiredIds): int
+    private function dispatchStatusChecks(): int
     {
         $limit = max(1, (int) config('prediction-workers.remote.worker.max_active', 100));
         $statusIntervalSeconds = max(30, (int) config('prediction-workers.remote.worker.status_interval_seconds', 300));
         $dispatched = 0;
 
         Prediction::query()
-            ->whereIn('id', $desiredIds)
             ->whereNotNull('remote_calculation_id')
             ->whereNull('remote_paused_at')
             ->whereNull('result_id')
@@ -244,8 +243,9 @@ class RunPredictionsWorker extends Command
                     ->whereNull('remote_last_status_at')
                     ->orWhere('remote_last_status_at', '<=', now()->subSeconds($statusIntervalSeconds));
             })
-            ->orderByDesc('priority')
+            ->orderByRaw('CASE WHEN remote_last_status_at IS NULL THEN 0 ELSE 1 END')
             ->orderBy('remote_last_status_at')
+            ->orderByDesc('priority')
             ->orderBy('id')
             ->limit($limit)
             ->get()

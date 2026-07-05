@@ -1,8 +1,9 @@
 @php
     $record    = $getRecord();
-    $isRunning = $record->state === \Modules\PredictionWorkers\Models\Prediction::STATE_RUNNING;
+    $isPaused  = $record->remote_paused_at !== null;
+    $isRunning = ! $isPaused && $record->state === \Modules\PredictionWorkers\Models\Prediction::STATE_RUNNING;
 
-    $stateColor = match ((int) $record->state) {
+    $stateColor = $isPaused ? ['bg' => '#f3f4f6', 'text' => '#4b5563', 'dot' => '#9ca3af'] : match ((int) $record->state) {
         \Modules\PredictionWorkers\Models\Prediction::STATE_FINISHED => ['bg' => '#dcfce7', 'text' => '#166534', 'dot' => '#22c55e'],
         \Modules\PredictionWorkers\Models\Prediction::STATE_RUNNING  => ['bg' => '#fef9c3', 'text' => '#854d0e', 'dot' => '#eab308'],
         \Modules\PredictionWorkers\Models\Prediction::STATE_ERROR    => ['bg' => '#fee2e2', 'text' => '#991b1b', 'dot' => '#ef4444'],
@@ -10,6 +11,9 @@
         \Modules\PredictionWorkers\Models\Prediction::STATE_STOPPED  => ['bg' => '#f3f4f6', 'text' => '#4b5563', 'dot' => '#9ca3af'],
         default                                                        => ['bg' => '#eff6ff', 'text' => '#1e40af', 'dot' => '#3b82f6'],
     };
+    $stateLabel = $isPaused
+        ? 'Paused'
+        : \Modules\PredictionWorkers\Models\Prediction::enumState($record->state);
 
     // Remote step → human label & color (primary indicator when running)
     $remoteStepLabels = [
@@ -95,7 +99,7 @@
                      background:{{ $stateColor['bg'] }}; color:{{ $stateColor['text'] }};">
             <span style="width:7px; height:7px; border-radius:50%; background:{{ $stateColor['dot'] }};
                          flex-shrink:0;"></span>
-            {{ \Modules\PredictionWorkers\Models\Prediction::enumState($record->state) }}
+            {{ $stateLabel }}
         </span>
     </div>
 
