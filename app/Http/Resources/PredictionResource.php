@@ -42,6 +42,8 @@ class PredictionResource extends JsonResource
             'remote_calculation_id' => $this->remote_calculation_id,
             'remote_molecule_id' => $this->remote_molecule_id,
             'remote_status' => $this->remote_status,
+            'remote_paused_at' => $this->remote_paused_at?->format('Y/m/d H:i:s'),
+            'remote_pause_reason' => $this->remote_pause_reason,
             'enum_remote_status' => Prediction::enumRemoteStatus($this->remote_status),
             'remote_current_step' => $this->remote_current_step,
             'remote_heartbeat_at' => $this->remote_heartbeat_at?->format('Y/m/d H:i:s'),

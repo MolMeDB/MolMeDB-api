@@ -212,6 +212,7 @@ class Prediction extends PredictionBaseModel
             'remote_heartbeat_at' => 'datetime',
             'remote_last_status_at' => 'datetime',
             'remote_finished_at' => 'datetime',
+            'remote_paused_at' => 'datetime',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
         ];
@@ -571,6 +572,11 @@ class Prediction extends PredictionBaseModel
         ?RemotePredictionClient $client = null,
     ): RemotePredictionJobSnapshot {
         $snapshot = $this->remotePredictionStatus($eventsLimit, $client);
+        $this->refresh();
+
+        if ($this->remote_paused_at !== null) {
+            return $snapshot;
+        }
         $calculation = filled($this->remote_calculation_id)
             ? $snapshot->calculationById((string) $this->remote_calculation_id)
             : null;

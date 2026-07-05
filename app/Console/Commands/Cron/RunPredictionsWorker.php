@@ -9,6 +9,8 @@ use App\Services\NotificationService;
 use App\Services\PredictionSubmissionStructureValidator;
 use App\Services\SystemActivityLogger;
 use Illuminate\Console\Command;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Modules\PredictionWorkers\Enums\RemotePredictionStatus;
 use Modules\PredictionWorkers\Exceptions\RemotePredictionDisabledException;
@@ -28,12 +30,15 @@ class RunPredictionsWorker extends Command
 
     private int $rejectedStructures = 0;
 
+    private int $reconciliationErrors = 0;
+
     protected $signature = 'cron:predictions-worker
         {--max-results= : Maximum completed prediction results to download}
         {--max-submit= : Maximum new predictions to submit}
         {--skip-stats : Do not fetch remote server statistics}
         {--skip-results : Do not download completed prediction results}
         {--skip-submit : Do not submit prepared predictions}
+        {--skip-reconcile : Do not reconcile the local priority window with the remote queue}
         {--skip-dispatch : Do not dispatch queue jobs for running predictions}';
 
     protected $description = 'Fetch remote statistics, submit prepared predictions, download completed results, and dispatch queue jobs for running status checks.';
@@ -76,13 +81,38 @@ class RunPredictionsWorker extends Command
                 return Command::FAILURE;
             }
 
+            $maxActive = max(1, (int) config('prediction-workers.remote.worker.max_active', 100));
+            $activationLimit = $this->option('skip-submit')
+                ? 0
+                : $this->integerOption(
+                    'max-submit',
+                    (int) config('prediction-workers.remote.worker.max_submissions', 5),
+                );
+            $reconciliation = $this->option('skip-reconcile')
+                ? $this->workingSetWithoutReconciliation($maxActive)
+                : $this->reconcileRemoteWorkingSet(
+                    $client,
+                    $activityLogger,
+                    $maxActive,
+                    $activationLimit,
+                );
+            $remainingActivationLimit = max(0, $activationLimit - $reconciliation['resumed']);
+
             $results = [
                 'stats' => $this->option('skip-stats') ? null : $this->refreshStatistics($client),
+                'reconciliation' => $reconciliation,
                 'downloads' => $this->option('skip-results') ? null : $this->downloadCompletedResults($client),
                 'submissions' => $this->option('skip-submit')
                     ? null
-                    : $this->submitPreparedPredictions($client, $structureValidator),
-                'dispatched' => $this->option('skip-dispatch') ? null : $this->dispatchStatusChecks(),
+                    : $this->submitPreparedPredictions(
+                        $client,
+                        $structureValidator,
+                        $reconciliation['desired_ids'],
+                        $remainingActivationLimit,
+                    ),
+                'dispatched' => $this->option('skip-dispatch')
+                    ? null
+                    : $this->dispatchStatusChecks($reconciliation['desired_ids']),
             ];
 
             $this->info(sprintf(
@@ -96,6 +126,7 @@ class RunPredictionsWorker extends Command
             $errorCount = $this->statisticsErrors
                 + $this->downloadErrors
                 + $this->submissionErrors
+                + $this->reconciliationErrors
                 + $this->rejectedStructures;
             $processedCount = ($results['submissions'] ?? 0) + ($results['downloads'] ?? 0);
 
@@ -114,6 +145,7 @@ class RunPredictionsWorker extends Command
                     'statistics_errors' => $this->statisticsErrors,
                     'download_errors' => $this->downloadErrors,
                     'submission_errors' => $this->submissionErrors,
+                    'reconciliation_errors' => $this->reconciliationErrors,
                     'rejected_structures' => $this->rejectedStructures,
                 ];
 
@@ -158,17 +190,21 @@ class RunPredictionsWorker extends Command
     }
 
     /**
-     * Dispatch a CheckPredictionStatus job for every actively running prediction.
+     * Dispatch a CheckPredictionStatus job for every selected active prediction.
      * Unique queue jobs prevent duplicate checks for the same prediction.
+     *
+     * @param  int[]  $desiredIds
      */
-    private function dispatchStatusChecks(): int
+    private function dispatchStatusChecks(array $desiredIds): int
     {
         $limit = max(1, (int) config('prediction-workers.remote.worker.max_active', 100));
         $statusIntervalSeconds = max(30, (int) config('prediction-workers.remote.worker.status_interval_seconds', 300));
         $dispatched = 0;
 
         Prediction::query()
+            ->whereIn('id', $desiredIds)
             ->whereNotNull('remote_calculation_id')
+            ->whereNull('remote_paused_at')
             ->whereNull('result_id')
             ->whereNotIn('state', Prediction::failedStates())
             ->where(function ($query): void {
@@ -244,14 +280,13 @@ class RunPredictionsWorker extends Command
     private function submitPreparedPredictions(
         RemotePredictionClient $client,
         PredictionSubmissionStructureValidator $structureValidator,
+        array $desiredIds,
+        int $requestedLimit,
     ): int {
-        $requestedLimit = $this->integerOption(
-            'max-submit',
-            (int) config('prediction-workers.remote.worker.max_submissions', 5),
-        );
         $maxActive = max(1, (int) config('prediction-workers.remote.worker.max_active', 100));
         $active = Prediction::query()
             ->whereNotNull('remote_calculation_id')
+            ->whereNull('remote_paused_at')
             ->whereNull('result_id')
             ->whereNotIn('state', Prediction::failedStates())
             ->where(function ($query): void {
@@ -270,6 +305,7 @@ class RunPredictionsWorker extends Command
 
         Prediction::query()
             ->with('predictionStructure')
+            ->whereIn('id', $desiredIds)
             ->whereNull('remote_calculation_id')
             ->whereNull('result_id')
             ->where('state', Prediction::STATE_PREPARED)
@@ -306,6 +342,301 @@ class RunPredictionsWorker extends Command
             });
 
         return $submitted;
+    }
+
+    /**
+     * @return array{desired_ids: int[], paused: int, resumed: int, shared_molecule_skips: int}
+     */
+    private function reconcileRemoteWorkingSet(
+        RemotePredictionClient $client,
+        SystemActivityLogger $activityLogger,
+        int $maxActive,
+        int $resumeLimit,
+    ): array {
+        $submitted = $this->submittedWorkingSetCandidates();
+        $terminalPredictionIds = $this->remoteTerminalPredictionIds($submitted, $client);
+
+        if ($terminalPredictionIds === null) {
+            return $this->workingSetWithoutReconciliation($maxActive);
+        }
+
+        $desired = $this->workingSetCandidates()
+            ->when(
+                $terminalPredictionIds !== [],
+                fn (Builder $query): Builder => $query->whereNotIn('id', $terminalPredictionIds),
+            )
+            ->limit($maxActive)
+            ->get();
+        $desiredIds = $desired->modelKeys();
+        $desiredStructureIds = $desired->pluck('structure_id')->unique()->all();
+        $active = $submitted
+            ->whereNull('remote_paused_at')
+            ->reject(fn (Prediction $prediction): bool => in_array($prediction->getKey(), $terminalPredictionIds, true));
+        $outsideWindow = $active->whereNotIn('id', $desiredIds);
+        $pausable = $outsideWindow->whereNotIn('structure_id', $desiredStructureIds);
+        $sharedMoleculeSkips = $outsideWindow->count() - $pausable->count();
+        $paused = $this->pausePredictions($pausable, $client);
+        $resumed = $this->resumeDesiredPredictions($desired, $client, $resumeLimit);
+
+        if ($paused > 0 || $resumed > 0 || $sharedMoleculeSkips > 0 || $this->reconciliationErrors > 0) {
+            $activityLogger->log(
+                event: 'prediction_remote_working_set_reconciled',
+                description: 'Remote prediction queue reconciled with the current priority window.',
+                properties: [
+                    'desired' => count($desiredIds),
+                    'active_before' => $active->count(),
+                    'paused' => $paused,
+                    'resumed' => $resumed,
+                    'shared_molecule_skips' => $sharedMoleculeSkips,
+                    'errors' => $this->reconciliationErrors,
+                ],
+            );
+        }
+
+        return [
+            'desired_ids' => $desiredIds,
+            'paused' => $paused,
+            'resumed' => $resumed,
+            'shared_molecule_skips' => $sharedMoleculeSkips,
+        ];
+    }
+
+    /**
+     * @return array{desired_ids: int[], paused: int, resumed: int, shared_molecule_skips: int}
+     */
+    private function workingSetWithoutReconciliation(int $maxActive): array
+    {
+        return [
+            'desired_ids' => $this->workingSetCandidates()->limit($maxActive)->pluck('id')->all(),
+            'paused' => 0,
+            'resumed' => 0,
+            'shared_molecule_skips' => 0,
+        ];
+    }
+
+    private function workingSetCandidates(): Builder
+    {
+        return Prediction::query()
+            ->with('predictionStructure')
+            ->whereNull('result_id')
+            ->whereNotIn('state', [...Prediction::failedStates(), Prediction::STATE_FINISHED])
+            ->whereIn('method_type', array_keys(Prediction::remotePredictionMethodOptions()))
+            ->where(function (Builder $query): void {
+                $query
+                    ->where(function (Builder $query): void {
+                        $query
+                            ->whereNull('remote_calculation_id')
+                            ->where('state', Prediction::STATE_PREPARED);
+                    })
+                    ->orWhere(function (Builder $query): void {
+                        $query
+                            ->whereNotNull('remote_calculation_id')
+                            ->where(function (Builder $query): void {
+                                $query
+                                    ->whereNull('remote_status')
+                                    ->orWhereIn('remote_status', Prediction::activeRemoteStatuses());
+                            });
+                    });
+            })
+            ->orderByDesc('priority')
+            ->orderBy('created_at')
+            ->orderBy('id');
+    }
+
+    private function submittedWorkingSetCandidates(): Collection
+    {
+        return Prediction::query()
+            ->with('predictionStructure')
+            ->whereNotNull('remote_calculation_id')
+            ->whereNull('result_id')
+            ->whereNotIn('state', [...Prediction::failedStates(), Prediction::STATE_FINISHED])
+            ->where(function (Builder $query): void {
+                $query
+                    ->whereNull('remote_status')
+                    ->orWhereIn('remote_status', Prediction::activeRemoteStatuses());
+            })
+            ->get();
+    }
+
+    /**
+     * @return int[]|null
+     */
+    private function remoteTerminalPredictionIds(Collection $submitted, RemotePredictionClient $client): ?array
+    {
+        $predictionsByCalculationId = $submitted->keyBy('remote_calculation_id');
+        $terminalPredictionIds = [];
+
+        foreach ($predictionsByCalculationId->keys()->chunk(500) as $calculationIds) {
+            try {
+                $client->calculationStatuses($calculationIds->all())
+                    ->each(function ($calculation) use ($predictionsByCalculationId, &$terminalPredictionIds): void {
+                        $status = $calculation->status instanceof RemotePredictionStatus
+                            ? $calculation->status->value
+                            : (string) $calculation->status;
+
+                        if (! in_array($status, [
+                            RemotePredictionStatus::COMPLETED->value,
+                            RemotePredictionStatus::FAILED->value,
+                        ], true)) {
+                            return;
+                        }
+
+                        $prediction = $predictionsByCalculationId->get($calculation->id);
+
+                        if ($prediction) {
+                            $prediction->forceFill([
+                                'remote_status' => $status,
+                                'remote_last_status_at' => now(),
+                                'remote_finished_at' => $calculation->finishedAt ?? now(),
+                                'remote_paused_at' => null,
+                                'remote_pause_reason' => null,
+                                'remote_error_message' => $status === RemotePredictionStatus::FAILED->value
+                                    ? $calculation->message
+                                    : null,
+                                'state' => $status === RemotePredictionStatus::FAILED->value
+                                    ? Prediction::STATE_ERROR
+                                    : Prediction::STATE_RUNNING,
+                                'step' => $status === RemotePredictionStatus::COMPLETED->value
+                                    ? Prediction::STEP_RESULT_DOWNLOAD
+                                    : $prediction->step,
+                            ])->save();
+                            $terminalPredictionIds[] = $prediction->getKey();
+                        }
+                    });
+            } catch (Throwable $throwable) {
+                $this->reconciliationErrors++;
+                $this->warn('Remote calculation status reconciliation failed: '.$throwable->getMessage());
+
+                return null;
+            }
+        }
+
+        return array_values(array_unique($terminalPredictionIds));
+    }
+
+    private function pausePredictions(Collection $predictions, RemotePredictionClient $client): int
+    {
+        $groups = $predictions->groupBy('structure_id');
+        $paused = 0;
+        $reason = 'Prediction priority changed; deferred outside the active priority window.';
+
+        foreach ($groups->chunk(1000) as $groupChunk) {
+            $representatives = $groupChunk->map->first()->filter();
+            $structureIds = $representatives->pluck('structure_id')->all();
+            $smilesByStructureId = $representatives->mapWithKeys(
+                fn (Prediction $prediction): array => [
+                    $prediction->structure_id => $prediction->predictionStructure->remotePredictionSmiles(),
+                ],
+            );
+
+            $predictionIdsToPause = Prediction::query()
+                ->whereIn('structure_id', $structureIds)
+                ->whereNotNull('remote_calculation_id')
+                ->whereNull('remote_paused_at')
+                ->whereNull('result_id')
+                ->whereNotIn('state', [...Prediction::failedStates(), Prediction::STATE_FINISHED])
+                ->where(function (Builder $query): void {
+                    $query
+                        ->whereNull('remote_status')
+                        ->orWhereIn('remote_status', Prediction::activeRemoteStatuses());
+                })
+                ->pluck('id');
+
+            Prediction::query()
+                ->whereIn('id', $predictionIdsToPause)
+                ->update([
+                    'remote_paused_at' => now(),
+                    'remote_pause_reason' => $reason,
+                ]);
+
+            try {
+                $response = $client->pauseJobs($smilesByStructureId->values()->all(), $reason, true);
+                $successfulSmiles = collect($response['results'] ?? [])
+                    ->filter(fn (mixed $result): bool => is_array($result)
+                        && in_array($result['status'] ?? null, ['paused', 'already_paused'], true))
+                    ->pluck('smiles')
+                    ->all();
+                $successfulStructureIds = $smilesByStructureId
+                    ->filter(fn (string $smiles): bool => in_array($smiles, $successfulSmiles, true))
+                    ->keys()
+                    ->all();
+                $failedStructureIds = array_values(array_diff($structureIds, $successfulStructureIds));
+
+                if ($failedStructureIds !== []) {
+                    Prediction::query()
+                        ->whereIn('id', $predictionIdsToPause)
+                        ->whereIn('structure_id', $failedStructureIds)
+                        ->update([
+                            'remote_paused_at' => null,
+                            'remote_pause_reason' => null,
+                        ]);
+                    $this->reconciliationErrors += count($failedStructureIds);
+                }
+
+                $successfullyPaused = Prediction::query()
+                    ->whereIn('id', $predictionIdsToPause)
+                    ->whereIn('structure_id', $successfulStructureIds)
+                    ->get();
+
+                $successfullyPaused->each(function (Prediction $prediction) use ($reason): void {
+                    $prediction->forceFill([
+                        'logs' => $prediction->logsWithWorkerEvent(
+                            $reason,
+                            ['priority' => $prediction->priority],
+                            'REMOTE PAUSE',
+                        ),
+                    ])->save();
+                });
+                $paused += $successfullyPaused->count();
+            } catch (Throwable $throwable) {
+                Prediction::query()
+                    ->whereIn('id', $predictionIdsToPause)
+                    ->update([
+                        'remote_paused_at' => null,
+                        'remote_pause_reason' => null,
+                    ]);
+                $this->reconciliationErrors += count($structureIds);
+                $this->warn('Remote prediction pause failed: '.$throwable->getMessage());
+            }
+        }
+
+        return $paused;
+    }
+
+    private function resumeDesiredPredictions(
+        Collection $desired,
+        RemotePredictionClient $client,
+        int $limit,
+    ): int {
+        if ($limit === 0) {
+            return 0;
+        }
+
+        $resumed = 0;
+
+        foreach ($desired->whereNotNull('remote_paused_at')->take($limit) as $prediction) {
+            try {
+                $prediction->submitAndStoreRemotePrediction(client: $client);
+                $prediction->forceFill([
+                    'remote_paused_at' => null,
+                    'remote_pause_reason' => null,
+                    'logs' => $prediction->logsWithWorkerEvent(
+                        'Remote prediction resumed after returning to the active priority window.',
+                        ['priority' => $prediction->priority],
+                        'REMOTE RESUME',
+                    ),
+                ])->save();
+                $resumed++;
+            } catch (Throwable $throwable) {
+                $this->reconciliationErrors++;
+                $prediction->forceFill([
+                    'remote_error_message' => $throwable->getMessage(),
+                ])->save();
+                $this->warn("Prediction {$prediction->getKey()} resume failed: {$throwable->getMessage()}");
+            }
+        }
+
+        return $resumed;
     }
 
     /**

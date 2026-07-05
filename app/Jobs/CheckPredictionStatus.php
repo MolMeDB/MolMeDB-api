@@ -96,6 +96,10 @@ class CheckPredictionStatus implements ShouldBeUnique, ShouldQueue
             return false;
         }
 
+        if ($prediction->remote_paused_at !== null) {
+            return false;
+        }
+
         if (in_array($prediction->remote_status, [
             RemotePredictionStatus::COMPLETED->value,
             RemotePredictionStatus::FAILED->value,

@@ -8,9 +8,11 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Modules\PredictionWorkers\DTO\RemotePrediction\RemotePredictionCalculation;
 use Modules\PredictionWorkers\DTO\RemotePrediction\RemotePredictionFile;
 use Modules\PredictionWorkers\DTO\RemotePrediction\RemotePredictionHealth;
 use Modules\PredictionWorkers\DTO\RemotePrediction\RemotePredictionJobSnapshot;
@@ -151,6 +153,42 @@ class RemotePredictionClient
                 'temperature_c' => $temperatureC,
             ], fn (mixed $value): bool => $value !== null)),
         );
+    }
+
+    /**
+     * @param  string[]  $calculationIds
+     * @return Collection<int, RemotePredictionCalculation>
+     */
+    public function calculationStatuses(array $calculationIds): Collection
+    {
+        if ($calculationIds === []) {
+            return collect();
+        }
+
+        $data = $this->jsonRequest('POST', '/calculations/status', [
+            'calculation_ids' => array_values(array_unique($calculationIds)),
+        ]);
+
+        return collect($data['calculations'] ?? [])
+            ->filter(fn (mixed $item): bool => is_array($item))
+            ->map(fn (array $item): RemotePredictionCalculation => RemotePredictionCalculation::fromArray($item))
+            ->values();
+    }
+
+    /**
+     * @param  string[]  $smiles
+     * @return array<string, mixed>
+     */
+    public function pauseJobs(
+        array $smiles,
+        string $reason,
+        bool $cancelRunning = true,
+    ): array {
+        return $this->jsonRequest('POST', '/jobs/pause', [
+            'smiles' => array_values(array_unique($smiles)),
+            'cancel_running' => $cancelRunning,
+            'reason' => $reason,
+        ]);
     }
 
     public function requeueJob(
