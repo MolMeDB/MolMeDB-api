@@ -2,6 +2,7 @@
 
 namespace Modules\PredictionWorkers\Models;
 
+use App\Models\File;
 use App\Models\Membrane;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -40,28 +41,22 @@ class PredictionMembrane extends PredictionBaseModel
 
     public function remotePredictionContent(): string
     {
-        $file = $this->file;
+        $missingFiles = [];
 
-        if ($file?->storage && $file->path) {
+        foreach ($this->remotePredictionDefinitionFiles() as $file) {
             $disk = Storage::disk($file->storage);
 
-            if (! $disk->exists($file->path)) {
-                throw new RuntimeException("Prediction membrane file [{$file->path}] does not exist.");
+            if ($disk->exists($file->path)) {
+                return $disk->get($file->path);
             }
 
-            return $disk->get($file->path);
+            $missingFiles[] = "{$file->storage}:{$file->path}";
         }
 
-        $cosmoFile = $this->membrane?->cosmoFile();
-
-        if ($cosmoFile?->storage && $cosmoFile->path) {
-            $disk = Storage::disk($cosmoFile->storage);
-
-            if (! $disk->exists($cosmoFile->path)) {
-                throw new RuntimeException("Membrane COSMO file [{$cosmoFile->path}] does not exist.");
-            }
-
-            return $disk->get($cosmoFile->path);
+        if ($missingFiles !== []) {
+            throw new RuntimeException(
+                'Prediction membrane definition file(s) ['.implode(', ', $missingFiles).'] do not exist.',
+            );
         }
 
         throw new RuntimeException("Prediction membrane {$this->getKey()} has no definition file.");
@@ -69,13 +64,13 @@ class PredictionMembrane extends PredictionBaseModel
 
     public function hasRemotePredictionDefinitionFile(): bool
     {
-        if (filled($this->file?->storage) && filled($this->file?->path)) {
-            return true;
+        foreach ($this->remotePredictionDefinitionFiles() as $file) {
+            if (Storage::disk($file->storage)->exists($file->path)) {
+                return true;
+            }
         }
 
-        $cosmoFile = $this->membrane?->cosmoFile();
-
-        return filled($cosmoFile?->storage) && filled($cosmoFile?->path);
+        return false;
     }
 
     public function findRemotePredictionMembrane(
@@ -153,5 +148,24 @@ class PredictionMembrane extends PredictionBaseModel
     private function remotePredictionClient(?RemotePredictionClient $client): RemotePredictionClient
     {
         return $client ?? app(RemotePredictionClient::class);
+    }
+
+    /**
+     * The current file attached to the canonical Membrane is authoritative.
+     * The predictions database file is retained as a fallback for legacy
+     * membranes that are not mapped through remote_id.
+     *
+     * @return array<int, File|PredictionFile>
+     */
+    private function remotePredictionDefinitionFiles(): array
+    {
+        return collect([
+            $this->membrane?->cosmoFile(),
+            $this->file,
+        ])->filter(
+            fn (mixed $file): bool => filled($file?->storage) && filled($file?->path),
+        )->unique(
+            fn (mixed $file): string => $file->storage.':'.$file->path,
+        )->values()->all();
     }
 }
