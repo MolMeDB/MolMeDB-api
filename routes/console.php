@@ -79,18 +79,27 @@ Schedule::command(SendPredictionProgressNotifications::class)
     ->dailyAt('08:00')
     ->withoutOverlapping();
 
-Schedule::command(SendPredictionAdminStatsNotification::class, ['period' => 'day'])
+// expiresAt=60 (minutes): this report runs in seconds, so if a stuck lock
+// ever survives a crashed/killed run, it self-heals within an hour instead
+// of silently blocking the next scheduled run for a full day (the default
+// withoutOverlapping() expiry is 1440 minutes).
+//
+// `period` is a positional argument on the command, so it must be passed as
+// a plain array value (not ['period' => ...]) - Schedule::exec() compiles
+// associative keys as `key=value`, which the command's positional argument
+// parser then reads as the literal string "period=day" instead of "day".
+Schedule::command(SendPredictionAdminStatsNotification::class, ['day'])
     ->dailyAt('07:00')
-    ->withoutOverlapping();
+    ->withoutOverlapping(60);
 
-Schedule::command(SendPredictionAdminStatsNotification::class, ['period' => 'week'])
+Schedule::command(SendPredictionAdminStatsNotification::class, ['week'])
     ->weeklyOn(1, '07:05')
-    ->withoutOverlapping();
+    ->withoutOverlapping(60);
 
-Schedule::command(SendPredictionAdminStatsNotification::class, ['period' => 'month'])
+Schedule::command(SendPredictionAdminStatsNotification::class, ['month'])
     ->monthlyOn(1, '07:10')
-    ->withoutOverlapping();
+    ->withoutOverlapping(60);
 
-Schedule::command(SendPredictionAdminStatsNotification::class, ['period' => 'year'])
+Schedule::command(SendPredictionAdminStatsNotification::class, ['year'])
     ->yearlyOn(1, 1, '07:15')
-    ->withoutOverlapping();
+    ->withoutOverlapping(60);

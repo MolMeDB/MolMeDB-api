@@ -957,6 +957,14 @@ class Prediction extends PredictionBaseModel
     }
 
     /**
+     * Keeps only the most recent entries - a prediction stuck retrying the
+     * same failure indefinitely (e.g. every minute via the result-import
+     * job) would otherwise grow `logs` without bound until it's large
+     * enough to exhaust PHP's memory limit on decode/encode.
+     */
+    private const MAX_LOG_ENTRIES = 100;
+
+    /**
      * @param  array<string, mixed>  $payload
      * @return array<int, mixed>
      */
@@ -971,7 +979,7 @@ class Prediction extends PredictionBaseModel
             'timestamp' => now()->toIso8601String(),
         ];
 
-        return $logs;
+        return array_slice($logs, -self::MAX_LOG_ENTRIES);
     }
 
     private function remoteStatusValue(RemotePredictionStatus|string|null $status): ?string

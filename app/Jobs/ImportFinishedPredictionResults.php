@@ -23,6 +23,13 @@ class ImportFinishedPredictionResults implements ShouldBeUnique, ShouldQueue
     public int $timeout = 120;
 
     /**
+     * How long before the hard $timeout the loop stops picking up new
+     * predictions - leaves enough headroom to finish the current item and
+     * return normally instead of being killed mid-run by the queue worker.
+     */
+    private const TIME_BUDGET_MARGIN_SECONDS = 20;
+
+    /**
      * Keeps the unique lock held for the job's entire run, not just until the
      * next dispatch - this is what guarantees only one instance is ever
      * queued-or-running at a time, regardless of how many queue workers exist.
@@ -63,8 +70,16 @@ class ImportFinishedPredictionResults implements ShouldBeUnique, ShouldQueue
         $imported = 0;
         $duplicates = 0;
         $errors = 0;
+        $skipped = 0;
+
+        $deadline = microtime(true) + $this->timeout - self::TIME_BUDGET_MARGIN_SECONDS;
 
         foreach ($predictions as $prediction) {
+            if (microtime(true) >= $deadline) {
+                $skipped = $predictions->count() - $imported - $duplicates - $errors;
+                break;
+            }
+
             try {
                 match ($importer->import($prediction, $methods->get($prediction->method_type))) {
                     'imported' => $imported++,
@@ -86,10 +101,11 @@ class ImportFinishedPredictionResults implements ShouldBeUnique, ShouldQueue
         }
 
         Log::info('ImportFinishedPredictionResults finished.', [
-            'processed' => $predictions->count(),
+            'processed' => $imported + $duplicates + $errors,
             'imported' => $imported,
             'duplicates' => $duplicates,
             'errors' => $errors,
+            'skipped_time_budget' => $skipped,
         ]);
     }
 }
