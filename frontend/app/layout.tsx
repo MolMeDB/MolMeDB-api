@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "ketcher-react/dist/index.css";
 import "./globals.css";
 import Body from "@/components/_core/Body";
+import GoogleAnalytics from "@/components/_core/GoogleAnalytics";
 import FloatingDock from "@/components/_core/layout/FloatingDock";
 import DownloaderWidget from "@/components/downloader/DownloaderWidget";
 import FeedbackWidget from "@/components/feedback/FeedbackWidget";
@@ -25,6 +26,7 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <Body>
+        <GoogleAnalytics />
         {children}
         <Suspense fallback={null}>
           <FloatingDock>
