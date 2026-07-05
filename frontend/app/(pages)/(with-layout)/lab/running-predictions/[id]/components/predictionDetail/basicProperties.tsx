@@ -112,6 +112,11 @@ export default function CompoundBasicProperties(props: {
                   {props.compound.remote_error_message}
                 </span>
               )}
+              {props.compound.is_paused && props.compound.remote_pause_reason && (
+                <span className="text-default-500 text-sm">
+                  {props.compound.remote_pause_reason}
+                </span>
+              )}
             </div>
           }
         />
@@ -132,7 +137,13 @@ export default function CompoundBasicProperties(props: {
           title="Remote timestamps"
           value={
             <div className="flex flex-col gap-1">
-              <span>Heartbeat: {props.compound.remote_heartbeat_at ?? "-"}</span>
+              <span>
+                Heartbeat:{" "}
+                {props.compound.is_paused
+                  ? "Paused"
+                  : (props.compound.remote_heartbeat_at ?? "-")}
+              </span>
+              <span>Paused: {props.compound.remote_paused_at ?? "-"}</span>
               <span>
                 Last status: {props.compound.remote_last_status_at ?? "-"}
               </span>

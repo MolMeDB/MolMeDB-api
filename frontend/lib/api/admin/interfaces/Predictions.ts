@@ -8,7 +8,9 @@ export interface IPrediction {
   comment?: string;
   temperature: number;
   state: number;
+  effective_state: string;
   enum_state: string;
+  is_paused: boolean;
   step: number;
   total_steps: number;
   enum_step: string;
@@ -19,7 +21,10 @@ export interface IPrediction {
   remote_calculation_id?: string | null;
   remote_molecule_id?: string | null;
   remote_status?: string | null;
+  remote_status_raw?: string | null;
   enum_remote_status?: string | null;
+  remote_paused_at?: string | null;
+  remote_pause_reason?: string | null;
   remote_current_step?: string | null;
   remote_heartbeat_at?: string | null;
   remote_last_status_at?: string | null;
@@ -67,6 +72,7 @@ export interface IPredictionDataset {
   stats: {
     pending: number;
     running: number;
+    paused?: number;
     done: number;
     failed: number;
     total: number;

@@ -1,6 +1,6 @@
 @php
     $record    = $getRecord();
-    $isPaused  = $record->remote_paused_at !== null;
+    $isPaused  = $record->isRemotePaused();
     $isRunning = ! $isPaused && $record->state === \Modules\PredictionWorkers\Models\Prediction::STATE_RUNNING;
 
     $stateColor = $isPaused ? ['bg' => '#f3f4f6', 'text' => '#4b5563', 'dot' => '#9ca3af'] : match ((int) $record->state) {
@@ -11,9 +11,7 @@
         \Modules\PredictionWorkers\Models\Prediction::STATE_STOPPED  => ['bg' => '#f3f4f6', 'text' => '#4b5563', 'dot' => '#9ca3af'],
         default                                                        => ['bg' => '#eff6ff', 'text' => '#1e40af', 'dot' => '#3b82f6'],
     };
-    $stateLabel = $isPaused
-        ? 'Paused'
-        : \Modules\PredictionWorkers\Models\Prediction::enumState($record->state);
+    $stateLabel = $record->effectiveStateLabel();
 
     // Remote step → human label & color (primary indicator when running)
     $remoteStepLabels = [

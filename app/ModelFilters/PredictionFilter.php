@@ -3,6 +3,7 @@
 namespace App\ModelFilters;
 
 use EloquentFilter\ModelFilter;
+use Modules\PredictionWorkers\Models\Prediction;
 
 class PredictionFilter extends ModelFilter
 {
@@ -45,13 +46,33 @@ class PredictionFilter extends ModelFilter
 
     public function state($states)
     {
-        $states = $this->integerFilterValues($states);
+        $values = $this->filterValues($states);
+        $includePaused = in_array('paused', $values, true);
+        $states = $this->integerFilterValues($values);
 
-        if ($states === []) {
+        if ($states === [] && ! $includePaused) {
             return $this;
         }
 
-        return $this->whereIn('state', $states);
+        return $this->where(function ($query) use ($states, $includePaused): void {
+            $otherStates = array_values(array_diff($states, [Prediction::STATE_RUNNING]));
+
+            if ($otherStates !== []) {
+                $query->orWhereIn('state', $otherStates);
+            }
+
+            if (in_array(Prediction::STATE_RUNNING, $states, true)) {
+                $query->orWhere(function ($query): void {
+                    $query
+                        ->where('state', Prediction::STATE_RUNNING)
+                        ->whereNull('remote_paused_at');
+                });
+            }
+
+            if ($includePaused) {
+                $query->orWhereNotNull('remote_paused_at');
+            }
+        });
     }
 
     public function step($steps)
@@ -108,6 +129,19 @@ class PredictionFilter extends ModelFilter
      */
     private function integerFilterValues(mixed $values): array
     {
+        return collect($this->filterValues($values))
+            ->filter(fn ($value) => is_numeric($value))
+            ->map(fn ($value) => (int) $value)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<int, mixed>
+     */
+    private function filterValues(mixed $values): array
+    {
         if ($values === null || $values === '') {
             return [];
         }
@@ -116,15 +150,6 @@ class PredictionFilter extends ModelFilter
             $values = explode(',', $values);
         }
 
-        if (! is_array($values)) {
-            $values = [$values];
-        }
-
-        return collect($values)
-            ->filter(fn ($value) => is_numeric($value))
-            ->map(fn ($value) => (int) $value)
-            ->unique()
-            ->values()
-            ->all();
+        return is_array($values) ? array_values($values) : [$values];
     }
 }

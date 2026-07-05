@@ -96,6 +96,7 @@ class Prediction extends PredictionBaseModel
     ];
 
     public static $enum_remote_statuses = [
+        'paused' => 'Paused',
         'pending' => 'Pending',
         'queued' => 'Queued',
         'running' => 'Running',
@@ -185,6 +186,43 @@ class Prediction extends PredictionBaseModel
     public static function enumState($state): string
     {
         return self::$enum_states[$state] ?? 'N/A';
+    }
+
+    public function isRemotePaused(): bool
+    {
+        return $this->remote_paused_at !== null;
+    }
+
+    public function effectiveState(): string
+    {
+        if ($this->isRemotePaused()) {
+            return 'paused';
+        }
+
+        return match ((int) $this->state) {
+            self::STATE_STOPPED => 'stopped',
+            self::STATE_PREPARED => 'prepared',
+            self::STATE_ERROR => 'error',
+            self::STATE_REMOVE => 'remove',
+            self::STATE_RUNNING => 'running',
+            self::STATE_FINISHED => 'finished',
+            default => 'unknown',
+        };
+    }
+
+    public function effectiveStateLabel(): string
+    {
+        return $this->isRemotePaused() ? 'Paused' : self::enumState($this->state);
+    }
+
+    public function effectiveRemoteStatus(): ?string
+    {
+        return $this->isRemotePaused() ? 'paused' : $this->remote_status;
+    }
+
+    public function effectiveRemoteStatusLabel(): ?string
+    {
+        return self::enumRemoteStatus($this->effectiveRemoteStatus());
     }
 
     public static function enumRemoteStatus(?string $status): ?string

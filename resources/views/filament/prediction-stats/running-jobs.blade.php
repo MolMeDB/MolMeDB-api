@@ -26,7 +26,7 @@ if (! function_exists('predictionLink')) {
         }
 
         $url = route('filament.admin.resources.predictions.edit', $pred);
-        $state = \Modules\PredictionWorkers\Models\Prediction::enumState($pred->state);
+        $state = $pred->effectiveStateLabel();
 
         return '<a href="' . e($url) . '" target="_blank" rel="noopener" style="display:inline-block; padding:.15rem .55rem; border-radius:.35rem; font-size:.7rem; font-weight:600; white-space:nowrap; background:#eef2ff; color:#4338ca; text-decoration:none;">#' . $pred->id . ' (' . e($state) . ')</a>';
     }

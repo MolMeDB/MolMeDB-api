@@ -69,7 +69,7 @@ class PredictionDataset extends PredictionBaseModel
      * @return array{
      *     state: int,
      *     enum_state: string,
-     *     stats: array{pending: int, running: int, done: int, failed: int, total: int},
+     *     stats: array{pending: int, running: int, paused: int, done: int, failed: int, total: int},
      *     overall_stats: array{progress_percent: int, completed_percent: int, steps_done: int, steps_total: int}
      * }
      */
@@ -94,7 +94,7 @@ class PredictionDataset extends PredictionBaseModel
      * @return array{
      *     state: int,
      *     enum_state: string,
-     *     stats: array{pending: int, running: int, done: int, failed: int, total: int},
+     *     stats: array{pending: int, running: int, paused: int, done: int, failed: int, total: int},
      *     overall_stats: array{progress_percent: int, completed_percent: int, steps_done: int, steps_total: int}
      * }
      */
@@ -116,11 +116,15 @@ class PredictionDataset extends PredictionBaseModel
                 [...$failedStates, $finalStep],
             )
             ->selectRaw(
-                'COALESCE(SUM(CASE WHEN predictions.state NOT IN (?, ?, ?) AND predictions.result_id IS NULL AND predictions.step < ? AND (predictions.state = ? OR predictions.step > ?) THEN 1 ELSE 0 END), 0) as running',
+                'COALESCE(SUM(CASE WHEN predictions.state NOT IN (?, ?, ?) AND predictions.remote_paused_at IS NULL AND predictions.result_id IS NULL AND predictions.step < ? AND (predictions.state = ? OR predictions.step > ?) THEN 1 ELSE 0 END), 0) as running',
                 [...$failedStates, $finalStep, Prediction::STATE_RUNNING, Prediction::STEP_PENDING],
             )
             ->selectRaw(
-                'COALESCE(SUM(CASE WHEN predictions.state NOT IN (?, ?, ?) AND predictions.state != ? AND predictions.result_id IS NULL AND (predictions.step IS NULL OR predictions.step <= ?) THEN 1 ELSE 0 END), 0) as pending',
+                'COALESCE(SUM(CASE WHEN predictions.state NOT IN (?, ?, ?) AND predictions.remote_paused_at IS NOT NULL AND predictions.result_id IS NULL AND (predictions.step IS NULL OR predictions.step < ?) THEN 1 ELSE 0 END), 0) as paused',
+                [...$failedStates, $finalStep],
+            )
+            ->selectRaw(
+                'COALESCE(SUM(CASE WHEN predictions.state NOT IN (?, ?, ?) AND predictions.remote_paused_at IS NULL AND predictions.state != ? AND predictions.result_id IS NULL AND (predictions.step IS NULL OR predictions.step <= ?) THEN 1 ELSE 0 END), 0) as pending',
                 [...$failedStates, Prediction::STATE_RUNNING, Prediction::STEP_PENDING],
             )
             ->selectRaw(
@@ -132,11 +136,12 @@ class PredictionDataset extends PredictionBaseModel
         $total = (int) $stats->total;
         $pending = (int) $stats->pending;
         $running = (int) $stats->running;
+        $paused = (int) $stats->paused;
         $done = (int) $stats->done;
         $failed = (int) $stats->failed;
         $progressSteps = (int) $stats->progress_steps;
         $stepsTotal = $total * $finalStep;
-        $state = self::resolveState($pending, $running, $done, $failed, $total);
+        $state = self::resolveState($pending, $running + $paused, $done, $failed, $total);
 
         return [
             'state' => $state,
@@ -144,6 +149,7 @@ class PredictionDataset extends PredictionBaseModel
             'stats' => [
                 'pending' => $pending,
                 'running' => $running,
+                'paused' => $paused,
                 'done' => $done,
                 'failed' => $failed,
                 'total' => $total,
@@ -217,7 +223,7 @@ class PredictionDataset extends PredictionBaseModel
 
     private function progressStatsCacheKey(): string
     {
-        return "prediction-datasets:{$this->getKey()}:progress-stats:v2";
+        return "prediction-datasets:{$this->getKey()}:progress-stats:v3";
     }
 
     public function predictionMembrane(): BelongsTo
@@ -246,7 +252,7 @@ class PredictionDataset extends PredictionBaseModel
             )
             ->update([
                 'priority' => $connection->raw(
-                    '(SELECT COALESCE(MAX(d.priority), ' . Prediction::PRIORITY_MEDIUM . ')
+                    '(SELECT COALESCE(MAX(d.priority), '.Prediction::PRIORITY_MEDIUM.')
                       FROM datasets d
                       JOIN prediction_has_datasets phd ON phd.dataset_id = d.id
                       WHERE phd.prediction_id = predictions.id)'

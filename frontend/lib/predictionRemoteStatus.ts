@@ -7,6 +7,7 @@ import { IPrediction } from "@/lib/api/admin/interfaces/Predictions";
  * instead of always reporting "Pending" in that case.
  */
 export function getRemoteStatusLabel(item: IPrediction): string {
+  if (item.is_paused || item.remote_paused_at) return "Paused";
   if (item.enum_remote_status) return item.enum_remote_status;
   if (item.remote_current_step) return item.remote_current_step;
 
@@ -25,6 +26,7 @@ export function getRemoteStatusLabel(item: IPrediction): string {
 export function getRemoteStatusColor(
   item: IPrediction,
 ): "danger" | "success" | "warning" | "default" {
+  if (item.is_paused || item.remote_paused_at) return "default";
   if (item.remote_error_message) return "danger";
 
   const status = item.remote_status ?? null;

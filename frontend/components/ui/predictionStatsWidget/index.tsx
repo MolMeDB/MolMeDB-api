@@ -6,6 +6,7 @@ import {
   MdCheckCircleOutline,
   MdOutlineHourglassEmpty,
   MdOutlineRunCircle,
+  MdPauseCircleOutline,
   MdErrorOutline,
   MdRefresh,
 } from "react-icons/md";
@@ -14,6 +15,7 @@ interface PredictionServerStats {
   jobs: {
     queued: number;
     running: number;
+    paused?: number;
     completed: number;
     failed: number;
   };
@@ -91,6 +93,16 @@ export default function PredictionStatsWidget() {
                 >
                   Running: {stats.jobs.running}
                 </Chip>
+                {(stats.jobs.paused ?? 0) > 0 && (
+                  <Chip
+                    size="sm"
+                    variant="flat"
+                    color="default"
+                    startContent={<MdPauseCircleOutline size={13} />}
+                  >
+                    Paused: {stats.jobs.paused ?? 0}
+                  </Chip>
+                )}
                 <Chip
                   size="sm"
                   variant="flat"

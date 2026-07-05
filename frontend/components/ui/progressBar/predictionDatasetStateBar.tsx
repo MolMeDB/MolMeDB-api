@@ -4,6 +4,7 @@ import { useMemo } from "react";
 type Props = {
   pending: number;
   running: number;
+  paused?: number;
   done: number;
   error: number;
   height?: number;
@@ -12,6 +13,7 @@ type Props = {
 const colors = {
   pending: "bg-primary",
   running: "bg-warning",
+  paused: "bg-default-400",
   done: "bg-success",
   error: "bg-danger",
 };
@@ -19,17 +21,19 @@ const colors = {
 export default function PredictionDatasetStateBar({
   pending,
   running,
+  paused = 0,
   done,
   error,
   height = 12,
 }: Props) {
-  const total = pending + running + done + error;
+  const total = pending + running + paused + done + error;
 
   const percentages = useMemo(() => {
     if (total === 0) {
       return {
         pending: 0,
         running: 0,
+        paused: 0,
         done: 0,
         error: 0,
       };
@@ -38,10 +42,11 @@ export default function PredictionDatasetStateBar({
     return {
       pending: (pending / total) * 100,
       running: (running / total) * 100,
+      paused: (paused / total) * 100,
       done: (done / total) * 100,
       error: (error / total) * 100,
     };
-  }, [pending, running, done, error, total]);
+  }, [pending, running, paused, done, error, total]);
 
   const segments = [
     {
@@ -55,6 +60,12 @@ export default function PredictionDatasetStateBar({
       value: percentages.running,
       total: running,
       color: colors.running,
+    },
+    {
+      key: "paused",
+      value: percentages.paused,
+      total: paused,
+      color: colors.paused,
     },
     { key: "done", value: percentages.done, total: done, color: colors.done },
     {
@@ -97,7 +108,7 @@ export default function PredictionDatasetStateBar({
 
 export function PredictionDatasetStateHelper(props: {
   name: string;
-  type: "pending" | "running" | "done" | "error";
+  type: "pending" | "running" | "paused" | "done" | "error";
 }) {
   return (
     <div className="flex flex-row items-center gap-2">

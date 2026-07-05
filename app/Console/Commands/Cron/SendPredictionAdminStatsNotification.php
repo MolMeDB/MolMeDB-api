@@ -58,7 +58,10 @@ class SendPredictionAdminStatsNotification extends Command
             ->whereBetween('updated_at', [$from, $to])
             ->count();
 
-        $running = (clone $base)->where('state', Prediction::STATE_RUNNING)->count();
+        $running = (clone $base)
+            ->where('state', Prediction::STATE_RUNNING)
+            ->whereNull('remote_paused_at')
+            ->count();
         $totalAll = (clone $base)->count();
 
         $notifier->notify(NotificationTemplate::KEY_PREDICTION_ADMIN_STATS_REPORT, [

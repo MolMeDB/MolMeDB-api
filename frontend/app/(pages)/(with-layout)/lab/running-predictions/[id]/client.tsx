@@ -33,6 +33,7 @@ const predictionStateOptions = [
   { label: "Error", value: 2 },
   { label: "Remove", value: 3 },
   { label: "Running", value: 4 },
+  { label: "Paused", value: "paused" },
   { label: "Finished", value: 5 },
 ];
 
@@ -244,12 +245,14 @@ export default function PredictionDatasetClient(props: {
           <PredictionDatasetStateBar
             pending={dataset.stats.pending}
             running={dataset.stats.running}
+            paused={dataset.stats.paused ?? 0}
             done={dataset.stats.done}
             error={dataset.stats.failed}
           />
           <div className="flex flex-wrap gap-x-4 gap-y-2">
             <PredictionDatasetStateHelper name="Pending" type="pending" />
             <PredictionDatasetStateHelper name="Running" type="running" />
+            <PredictionDatasetStateHelper name="Paused" type="paused" />
             <PredictionDatasetStateHelper name="Finished" type="done" />
             <PredictionDatasetStateHelper name="Error" type="error" />
           </div>

@@ -114,7 +114,9 @@ export const datasetColumns: IUiTableColumn<IPrediction>[] = [
     title: "Heartbeat",
     render: (item) => (
       <div className="flex items-center gap-1.5">
-        {item.remote_heartbeat_at ? (
+        {item.is_paused ? (
+          <span className="text-default-500">Paused</span>
+        ) : item.remote_heartbeat_at ? (
           <span className="animate-heartbeat inline-flex shrink-0 text-danger">
             <FaHeart size={12} />
           </span>
@@ -123,7 +125,9 @@ export const datasetColumns: IUiTableColumn<IPrediction>[] = [
             <FaRegHeart size={12} />
           </span>
         )}
-        {item.remote_heartbeat_at && <span>{timeAgo(item.remote_heartbeat_at)}</span>}
+        {!item.is_paused && item.remote_heartbeat_at && (
+          <span>{timeAgo(item.remote_heartbeat_at)}</span>
+        )}
       </div>
     ),
     isSortable: false,

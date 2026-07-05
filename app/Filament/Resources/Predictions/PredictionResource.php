@@ -20,6 +20,7 @@ use Filament\Schemas\Components\View as SchemaView;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Modules\PredictionWorkers\Models\Prediction;
 
@@ -122,7 +123,7 @@ class PredictionResource extends Resource
                     ->label('State')
                     ->sortable()
                     ->badge()
-                    ->color(fn (Prediction $record): string => match ((int) $record->state) {
+                    ->color(fn (Prediction $record): string => $record->isRemotePaused() ? 'gray' : match ((int) $record->state) {
                         Prediction::STATE_FINISHED => 'success',
                         Prediction::STATE_RUNNING => 'warning',
                         Prediction::STATE_ERROR => 'danger',
@@ -130,8 +131,10 @@ class PredictionResource extends Resource
                         Prediction::STATE_STOPPED => 'gray',
                         default => 'info',
                     })
-                    ->description(fn (Prediction $record) => $record->step ? Prediction::enumStep($record->step) : null)
-                    ->formatStateUsing(fn (string $state) => Prediction::enumState($state)),
+                    ->description(fn (Prediction $record) => $record->isRemotePaused()
+                        ? $record->remote_pause_reason
+                        : ($record->step ? Prediction::enumStep($record->step) : null))
+                    ->formatStateUsing(fn ($state, Prediction $record) => $record->effectiveStateLabel()),
                 TextColumn::make('priority')
                     ->label('Priority')
                     ->sortable()
@@ -143,6 +146,9 @@ class PredictionResource extends Resource
                     ->label('State')
                     ->options(Prediction::$enum_states)
                     ->multiple(),
+                TernaryFilter::make('remote_paused_at')
+                    ->label('Paused')
+                    ->nullable(),
                 SelectFilter::make('step')
                     ->label('Step')
                     ->options(Prediction::$enum_steps)

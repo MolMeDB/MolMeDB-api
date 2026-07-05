@@ -44,7 +44,10 @@ class PredictionsController extends Controller
             'data' => [
                 'jobs' => [
                     'queued' => Prediction::where('state', Prediction::STATE_PREPARED)->count(),
-                    'running' => Prediction::where('state', Prediction::STATE_RUNNING)->count(),
+                    'running' => Prediction::where('state', Prediction::STATE_RUNNING)
+                        ->whereNull('remote_paused_at')
+                        ->count(),
+                    'paused' => Prediction::whereNotNull('remote_paused_at')->count(),
                     'completed' => Prediction::where('state', Prediction::STATE_FINISHED)->count(),
                     'failed' => Prediction::whereIn('state', Prediction::failedStates())->count(),
                 ],
