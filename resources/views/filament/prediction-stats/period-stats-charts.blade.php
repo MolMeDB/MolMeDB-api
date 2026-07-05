@@ -33,8 +33,8 @@
     }
 
     if (! function_exists('psConic')) {
-        function psConic(int $completed, int $failed, int $inProgress, int $started): string {
-            if ($started === 0) return '#e5e7eb 0% 100%';
+        function psConic(int $completed, int $failed, int $inProgress, int $total): string {
+            if ($total === 0) return '#e5e7eb 0% 100%';
             $stops = [];
             $cum   = 0;
             $segments = [
@@ -44,7 +44,7 @@
             ];
             foreach ($segments as $seg) {
                 if ($seg['value'] <= 0) continue;
-                $pct   = $seg['value'] / $started * 100;
+                $pct   = $seg['value'] / $total * 100;
                 $from  = round($cum, 3);
                 $to    = round($cum + $pct, 3);
                 $stops[] = "{$seg['color']} {$from}% {$to}%";
@@ -76,10 +76,11 @@
                         $started    = (int) ($s['started']  ?? 0);
                         $completed  = (int) ($s['completed'] ?? 0);
                         $failed     = (int) ($s['failed']    ?? 0);
-                        $inProgress = max(0, $started - $completed - $failed);
+                        $inProgress = (int) ($s['running'] ?? max(0, $started - $completed - $failed));
+                        $total      = (int) ($s['total'] ?? ($completed + $failed + $inProgress));
                         $avg        = isset($s['avg_duration_seconds']) ? (float) $s['avg_duration_seconds'] : null;
-                        $conic      = psConic($completed, $failed, $inProgress, $started);
-                        $hasData    = $started > 0;
+                        $conic      = psConic($completed, $failed, $inProgress, $total);
+                        $hasData    = $total > 0;
                     @endphp
 
                     <div style="display:flex; flex-direction:column; align-items:center; gap:.6rem;
@@ -109,8 +110,8 @@
                             ">
                                 @if ($hasData)
                                     <span style="font-size:1.05rem; font-weight:700; color:#111827; line-height:1; white-space:nowrap;"
-                                          title="{{ $completed }}/{{ $started }}">
-                                        {{ psFmtNumber($completed) }}/{{ psFmtNumber($started) }}
+                                          title="{{ $completed }}/{{ $total }}">
+                                        {{ psFmtNumber($completed) }}/{{ psFmtNumber($total) }}
                                     </span>
                                     <span style="font-size:.65rem; color:#9ca3af; line-height:1;">
                                         {{ psFmtDuration($avg) }}
