@@ -2,14 +2,40 @@
 
 import { Alert, Button, Input } from "@heroui/react";
 import submitLogin from "../(actions)/submitLogin";
-import { useActionState, useState } from "react";
+import resendVerification from "../(actions)/resendVerification";
+import { useActionState, useEffect, useState } from "react";
+
+const RESEND_COOLDOWN_SECONDS = 60;
 
 export default function LoginForm(props: { defaultEmail?: string; redirectTo?: string }) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [actionState, action, isPending] = useActionState(submitLogin, null);
+  const [resendState, resendAction, isResendPending] = useActionState(
+    resendVerification,
+    null,
+  );
 
   const [email, setEmail] = useState(props.defaultEmail || "");
   const [password, setPassword] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  const isUnverified = Boolean(actionState?.data?.email_verification);
+
+  useEffect(() => {
+    if (resendState?.status === 200 || resendState?.status === 429) {
+      setResendCooldown(RESEND_COOLDOWN_SECONDS);
+    }
+  }, [resendState]);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+
+    const timer = setInterval(() => {
+      setResendCooldown((seconds) => Math.max(0, seconds - 1));
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
 
   return (
     <div className="w-full max-w-96 flex flex-col items-center">
@@ -22,6 +48,29 @@ export default function LoginForm(props: { defaultEmail?: string; redirectTo?: s
               className="mb-4"
               title={actionState.message}
             />
+          </div>
+        )}
+        {isUnverified && (
+          <div className="mb-4 flex flex-col gap-2">
+            {resendState?.message && (
+              <Alert
+                color={resendState.status === 200 ? "success" : "warning"}
+                title={resendState.message}
+              />
+            )}
+            {resendCooldown <= 0 && (
+              <Button
+                type="submit"
+                formAction={resendAction}
+                formNoValidate
+                variant="flat"
+                size="sm"
+                className="w-full"
+                isLoading={isResendPending}
+              >
+                Resend verification email
+              </Button>
+            )}
           </div>
         )}
         <Input

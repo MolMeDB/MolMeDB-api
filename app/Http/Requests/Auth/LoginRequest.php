@@ -55,7 +55,7 @@ class LoginRequest extends FormRequest
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([
-                'email' => ['Verify your email address before signing in.'],
+                'email_verification' => ['Verify your email address before signing in.'],
             ]);
         }
 

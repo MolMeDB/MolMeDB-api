@@ -22,11 +22,17 @@ export default async function submitLogin(
 
     if (result2.status === 422) {
       const data = await result2.json();
+      const isUnverified = Boolean(data.errors?.email_verification);
 
       return {
         status: 400,
-        message: "Incorrect login credentials.",
-        data: data.errors ?? {},
+        message: isUnverified
+          ? "Please verify your email address before signing in."
+          : "Incorrect login credentials.",
+        data: {
+          ...(data.errors ?? {}),
+          email_verification: isUnverified,
+        },
       } as ApiResponse;
     }
 

@@ -13,6 +13,7 @@ use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Console\Events\CommandFinished;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -21,6 +22,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Str;
 use Modules\PredictionWorkers\Models\PredictionDataset;
 
 class AppServiceProvider extends ServiceProvider
@@ -41,6 +43,12 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('remote-prediction-status', fn (): Limit => Limit::perMinute(
             max(1, (int) config('prediction-workers.remote.worker.max_status_requests_per_minute', 30)),
         )->by('remote-prediction-status'));
+
+        RateLimiter::for('resend-email-verification', function (Request $request): Limit {
+            $email = Str::lower((string) $request->input('email'));
+
+            return Limit::perMinute(1)->by($email !== '' ? $email : $request->ip());
+        });
 
         Event::listen(CommandFinished::class, RunPredictionsMigrationsAfterDefaultMigrate::class);
 
