@@ -11,6 +11,8 @@ import {
   Button,
   Divider,
   Input,
+  Select,
+  SelectItem,
   Textarea,
   Tooltip,
 } from "@heroui/react";
@@ -622,19 +624,20 @@ export default function UploadDatasetForm(props: {
           />
         )}
 
-        <div>
-          <label className="font-semibold text-sm">Dataset setting</label>
-          <select
-            name="dataset_type"
-            className="mt-1 w-full rounded-lg border border-default-300 bg-background px-3 py-2"
-            value={datasetType}
-            onChange={(event) => setDatasetType(event.target.value)}
-            required
-          >
-            <option value="1">Passive interactions</option>
-            <option value="2">Active interactions</option>
-          </select>
-        </div>
+        <Select
+          label="Dataset setting"
+          name="dataset_type"
+          selectedKeys={[datasetType]}
+          disallowEmptySelection
+          isRequired
+          onSelectionChange={(keys) => {
+            const value = Array.from(keys)[0];
+            if (value) setDatasetType(String(value));
+          }}
+        >
+          <SelectItem key="1">Passive interactions</SelectItem>
+          <SelectItem key="2">Active interactions</SelectItem>
+        </Select>
 
         <Input
           label="Dataset name (optional)"
@@ -796,7 +799,7 @@ export default function UploadDatasetForm(props: {
             type="file"
             name="file"
             required
-            className="w-full rounded-lg border border-default-300 bg-background px-3 py-2"
+            className="w-full rounded-lg border border-default-300 bg-background dark:bg-background-dark dark:text-white px-3 py-2 file:mr-3 file:rounded-md file:border-0 file:bg-default-200 file:px-3 file:py-1 file:text-foreground dark:file:bg-background-dark-2"
             accept=".csv"
           />
           <p className="text-xs text-foreground-500">

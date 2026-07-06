@@ -198,7 +198,7 @@ export default function SearchListItems(props: {
             const content = (
               <div className="flex min-w-0 flex-1 items-center gap-4">
                 {record.imageUrl ? (
-                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-md border border-default-200 bg-default-50 p-1 dark:bg-background-dark">
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-md border border-default-200 bg-default-50 p-1 dark:bg-background/70">
                     <img
                       src={record.imageUrl ?? "todo"}
                       alt={recordTitle}
@@ -208,7 +208,7 @@ export default function SearchListItems(props: {
                     />
                   </div>
                 ) : (
-                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-md border border-default-200 bg-default-50 text-foreground-400 dark:bg-background-dark">
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-md border border-default-200 bg-default-50 text-foreground-400 dark:bg-background/70">
                     <MdImageNotSupported size={22} />
                   </div>
                 )}
@@ -284,10 +284,10 @@ export default function SearchListItems(props: {
                             ? `${downloaderItem.label} is already in downloader`
                             : `Add ${downloaderItem.label} to downloader`
                         }
-                        color={isInDownloader ? "success" : "primary"}
+                        color={isInDownloader ? "success" : "warning"}
                         isDisabled={isInDownloader}
                         size="sm"
-                        variant={isInDownloader ? "flat" : "light"}
+                        variant={isInDownloader ? "solid" : "light"}
                         onPress={() => addItem(downloaderItem)}
                       >
                         {isInDownloader ? <FiCheck /> : <FiPlus />}

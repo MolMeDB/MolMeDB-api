@@ -1042,7 +1042,7 @@ export default function MyUploadsList(props: {
                   <div className="flex flex-col gap-1">
                     <label className="text-sm font-semibold">Delimiter</label>
                     <select
-                      className="rounded-lg border border-default-300 bg-background px-3 py-2 text-sm"
+                      className="rounded-lg border border-default-300 bg-background dark:bg-background-dark px-3 py-2 text-sm"
                       value={normalizeSeparatorLabel(configureState.separator)}
                       onChange={async (event) => {
                         const value = denormalizeSeparatorValue(event.target.value);
@@ -1071,7 +1071,7 @@ export default function MyUploadsList(props: {
                   <div className="flex flex-col gap-1">
                     <label className="text-sm font-semibold">Skip first row</label>
                     <select
-                      className="rounded-lg border border-default-300 bg-background px-3 py-2 text-sm"
+                      className="rounded-lg border border-default-300 bg-background dark:bg-background-dark px-3 py-2 text-sm"
                       value={String(configureState.skipFirstRow)}
                       onChange={async (event) => {
                         const value = Number(event.target.value);
@@ -1116,7 +1116,7 @@ export default function MyUploadsList(props: {
                               <th key={`map-${index}`} className="p-2 min-w-48">
                                 <select
                                   value={selected}
-                                  className="w-full rounded-md border border-default-300 bg-background px-2 py-1"
+                                  className="w-full rounded-md border border-default-300 bg-background dark:bg-background-dark px-2 py-1"
                                   onChange={(event) => {
                                     const value = event.target.value;
                                     const nextMapping = [...configureState.columnMapping];

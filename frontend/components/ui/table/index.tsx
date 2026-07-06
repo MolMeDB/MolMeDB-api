@@ -79,6 +79,7 @@ export default function UiTable<TData>(props: {
   itemKey: keyof TData;
   defaultRowsPerPage?: number;
   hasSearch?: boolean;
+  initialQuery?: string;
   searchPlaceholder?: string;
   loadingText?: string;
   filters?: UiTableFilter[];
@@ -91,7 +92,7 @@ export default function UiTable<TData>(props: {
   const [page, setPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [items, setItems] = useState<TData[]>([]);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(props.initialQuery ?? "");
   const [filterValues, setFilterValues] = useState<UiTableFilterValues>({});
   const [pendingTextFilters, setPendingTextFilters] = useState<
     Record<string, string>

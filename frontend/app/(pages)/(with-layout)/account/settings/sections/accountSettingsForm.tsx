@@ -21,6 +21,7 @@ export default function AccountSettingsForm(props: { email: string }) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newPasswordConfirmation, setNewPasswordConfirmation] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[] | undefined>>({});
 
   useEffect(() => {
     if (actionState?.status === 200) {
@@ -28,7 +29,9 @@ export default function AccountSettingsForm(props: { email: string }) {
       setNewPassword("");
       setNewPasswordConfirmation("");
     }
-  }, [actionState?.status]);
+
+    setFieldErrors(actionState?.data ?? {});
+  }, [actionState]);
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
@@ -39,7 +42,7 @@ export default function AccountSettingsForm(props: { email: string }) {
           </CardHeader>
           <Divider />
           <CardBody className="gap-2 text-sm">
-            <div className="rounded-md bg-primary-50 px-3 py-2 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
+            <div className="rounded-md bg-primary-50 px-3 py-2 text-primary-700 dark:bg-warning-900/30 dark:text-warning-300">
               Change password
             </div>
             <div className="rounded-md bg-default-100 px-3 py-2 text-default-500">
@@ -79,12 +82,15 @@ export default function AccountSettingsForm(props: { email: string }) {
                 label="Current password"
                 name="current_password"
                 value={currentPassword}
-                onChange={(event) => setCurrentPassword(event.target.value)}
+                onChange={(event) => {
+                  setCurrentPassword(event.target.value);
+                  setFieldErrors((prev) => ({ ...prev, current_password: undefined }));
+                }}
                 isRequired
                 isDisabled={isPending}
                 autoComplete="current-password"
-                errorMessage={actionState?.data?.current_password?.[0]}
-                isInvalid={Boolean(actionState?.data?.current_password?.[0])}
+                errorMessage={fieldErrors.current_password?.[0]}
+                isInvalid={Boolean(fieldErrors.current_password?.[0])}
               />
 
               <Input
@@ -92,12 +98,15 @@ export default function AccountSettingsForm(props: { email: string }) {
                 label="New password"
                 name="password"
                 value={newPassword}
-                onChange={(event) => setNewPassword(event.target.value)}
+                onChange={(event) => {
+                  setNewPassword(event.target.value);
+                  setFieldErrors((prev) => ({ ...prev, password: undefined }));
+                }}
                 isRequired
                 isDisabled={isPending}
                 autoComplete="new-password"
-                errorMessage={actionState?.data?.password?.[0]}
-                isInvalid={Boolean(actionState?.data?.password?.[0])}
+                errorMessage={fieldErrors.password?.[0]}
+                isInvalid={Boolean(fieldErrors.password?.[0])}
               />
 
               <Input
@@ -105,16 +114,18 @@ export default function AccountSettingsForm(props: { email: string }) {
                 label="Confirm new password"
                 name="password_confirmation"
                 value={newPasswordConfirmation}
-                onChange={(event) =>
-                  setNewPasswordConfirmation(event.target.value)
-                }
+                onChange={(event) => {
+                  setNewPasswordConfirmation(event.target.value);
+                  setFieldErrors((prev) => ({
+                    ...prev,
+                    password_confirmation: undefined,
+                  }));
+                }}
                 isRequired
                 isDisabled={isPending}
                 autoComplete="new-password"
-                errorMessage={actionState?.data?.password_confirmation?.[0]}
-                isInvalid={Boolean(
-                  actionState?.data?.password_confirmation?.[0],
-                )}
+                errorMessage={fieldErrors.password_confirmation?.[0]}
+                isInvalid={Boolean(fieldErrors.password_confirmation?.[0])}
               />
 
               <div className="pt-2">

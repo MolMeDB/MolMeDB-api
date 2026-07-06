@@ -369,7 +369,7 @@ export default function AddNewCalculationForm({ isLoggedIn }: { isLoggedIn: bool
   if (!isLoggedIn && emailStep !== "verified") {
     return (
       <div className="w-full">
-        <div className="flex flex-col min-w-lg bg-foreground-200 rounded-xl p-4 gap-4">
+        <div className="flex flex-col min-w-lg bg-content1 rounded-xl p-4 gap-4 border border-default-200 shadow-sm">
           <h2 className="font-bold text-lg">Verify your email to continue</h2>
           <p className="text-sm text-foreground/60">
             Verification signs you in. If the account does not exist yet, it
@@ -403,7 +403,7 @@ export default function AddNewCalculationForm({ isLoggedIn }: { isLoggedIn: bool
   return (
     <>
       <div className="w-full">
-        <div className="flex flex-col min-w-lg bg-foreground-200 rounded-xl p-4 gap-2">
+        <div className="flex flex-col min-w-lg bg-content1 rounded-xl p-4 gap-2 border border-default-200 shadow-sm">
           <h2 className="font-bold text-lg">Add new calculation</h2>
           {!isLoggedIn && emailStep === "verified" && (
             <Alert color="success" title={`Submitting as ${email}`} className="mb-1" />
@@ -414,10 +414,10 @@ export default function AddNewCalculationForm({ isLoggedIn }: { isLoggedIn: bool
             <h3 className="text-md text-secondary font-semibold">
               Select membrane
             </h3>
-            <label className="text-sm block text-warning-600 text-right">
+            <label className="text-sm block text-default-500 text-right">
               Choose one of the available membranes for the simulation
             </label>
-            <div className="border-1 border-foreground-300 p-4 bg-background rounded-xl">
+            <div className="border-1 border-default-200 p-4 bg-content2 rounded-xl">
               <GridSelection
                 onSelectionChange={(selected) =>
                   setSetting((prev) => ({
@@ -436,7 +436,7 @@ export default function AddNewCalculationForm({ isLoggedIn }: { isLoggedIn: bool
             <h3 className="text-md text-secondary font-semibold">
               Select method
             </h3>
-            <div className="flex flex-col items-end gap-1 text-right text-sm text-warning-600">
+            <div className="flex flex-col items-end gap-1 text-right text-sm text-default-500">
               <span>Choose one of the available methods for the simulation</span>
               <Link
                 href="/docs/contributing-data/prediction-workflow"
@@ -446,7 +446,7 @@ export default function AddNewCalculationForm({ isLoggedIn }: { isLoggedIn: bool
                 Read more about the prediction workflow
               </Link>
             </div>
-            <div className="border-1 border-foreground-300 p-4 bg-background rounded-xl">
+            <div className="border-1 border-default-200 p-4 bg-content2 rounded-xl">
               <GridSelection
                 onSelectionChange={(selected) =>
                   setSetting((prev) => ({
@@ -465,8 +465,8 @@ export default function AddNewCalculationForm({ isLoggedIn }: { isLoggedIn: bool
             <h3 className="text-md text-secondary font-semibold">
               Temperature [°C]
             </h3>
-            <label className="text-sm block text-warning-600 text-right"></label>
-            <div className="border-1 border-foreground-300 p-4 bg-white rounded-xl">
+            <label className="text-sm block text-default-500 text-right"></label>
+            <div className="border-1 border-default-200 p-4 rounded-xl">
               <Input
                 type="number"
                 className=""
@@ -487,10 +487,10 @@ export default function AddNewCalculationForm({ isLoggedIn }: { isLoggedIn: bool
             <h3 className="text-md text-secondary font-semibold">
               Molecules (in SMILES format)
             </h3>
-            <label className="text-sm block text-warning-600 text-right">
+            <label className="text-sm block text-default-500 text-right">
               Put one SMILES per line
             </label>
-            <div className="flex flex-col gap-3 border-1 border-foreground-300 p-4 bg-white rounded-xl dark:bg-background">
+            <div className="flex flex-col gap-3 border-1 border-default-200 p-4 rounded-xl">
               <Alert
                 color="primary"
                 title="Prediction structure limits"
@@ -526,10 +526,10 @@ export default function AddNewCalculationForm({ isLoggedIn }: { isLoggedIn: bool
             <h3 className="text-md text-secondary font-semibold">
               Description (comment)
             </h3>
-            <label className="text-sm block text-warning-600 text-right">
+            <label className="text-sm block text-default-500 text-right">
               Describe your calculation (only for your reference)
             </label>
-            <div className="border-1 border-foreground-300 p-4 bg-white rounded-xl">
+            <div className="border-1 border-default-200 p-4 rounded-xl">
               <Textarea
                 type="text"
                 className=""

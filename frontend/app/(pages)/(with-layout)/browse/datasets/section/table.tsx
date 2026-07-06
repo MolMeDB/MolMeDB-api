@@ -1,6 +1,6 @@
 "use client";
 import UiTable from "@/components/ui/table";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import IPublication from "@/lib/api/admin/interfaces/Publication";
 import { datasetColumns } from "./columns";
 import { Modal, ModalContent, Tooltip, useDisclosure } from "@heroui/react";
@@ -8,13 +8,22 @@ import { EyeIcon } from "@/components/ui/icons/eye";
 import PublicationModalContent from "./table/modalContent";
 // import { passiveInteractionsColumns } from "./columns";
 
-export default function DatasetsTable(props: {}) {
+export default function DatasetsTable(props: { initialDatasetId?: string }) {
   const {
     isOpen: isOpenDetail,
     onOpen: onOpenDetail,
     onOpenChange: onOpenChangeDetail,
   } = useDisclosure();
   const [detailId, setDetailId] = useState(0);
+
+  useEffect(() => {
+    const id = Number(props.initialDatasetId);
+    if (id) {
+      setDetailId(id);
+      onOpenDetail();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.initialDatasetId]);
 
   const stableApiParams = useMemo(() => {
     return {};
@@ -56,6 +65,9 @@ export default function DatasetsTable(props: {}) {
         itemKey="id"
         defaultRowsPerPage={10}
         hasSearch
+        initialQuery={
+          props.initialDatasetId ? `ID:${props.initialDatasetId}` : undefined
+        }
       />
       <Modal
         scrollBehavior="inside"

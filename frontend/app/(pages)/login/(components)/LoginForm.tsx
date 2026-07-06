@@ -63,6 +63,7 @@ export default function LoginForm(props: { defaultEmail?: string; redirectTo?: s
                 type="submit"
                 formAction={resendAction}
                 formNoValidate
+                color="warning"
                 variant="flat"
                 size="sm"
                 className="w-full"

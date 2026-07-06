@@ -7,7 +7,6 @@ import {
   MdOutlineHourglassEmpty,
   MdOutlineRunCircle,
   MdPauseCircleOutline,
-  MdErrorOutline,
   MdRefresh,
 } from "react-icons/md";
 
@@ -28,7 +27,10 @@ interface PredictionServerStats {
 
 function formatRelativeTime(iso: string | null | undefined): string {
   if (!iso) return "N/A";
-  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  const diff = Math.max(
+    0,
+    Math.floor((Date.now() - new Date(iso).getTime()) / 1000),
+  );
   if (diff < 60) return `${diff}s ago`;
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
@@ -61,10 +63,10 @@ export default function PredictionStatsWidget() {
   }, []);
 
   return (
-    <div className="w-full rounded-xl border border-zinc-200 bg-white shadow-sm px-6 py-4">
+    <div className="w-full rounded-xl border border-default-200 bg-content1 shadow-sm px-6 py-4">
       <div className="flex flex-wrap items-center gap-4 justify-between">
         <div className="flex flex-wrap items-center gap-3">
-          <span className="text-sm font-semibold text-zinc-600">
+          <span className="text-sm font-semibold text-default-600">
             Server jobs
           </span>
           <div className="flex flex-wrap gap-2">
@@ -111,23 +113,13 @@ export default function PredictionStatsWidget() {
                 >
                   Completed: {stats.jobs.completed}
                 </Chip>
-                {stats.jobs.failed > 0 && (
-                  <Chip
-                    size="sm"
-                    variant="flat"
-                    color="danger"
-                    startContent={<MdErrorOutline size={13} />}
-                  >
-                    Failed: {stats.jobs.failed}
-                  </Chip>
-                )}
               </>
             ) : (
-              <span className="text-xs text-zinc-400">Unavailable</span>
+              <span className="text-xs text-default-400">Unavailable</span>
             )}
           </div>
         </div>
-        <div className="flex items-center gap-3 text-xs text-zinc-400">
+        <div className="flex items-center gap-3 text-xs text-default-400">
           {stats?.remote?.fetched_at && (
             <Tooltip
               content={`Remote stats fetched from server ${formatRelativeTime(stats.remote.fetched_at)}`}
@@ -135,7 +127,7 @@ export default function PredictionStatsWidget() {
             >
               <span className="cursor-default">
                 Server stats:{" "}
-                <span className="font-medium text-zinc-500">
+                <span className="font-medium text-default-500">
                   {formatRelativeTime(stats.remote.fetched_at)}
                 </span>
               </span>

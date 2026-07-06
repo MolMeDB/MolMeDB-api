@@ -7,8 +7,8 @@ export default function InfoBox(props: {
   children: React.ReactNode;
 }) {
   return (
-    <div className="w-full py-4 px-8 flex flex-col gap-4 border-1 border-zinc-200 rounded-xl shadow-lg bg-white">
-      <div className="flex flex-row justify-between gap-8 items-center text-zinc-700">
+    <div className="w-full py-4 px-8 flex flex-col gap-4 border-1 border-default-200 rounded-xl shadow-lg bg-content1">
+      <div className="flex flex-row justify-between gap-8 items-center text-default-700">
         <div className="flex flex-row items-center gap-3">
           {props.icon}
           <div className="text-xl font-semibold">{props.title}</div>
