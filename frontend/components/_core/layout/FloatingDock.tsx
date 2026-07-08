@@ -10,7 +10,8 @@ import {
 } from "react";
 import { FiMoreVertical } from "react-icons/fi";
 
-const STORAGE_KEY = "floating-dock-x";
+const STORAGE_KEY = "floating-dock-right";
+const LEGACY_STORAGE_KEY = "floating-dock-x";
 const EDGE_MARGIN = 16;
 const DRAG_THRESHOLD = 4;
 // Widest panel (FeedbackWidget, 360px) plus a comfortable margin. Below this
@@ -30,29 +31,45 @@ export default function FloatingDock({ children }: { children: ReactNode }) {
   const dragState = useRef<{
     pointerId: number;
     startClientX: number;
-    startLeft: number;
+    startRight: number;
     dragging: boolean;
   } | null>(null);
+  const rightOffsetRef = useRef(EDGE_MARGIN);
 
-  const [x, setX] = useState<number | null>(null);
+  const [rightOffset, setRightOffset] = useState(EDGE_MARGIN);
+  const [viewportWidth, setViewportWidth] = useState(0);
 
-  function clamp(value: number): number {
+  function clampRightOffset(value: number): number {
     const width = dockRef.current?.offsetWidth ?? 0;
     const max = Math.max(EDGE_MARGIN, window.innerWidth - width - EDGE_MARGIN);
 
     return Math.min(Math.max(value, EDGE_MARGIN), max);
   }
 
-  useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    const fallback = window.innerWidth - EDGE_MARGIN - 200;
+  function updateRightOffset(value: number) {
+    const nextRightOffset = clampRightOffset(value);
 
-    setX(clamp(stored ? Number(stored) : fallback));
-  }, []);
+    rightOffsetRef.current = nextRightOffset;
+    setRightOffset(nextRightOffset);
+  }
 
   useEffect(() => {
+    const storedRight = window.localStorage.getItem(STORAGE_KEY);
+    const storedLeft = window.localStorage.getItem(LEGACY_STORAGE_KEY);
+
+    if (storedRight !== null) {
+      updateRightOffset(Number(storedRight));
+    } else if (storedLeft !== null) {
+      const width = dockRef.current?.offsetWidth ?? 0;
+
+      updateRightOffset(window.innerWidth - width - Number(storedLeft));
+    }
+
+    setViewportWidth(window.innerWidth);
+
     function handleResize() {
-      setX((current) => (current === null ? current : clamp(current)));
+      setViewportWidth(window.innerWidth);
+      updateRightOffset(rightOffsetRef.current);
     }
 
     window.addEventListener("resize", handleResize);
@@ -61,15 +78,11 @@ export default function FloatingDock({ children }: { children: ReactNode }) {
   }, []);
 
   function handlePointerDown(event: React.PointerEvent<HTMLButtonElement>) {
-    if (x === null) {
-      return;
-    }
-
     event.currentTarget.setPointerCapture(event.pointerId);
     dragState.current = {
       pointerId: event.pointerId,
       startClientX: event.clientX,
-      startLeft: x,
+      startRight: rightOffsetRef.current,
       dragging: false,
     };
   }
@@ -88,23 +101,21 @@ export default function FloatingDock({ children }: { children: ReactNode }) {
     }
 
     drag.dragging = true;
-    setX(clamp(drag.startLeft + delta));
+    updateRightOffset(drag.startRight - delta);
   }
 
   function handlePointerUp(event: React.PointerEvent<HTMLButtonElement>) {
     const drag = dragState.current;
 
-    if (drag?.dragging && x !== null) {
-      window.localStorage.setItem(STORAGE_KEY, String(x));
+    if (drag?.dragging) {
+      window.localStorage.setItem(STORAGE_KEY, String(rightOffsetRef.current));
     }
 
     dragState.current = null;
   }
 
-  if (x === null) {
-    return null;
-  }
-
+  const dockWidth = dockRef.current?.offsetWidth ?? 0;
+  const x = viewportWidth - dockWidth - rightOffset;
   const align: DockAlign = x < PANEL_FLIP_THRESHOLD ? "left" : "right";
 
   return (
@@ -113,8 +124,8 @@ export default function FloatingDock({ children }: { children: ReactNode }) {
       className="pointer-events-none flex items-end gap-2"
       style={{
         bottom: "max(16px, env(safe-area-inset-bottom))",
-        left: x,
         position: "fixed",
+        right: rightOffset,
         zIndex: 1000,
       }}
     >
