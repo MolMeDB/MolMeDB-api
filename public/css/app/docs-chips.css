@@ -21,3 +21,15 @@
     max-height: calc(100vh - 5.5rem);
     overflow-y: auto;
 }
+
+.fi-fo-rich-editor-toolbar {
+    position: sticky !important;
+    top: 4rem !important;
+    z-index: 60 !important;
+    background: rgb(255 255 255);
+    box-shadow: 0 8px 16px rgb(15 23 42 / 0.12);
+}
+
+.dark .fi-fo-rich-editor-toolbar {
+    background: rgb(31 41 55);
+}

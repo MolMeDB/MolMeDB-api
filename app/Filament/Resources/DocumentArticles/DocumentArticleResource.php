@@ -103,18 +103,18 @@ class DocumentArticleResource extends Resource
                         ['undo', 'redo'],
                     ])
                     ->floatingToolbars([
-                        'paragraph' => [
-                            'bold', 'italic', 'underline', 'strike', 'link', 'textColor', 'customBlocks',
-                        ],
-                        'heading' => [
-                            'h2', 'h3',
-                        ],
+                        // 'paragraph' => [
+                        //     'bold', 'italic', 'underline', 'strike', 'link', 'textColor', 'customBlocks',
+                        // ],
                         'table' => [
                             'tableAddColumnBefore', 'tableAddColumnAfter', 'tableDeleteColumn',
                             'tableAddRowBefore', 'tableAddRowAfter', 'tableDeleteRow',
                             'tableMergeCells', 'tableSplitCell',
                             'tableToggleHeaderRow', 'tableToggleHeaderCell',
                             'tableDelete',
+                        ],
+                        'heading' => [
+                            'h2', 'h3',
                         ],
                     ])
                     ->customBlocks([
