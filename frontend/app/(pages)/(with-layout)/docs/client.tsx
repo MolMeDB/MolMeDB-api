@@ -622,7 +622,63 @@ function normalizeDocumentationTables(parsedDocument: Document): void {
 
   tables.forEach((table) => {
     table.classList.add("docs-table");
+    addTableCellBreakOpportunities(parsedDocument, table);
+
+    if (table.closest(".docs-table-scroll")) {
+      return;
+    }
+
+    const wrapper = parsedDocument.createElement("div");
+    wrapper.className = "docs-table-scroll";
+
+    table.parentNode?.insertBefore(wrapper, table);
+    wrapper.appendChild(table);
   });
+}
+
+function addTableCellBreakOpportunities(
+  parsedDocument: Document,
+  table: HTMLTableElement,
+): void {
+  const cells = Array.from(table.querySelectorAll("th, td"));
+
+  cells.forEach((cell) => {
+    const walker = parsedDocument.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+    const textNodes: Text[] = [];
+
+    while (walker.nextNode()) {
+      textNodes.push(walker.currentNode as Text);
+    }
+
+    textNodes.forEach((textNode) => {
+      const parts = getTableTextBreakParts(textNode.nodeValue ?? "");
+
+      if (parts.length <= 1) {
+        return;
+      }
+
+      const fragment = parsedDocument.createDocumentFragment();
+
+      parts.forEach((part, index) => {
+        fragment.appendChild(parsedDocument.createTextNode(part));
+
+        if (index < parts.length - 1) {
+          fragment.appendChild(parsedDocument.createElement("wbr"));
+        }
+      });
+
+      textNode.replaceWith(fragment);
+    });
+  });
+}
+
+function getTableTextBreakParts(text: string): string[] {
+  const breakableText = text
+    .replace(/([:/._-])/g, "$1\u200B")
+    .replace(/([a-z0-9])([A-Z])/g, "$1\u200B$2")
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1\u200B$2");
+
+  return breakableText.split("\u200B").filter((part) => part !== "");
 }
 
 function highlightCodeBlocks(parsedDocument: Document): void {
