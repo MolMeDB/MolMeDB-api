@@ -8,6 +8,7 @@ use App\Filament\Resources\DocumentArticles\Pages\EditDocumentArticle;
 use App\Filament\Resources\DocumentArticles\Pages\ListDocumentArticles;
 use App\Filament\RichContentCustomBlocks\CaptionBlock;
 use App\Filament\RichContentCustomBlocks\CodeSnippetBlock;
+use App\Filament\RichContentCustomBlocks\DocumentVersionBlock;
 use App\Filament\RichContentCustomBlocks\ErrorInfoboxBlock;
 use App\Filament\RichContentCustomBlocks\InfoInfoboxBlock;
 use App\Filament\RichContentCustomBlocks\SuccessInfoboxBlock;
@@ -118,6 +119,9 @@ class DocumentArticleResource extends Resource
                         ],
                     ])
                     ->customBlocks([
+                        'Article metadata' => [
+                            DocumentVersionBlock::class,
+                        ],
                         'Infoboxes' => [
                             InfoInfoboxBlock::class,
                             WarningInfoboxBlock::class,

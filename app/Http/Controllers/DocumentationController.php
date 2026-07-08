@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Filament\RichContentCustomBlocks\CaptionBlock;
 use App\Filament\RichContentCustomBlocks\CodeSnippetBlock;
+use App\Filament\RichContentCustomBlocks\DocumentVersionBlock;
 use App\Filament\RichContentCustomBlocks\ErrorInfoboxBlock;
 use App\Filament\RichContentCustomBlocks\InfoInfoboxBlock;
 use App\Filament\RichContentCustomBlocks\SuccessInfoboxBlock;
@@ -71,6 +72,10 @@ class DocumentationController extends Controller
                         SuccessInfoboxBlock::class,
                         CodeSnippetBlock::class,
                         CaptionBlock::class,
+                        DocumentVersionBlock::class => [
+                            'published_at' => $article->created_at?->toDateString(),
+                            'updated_at' => $article->updated_at?->toDateString(),
+                        ],
                     ])
                     ->toHtml(),
                 'breadcrumbs' => $breadcrumbs,

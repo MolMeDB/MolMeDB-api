@@ -25,7 +25,7 @@
 .fi-fo-rich-editor-toolbar {
     position: sticky !important;
     top: 4rem !important;
-    z-index: 60 !important;
+    z-index: 40 !important;
     background: rgb(255 255 255);
     box-shadow: 0 8px 16px rgb(15 23 42 / 0.12);
 }
