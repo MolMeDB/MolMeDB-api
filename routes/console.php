@@ -5,6 +5,7 @@ use App\Console\Commands\Cron\RunPredictionsWorker;
 use App\Console\Commands\Cron\SendPredictionAdminStatsNotification;
 use App\Console\Commands\Cron\SendPredictionProgressNotifications;
 use App\Console\Commands\ProcessFrontendUploads;
+use App\Console\Commands\SendUploadQueueAdminDigest;
 use App\Console\Commands\SendUploadQueueNotifications;
 use App\Jobs\ImportFinishedPredictionResults;
 use App\Services\SystemActivityLogger;
@@ -69,6 +70,10 @@ Schedule::command(ProcessFrontendUploads::class)
 
 Schedule::command(SendUploadQueueNotifications::class)
     ->everyMinute()
+    ->withoutOverlapping();
+
+Schedule::command(SendUploadQueueAdminDigest::class)
+    ->everyTenMinutes()
     ->withoutOverlapping();
 
 Schedule::command(RunDailyCommands::class)

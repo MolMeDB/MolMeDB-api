@@ -15,7 +15,6 @@ use App\Http\Resources\UploadQueueResource;
 use App\Http\Resources\UserResource;
 use App\Mail\UploadEmailVerificationMail;
 use App\Models\Author;
-use App\Models\Config;
 use App\Models\Dataset;
 use App\Models\FeedbackEmailVerification;
 use App\Models\File;
@@ -25,8 +24,8 @@ use App\Models\Method;
 use App\Models\NotificationTemplate;
 use App\Models\Publication;
 use App\Models\UploadQueue;
-use App\Services\AdminUrlGenerator;
 use App\Services\EmailLoginService;
+use App\Services\LabUploadAdminDigestQueue;
 use App\Services\NotificationService;
 use App\Services\UploadQueueFrontendConfigurator;
 use Carbon\Carbon;
@@ -367,16 +366,7 @@ class LabUploadController extends Controller
             );
         }
 
-        $adminFallback = trim((string) Config::get(Config::KEY_LAB_UPLOAD_ADMIN_EMAIL_FALLBACK, ''));
-
-        if (filled($adminFallback)) {
-            $notificationService->sendEmailOnly($adminFallback, NotificationTemplate::KEY_UPLOAD_ADMIN_NEW_SUBMISSION, [
-                'record_id' => $uploadQueue->id,
-                'dataset_name' => $result['dataset']->name,
-                'uploader_label' => $user->name,
-                'admin_url' => app(AdminUrlGenerator::class)->uploadQueueEditUrl($uploadQueue),
-            ]);
-        }
+        app(LabUploadAdminDigestQueue::class)->push(LabUploadAdminDigestQueue::EVENT_NEW_SUBMISSION, $uploadQueue);
 
         return response()->json([
             'message' => 'Upload request has been accepted and queued for configuration.',

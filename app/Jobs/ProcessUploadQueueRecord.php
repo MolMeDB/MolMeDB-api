@@ -4,16 +4,13 @@ namespace App\Jobs;
 
 use App\Enums\UploadQueueLogContextEnums;
 use App\Enums\UploadQueueLogTypeEnums;
-use App\Models\Config;
-use App\Models\NotificationTemplate;
 use App\Models\UploadQueue;
 use App\Rules\UploadFile\Identifiers\ColumnChebi;
 use App\Rules\UploadFile\Identifiers\ColumnChembl;
 use App\Rules\UploadFile\Identifiers\ColumnPdb;
 use App\Rules\UploadFile\Identifiers\ColumnPubchem;
-use App\Services\AdminUrlGenerator;
 use App\Services\External\Chemical\Unichem\Unichem;
-use App\Services\NotificationService;
+use App\Services\LabUploadAdminDigestQueue;
 use App\Services\SystemActivityLogger;
 use App\Services\UploadQueueDetailedValidator;
 use App\Services\UploadQueueImporter;
@@ -152,7 +149,7 @@ class ProcessUploadQueueRecord implements ShouldBeUnique, ShouldQueue
                 Log::channel('upload')
                     ->info('Upload waiting for administrator review', $summary);
 
-                $this->notifyAdmins(NotificationTemplate::KEY_UPLOAD_ADMIN_REVIEW_REQUIRED, $record);
+                $this->notifyAdmins(LabUploadAdminDigestQueue::EVENT_REVIEW_REQUIRED, $record);
                 $this->logCompletedActivity($activityLogger, $record, 'review_required', $summary);
 
                 return;
@@ -212,9 +209,7 @@ class ProcessUploadQueueRecord implements ShouldBeUnique, ShouldQueue
                     null
                 );
 
-                $this->notifyAdmins(NotificationTemplate::KEY_UPLOAD_ADMIN_PROCESSING_ERROR, $record, [
-                    'error_message' => $throwable->getMessage(),
-                ]);
+                $this->notifyAdmins(LabUploadAdminDigestQueue::EVENT_PROCESSING_ERROR, $record, $throwable->getMessage());
             }
 
             // The record is already marked as an error, so the state guard at the top
@@ -238,9 +233,11 @@ class ProcessUploadQueueRecord implements ShouldBeUnique, ShouldQueue
                 null
             );
 
-            $this->notifyAdmins(NotificationTemplate::KEY_UPLOAD_ADMIN_PROCESSING_ERROR, $record, [
-                'error_message' => $throwable?->getMessage() ?? 'Upload processing failed.',
-            ]);
+            $this->notifyAdmins(
+                LabUploadAdminDigestQueue::EVENT_PROCESSING_ERROR,
+                $record,
+                $throwable?->getMessage() ?? 'Upload processing failed.',
+            );
         }
     }
 
@@ -269,24 +266,9 @@ class ProcessUploadQueueRecord implements ShouldBeUnique, ShouldQueue
         );
     }
 
-    /**
-     * @param  array<string, mixed>  $extraData
-     */
-    private function notifyAdmins(string $templateKey, UploadQueue $record, array $extraData = []): void
+    private function notifyAdmins(string $event, UploadQueue $record, ?string $message = null): void
     {
-        $fallback = trim((string) Config::get(Config::KEY_LAB_UPLOAD_ADMIN_EMAIL_FALLBACK, ''));
-
-        if (! filled($fallback)) {
-            return;
-        }
-
-        app(NotificationService::class)->sendEmailOnly($fallback, $templateKey, [
-            'record_id' => $record->id,
-            'dataset_name' => $record->dataset?->name ?? '',
-            'uploader_label' => $record->user?->email ?? $record->guest_email ?? 'guest',
-            'admin_url' => app(AdminUrlGenerator::class)->uploadQueueEditUrl($record),
-            ...$extraData,
-        ]);
+        app(LabUploadAdminDigestQueue::class)->push($event, $record, $message);
     }
 
     private function runDetailedValidation(

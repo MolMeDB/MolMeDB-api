@@ -16,6 +16,8 @@ class Config extends Model
 
     public const KEY_LAB_UPLOAD_ADMIN_EMAIL_FALLBACK = 'lab_upload:admin_email_fallback';
 
+    public const KEY_LAB_UPLOAD_ADMIN_DIGEST_LAST_SENT_AT = 'lab_upload:admin_digest_last_sent_at';
+
     public const KEY_PREDICTION_ADMIN_EMAIL_FALLBACK = 'prediction_admin:email_fallback';
 
     public const KEY_REMOTE_PREDICTION_ENABLED = 'remote_prediction:enabled';

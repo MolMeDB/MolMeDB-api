@@ -21,6 +21,8 @@ class NotificationTemplate extends Model
 
     public const KEY_UPLOAD_ADMIN_PROCESSING_ERROR = 'upload.admin.processing_error';
 
+    public const KEY_UPLOAD_ADMIN_DIGEST = 'upload.admin.digest';
+
     public const KEY_PREDICTION_JOB_SUBMITTED = 'prediction.job.submitted';
 
     public const KEY_PREDICTION_JOB_FINISHED = 'prediction.job.finished';
@@ -46,6 +48,7 @@ class NotificationTemplate extends Model
             self::KEY_UPLOAD_ADMIN_NEW_SUBMISSION => 'Upload admin alert: new submission',
             self::KEY_UPLOAD_ADMIN_REVIEW_REQUIRED => 'Upload admin alert: review required',
             self::KEY_UPLOAD_ADMIN_PROCESSING_ERROR => 'Upload admin alert: processing error',
+            self::KEY_UPLOAD_ADMIN_DIGEST => 'Upload admin digest (throttled summary, max once per 2 hours)',
             self::KEY_PREDICTION_JOB_SUBMITTED => 'Prediction job submitted',
             self::KEY_PREDICTION_JOB_FINISHED => 'Prediction job finished',
             self::KEY_PREDICTION_JOB_DAILY_PROGRESS => 'Prediction job daily progress',
