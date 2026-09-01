@@ -74,6 +74,7 @@ Route::prefix('protein')
     ->group(function () {
         Route::get('/categories', 'categories');
         Route::get('/{protein}', 'show');
+        Route::get('/{protein}/download/interactions', 'downloadInteractions');
         Route::get('/{protein}/stats', 'stats');
     });
 
@@ -109,4 +110,5 @@ Route::prefix('structure')
         Route::get('mol/3d/{identifier}', 'mol3D');
         Route::get('/{identifier}/form/select/membranes', 'formSelectMembranes');
         Route::get('/{identifier}/form/select/methods', 'formSelectMethods');
+        Route::get('/{identifier}/similarities', 'similarities');
     });

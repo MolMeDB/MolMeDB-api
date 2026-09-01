@@ -28,7 +28,6 @@ class FileUniqueByHash implements ValidationRule
             return;
         }
 
-        // Kontrola existence v databázi
         if (File::where('hash', $hash)->exists()) {
             $fail('This file is already present in the database.');
         }

@@ -94,6 +94,7 @@ class FileRelationManager extends RelationManager
                             ->label('File')
                             ->required()
                             ->reactive()
+                            ->preserveFilenames()
                             ->getUploadedFileNameForStorageUsing(function (Get $get, TemporaryUploadedFile $file) {
                                 if($get('type') == File::TYPE_COSMO_MEMBRANE)
                                 {
@@ -112,6 +113,8 @@ class FileRelationManager extends RelationManager
                             'name' => isset($data['name']) ? $data['name'] : null,
                             'type' => $data['type'],
                             'path' => $data['path'],
+                            'storage' => 'public',
+                            'hash' => null
                         ]);
                         
                         $this->ownerRecord->files()->attach($file->id, [

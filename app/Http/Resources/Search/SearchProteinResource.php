@@ -15,8 +15,8 @@ class SearchProteinResource extends JsonResource
     {
         return array 
         (
-            'title' => $this->uniprot_id,
-            'subtitle' => null,
+            'title' => $this->matched_identifier ?? $this->uniprot_id,
+            'subtitle' => $this->uniprot_id,
             'description' => null,
             'link' => "/browse/proteins?id=$this->id",
             'imageUrl' => null

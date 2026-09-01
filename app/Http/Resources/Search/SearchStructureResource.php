@@ -18,7 +18,7 @@ class SearchStructureResource extends JsonResource
 
         return array 
         (
-            'title' => $this->name ?? $this->identifier,
+            'title' => $this->matched_identifier ?? $this->identifier,
             'subtitle' => $this->identifier,
             'description' => null,
             'link' => "/mol/$this->identifier",

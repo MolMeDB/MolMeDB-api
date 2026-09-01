@@ -2,23 +2,19 @@
 
 namespace App\Console\Commands;
 
-use App\Libraries\ExportFileColumn;
 use App\Libraries\ExportFileHeader;
 use App\Libraries\ExportToFile;
-use App\Models\Category;
+use App\Models\Config;
 use App\Models\Dataset;
 use App\Models\File;
+use App\Models\Filesystem;
 use App\Models\Identifier;
-use App\Models\InteractionActive;
-use App\Models\InteractionPassive;
 use App\Models\Membrane;
 use App\Models\Method;
 use App\Models\Publication;
-use Filament\Actions\Exports\Models\Export;
+use Carbon\Carbon;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 
 class UpdateExportFiles extends Command
 {
@@ -27,7 +23,7 @@ class UpdateExportFiles extends Command
      *
      * @var string
      */
-    protected $signature = 'export:update-files';
+    protected $signature = 'export:update-files {--force}';
 
     /**
      * The console command description.
@@ -35,14 +31,6 @@ class UpdateExportFiles extends Command
      * @var string
      */
     protected $description = 'Updates all files determined for the export.';
-
-    // const CSV_PASSIVE_INTERACTIONS_HEADER = [
-    //     ...self::STRUCTURE_INFO_HEADER,
-    //     'membrane',
-    //     'method',
-    //     'temperature',
-    //     'charge',
-    // ];
 
     private static function prepareIdentifierQuery($identifier = Identifier::TYPE_NAME)
     {
@@ -62,13 +50,40 @@ class UpdateExportFiles extends Command
     {
         $this->info('Updating statistics...');
 
+        $filesystem = Filesystem::where('type', Filesystem::TYPE_EXPORTS)->first();
+
+        if(!$filesystem || !$filesystem->isInitialized())
+        {
+            $this->error('Filesystem is not properly configured. Ending...');
+            return;
+        }
+
+        $last_update = $this->option('force') ? Carbon::parse(0) : Carbon::parse(Config::get('command:exports:update-all:last-run', 0));
+
+        if( $last_update->isCurrentWeek())
+        {
+            $this->warn('Last update was less than a week ago. Skipping...');
+            return Command::SUCCESS;
+        }
+
+        if(!$this->option('force'))
+        {
+            Config::set('command:exports:update-all:last-run', Carbon::now());
+        }
+
         $this->info('... 1) Updating membrane exports');
         $membranes = Membrane::cursor();
 
         foreach($membranes as $membrane)
         {
             $this->warn("\nProcessing membrane {$membrane->abbreviation}");
-            $export = new ExportToFile(ExportToFile::CONTEXT_MEMBRANE, null, $membrane->id);
+            $export = new ExportToFile(
+                ExportToFile::CONTEXT_MEMBRANE, 
+                null, 
+                $membrane->id, 
+                ExportToFile::TYPE_CSV, 
+                $filesystem
+            );
 
             $export->setHeader(ExportFileHeader::make()
                 ->structure()
@@ -134,10 +149,12 @@ class UpdateExportFiles extends Command
             else
             {
                 $file = File::firstOrCreate([
+                    'storage' => $filesystem->systemName,
                     'path' => $result->getZipFilePath()
                 ], [
                     'type' => File::TYPE_EXPORT_INTERACTIONS_MEMBRANE,
-                    'name' => basename($result->getZipFilePath())
+                    'name' => basename($result->getZipFilePath()),
+                    'hash' => null
                 ]);
 
                 $membrane->files()->syncWithoutDetaching([ 
@@ -150,15 +167,19 @@ class UpdateExportFiles extends Command
             $statebar->finish();
         }
 
-        
-
         $this->info('\n... 2) Updating method exports');
         $methods = Method::cursor();
 
         foreach($methods as $method)
         {
             $this->warn("\nProcessing method {$method->abbreviation}");
-            $export = new ExportToFile(ExportToFile::CONTEXT_METHOD, null, $method->id);
+            $export = new ExportToFile(
+                ExportToFile::CONTEXT_METHOD, 
+                null, 
+                $method->id, 
+                ExportToFile::TYPE_CSV, 
+                $filesystem
+            );
 
             $export->setHeader(ExportFileHeader::make()
                 ->structure()
@@ -224,10 +245,12 @@ class UpdateExportFiles extends Command
             else
             {
                 $file = File::firstOrCreate([
-                    'path' => $result->getZipFilePath()
+                    'path' => $result->getZipFilePath(),
+                    'storage' => $filesystem->systemName,
                 ], [
                     'type' => File::TYPE_EXPORT_INTERACTIONS_METHOD,
-                    'name' => basename($result->getZipFilePath())
+                    'name' => basename($result->getZipFilePath()),
+                    'hash' => null
                 ]);
 
                 $method->files()->syncWithoutDetaching([ 
@@ -249,7 +272,13 @@ class UpdateExportFiles extends Command
             $this->info("\nProcessing publication {$publication->id}");
 
             /// Process passive interactions
-            $export = new ExportToFile(ExportToFile::CONTEXT_PUBLICATION, null, $publication->id . '/passive');
+            $export = new ExportToFile(
+                ExportToFile::CONTEXT_PUBLICATION, 
+                null, 
+                $publication->id . '/passive',
+                ExportToFile::TYPE_CSV, 
+                $filesystem
+            );
 
             $export->setHeader(ExportFileHeader::make()
                 ->structure()
@@ -316,10 +345,12 @@ class UpdateExportFiles extends Command
             else
             {
                 $file = File::firstOrCreate([
-                    'path' => $result->getZipFilePath()
+                    'path' => $result->getZipFilePath(),
+                    'storage' => $filesystem->systemName,
                 ], [
                     'type' => File::TYPE_EXPORT_INTERACTIONS_PASSIVE_PUBLICATION,
-                    'name' => basename($result->getZipFilePath())
+                    'name' => basename($result->getZipFilePath()),
+                    'hash' => null
                 ]);
 
                 $publication->files()->syncWithoutDetaching([ 
@@ -330,7 +361,14 @@ class UpdateExportFiles extends Command
             }
 
             /// Process active interactions
-            $export = new ExportToFile(ExportToFile::CONTEXT_PUBLICATION, null, $publication->id . '/active');
+            $export = new ExportToFile(
+                ExportToFile::CONTEXT_PUBLICATION, 
+                null, 
+                $publication->id . '/active',
+                ExportToFile::TYPE_CSV, 
+                $filesystem
+            );
+
 
             $export->setHeader(ExportFileHeader::make()
                 ->structure()
@@ -395,10 +433,12 @@ class UpdateExportFiles extends Command
             else
             {
                 $file = File::firstOrCreate([
-                    'path' => $result->getZipFilePath()
+                    'path' => $result->getZipFilePath(),
+                    'storage' => $filesystem->systemName,
                 ], [
                     'type' => File::TYPE_EXPORT_INTERACTIONS_ACTIVE_PUBLICATION,
-                    'name' => basename($result->getZipFilePath())
+                    'name' => basename($result->getZipFilePath()),
+                    'hash' => null
                 ]);
 
                 $publication->files()->syncWithoutDetaching([ 

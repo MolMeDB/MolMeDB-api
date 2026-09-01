@@ -3,9 +3,11 @@
 namespace App\Console\Commands;
 
 use App\Models\Category;
+use App\Models\Config;
 use App\Models\Identifier;
 use App\Models\InteractionActive;
 use App\Models\Structure;
+use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Date;
 
@@ -16,7 +18,7 @@ class UpdateStatistics extends Command
      *
      * @var string
      */
-    protected $signature = 'stats:update-all';
+    protected $signature = 'stats:update-all {--force}';
 
     /**
      * The console command description.
@@ -31,6 +33,19 @@ class UpdateStatistics extends Command
     public function handle()
     {
         $this->info('Updating statistics...');
+
+        $last_update = $this->option('force') ? Carbon::parse(0) : Carbon::parse(Config::get('command:stats:update-all:last-run', 0));
+
+        if($last_update->isCurrentWeek())
+        {
+            $this->warn('Last update was less than a week ago. Skipping...');
+            return Command::SUCCESS;
+        }
+
+        if(!$this->option('force'))
+        {
+            Config::set('command:stats:update-all:last-run', Carbon::now());
+        }
 
         // Update counts 
         $this->warn('... 1) Updating counts statistics');
