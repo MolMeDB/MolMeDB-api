@@ -11,6 +11,7 @@ use App\Http\Controllers\MethodController;
 use App\Http\Controllers\PredictionsController;
 use App\Http\Controllers\ProteinController;
 use App\Http\Controllers\PublicationController;
+use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\StatsController;
 use App\Http\Controllers\StructureController;
@@ -136,6 +137,14 @@ Route::group([], function () {
             Route::get('/', 'index');
             Route::post('/read', 'markAsRead')->middleware('throttle:60,1');
             Route::delete('/clear', 'clearAll')->middleware('throttle:30,1');
+        });
+
+    Route::prefix('notifications/push-subscriptions')
+        ->controller(PushSubscriptionController::class)
+        ->middleware(['auth:sanctum', 'throttle:20,1'])
+        ->group(function () {
+            Route::post('/', 'store');
+            Route::delete('/', 'destroy');
         });
 
     Route::prefix('feedback')
