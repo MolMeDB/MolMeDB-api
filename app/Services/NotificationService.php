@@ -21,6 +21,10 @@ class NotificationService
 
     public const EVENT_EMAIL_FAILED = 'notification_email_failed';
 
+    public function __construct(
+        private readonly NotificationPreferenceResolver $preferences,
+    ) {}
+
     /**
      * @param  array<string, mixed>  $data
      */
@@ -32,13 +36,19 @@ class NotificationService
             return null;
         }
 
-        $notification = $this->buildNotification($template, $data);
+        if (! $this->preferences->isEligible($user, $template->key)) {
+            return null;
+        }
+
+        $emailAllowed = $this->preferences->emailEnabled($user, $template->key);
+
+        $notification = $this->buildNotification($template, $data, $this->preferencesUrl());
 
         if (! $notification) {
             return null;
         }
 
-        return DB::transaction(function () use ($user, $template, $notification): UserNotification {
+        return DB::transaction(function () use ($user, $template, $notification, $emailAllowed): UserNotification {
             $payload = $notification->toUserNotificationData();
 
             $record = UserNotification::query()->create([
@@ -52,7 +62,7 @@ class NotificationService
                 'data' => $payload['data'],
             ]);
 
-            if ($payload['email_subject'] && $payload['email_message']) {
+            if ($emailAllowed && $payload['email_subject'] && $payload['email_message']) {
                 try {
                     $user->notify($notification);
 
@@ -73,6 +83,11 @@ class NotificationService
 
             return $record;
         });
+    }
+
+    private function preferencesUrl(): string
+    {
+        return rtrim((string) config('app.frontend_url', config('app.url')), '/').'/account/settings#notifications';
     }
 
     /**
@@ -163,7 +178,7 @@ class NotificationService
     /**
      * @param  array<string, mixed>  $data
      */
-    private function buildNotification(NotificationTemplate $template, array $data): ?TemplatedNotification
+    private function buildNotification(NotificationTemplate $template, array $data, ?string $preferencesUrl = null): ?TemplatedNotification
     {
         try {
             return new TemplatedNotification(
@@ -176,6 +191,7 @@ class NotificationService
                     ? $this->renderString($template->email_message, $data)
                     : null,
                 data: $data,
+                preferencesUrl: $preferencesUrl,
             );
         } catch (Throwable $exception) {
             $this->logRenderFailure(

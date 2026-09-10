@@ -21,6 +21,7 @@ class TemplatedNotification extends Notification implements ShouldQueue
         public readonly ?string $emailSubject = null,
         public readonly ?string $emailMessage = null,
         public readonly array $data = [],
+        public readonly ?string $preferencesUrl = null,
     ) {
         $this->afterCommit();
     }
@@ -35,11 +36,22 @@ class TemplatedNotification extends Notification implements ShouldQueue
 
     public function toMail(object $notifiable): MailMessage
     {
-        return (new MailMessage)
+        $mail = (new MailMessage)
             ->subject($this->emailSubject)
             ->greeting(' ')
-            ->line(new HtmlString($this->emailMessage))
-            ->salutation(' ');
+            ->line(new HtmlString($this->emailMessage));
+
+        if ($this->preferencesUrl) {
+            $mail->line(new HtmlString(
+                '<hr style="border:none;border-top:1px solid #e0e0e0;margin:24px 0 12px;">'
+                .'<p style="font-size:12px;color:#888888;">'
+                .'Don\'t want to receive this notification? '
+                .'<a href="'.e($this->preferencesUrl).'">Manage your notification preferences</a>.'
+                .'</p>'
+            ));
+        }
+
+        return $mail->salutation(' ');
     }
 
     /**
