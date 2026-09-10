@@ -8,7 +8,10 @@ class ProteinFilter extends ModelFilter
 {
     public function query($name)
     {
-        return $this->join('protein_identifiers as i', 'i.protein_id', '=', 'proteins.id')
+        // Left join: a protein with no protein_identifiers rows must still
+        // be matchable by its own uniprot_id (an inner join would silently
+        // exclude it from every text search).
+        return $this->leftJoin('protein_identifiers as i', 'i.protein_id', '=', 'proteins.id')
             ->where(function ($q) use ($name) {
                 $q->whereRaw('LOWER(i.value) LIKE ?', ['%'.strtolower($name).'%'])
                     ->orWhereRaw('LOWER(uniprot_id) LIKE ?', ['%'.strtolower($name).'%']);

@@ -3,6 +3,8 @@
 use App\Models\Category;
 use App\Models\Dataset;
 use App\Models\DatasetGroup;
+use App\Models\File;
+use App\Models\Filesystem;
 use App\Models\InteractionActive;
 use App\Models\InteractionPassive;
 use App\Models\Membrane;
@@ -12,7 +14,9 @@ use App\Models\Publication;
 use App\Models\Structure;
 use App\Models\User;
 use App\ValueObjects\MethodParameters;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Modules\CdkDepict\CdkDepict;
 use Modules\Rdkit\Rdkit;
 
@@ -29,6 +33,16 @@ function prepareApiEndpointTestEnvironment(): void
         'https://rdkit.test/test' => Http::response([], 200),
         'https://rdkit.test/structure/canonize*' => Http::response([
             'data' => 'OCC',
+        ], 200),
+        'https://rdkit.test/structure/predictions/validate*' => Http::response([
+            'data' => [
+                'valid' => true,
+                'canonical_smiles' => 'OCC',
+                'atom_count' => 9,
+                'element_counts' => ['C' => 2, 'H' => 6, 'O' => 1],
+                'fragment_count' => 1,
+                'errors' => [],
+            ],
         ], 200),
     ]);
 }
@@ -223,6 +237,43 @@ function createApiDataset(array $attributes = []): Dataset
     ]);
 
     return $dataset->refresh();
+}
+
+/**
+ * Attaches a ready-to-download export file to a membrane/method/publication,
+ * matching what App\Http\Controllers\Api\Public\V1\Concerns\DownloadsExportFile
+ * expects: a Filesystem of TYPE_EXPORTS, a fake disk for it, and a File row
+ * pointing at a real (faked) file on that disk.
+ */
+function createApiExportFile(Model $owner, int $fileType, string $content = 'fake export contents'): File
+{
+    // The "Export Location" filesystem is seeded by a migration
+    // (2025_10_28_085651_create_ssh_credetials_table) — reuse it rather than
+    // creating a second TYPE_EXPORTS row, since the controller always picks
+    // the first one it finds.
+    $filesystem = Filesystem::where('type', Filesystem::TYPE_EXPORTS)->firstOrFail();
+
+    // Storage::fake() only swaps the resolved disk instance — it no longer
+    // touches config(), but Filesystem::isInitialized() (which the download
+    // endpoints check) reads Config::has('filesystems.disks.<systemName>').
+    // Set that explicitly so the fake disk is actually considered "ready".
+    config()->set("filesystems.disks.{$filesystem->systemName}", ['driver' => 'local']);
+    Storage::fake($filesystem->systemName);
+
+    $path = 'exports/'.uniqid('export_', true).'.zip';
+    Storage::disk($filesystem->systemName)->put($path, $content);
+
+    $file = File::create([
+        'type' => $fileType,
+        'path' => $path,
+        'mime' => 'application/zip',
+        'hash' => md5($content),
+        'name' => 'export',
+    ]);
+
+    $owner->files()->attach($file->id, ['model_type' => $owner::class]);
+
+    return $file;
 }
 
 function createApiPassiveInteraction(array $attributes = []): InteractionPassive
