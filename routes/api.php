@@ -9,6 +9,7 @@ use App\Http\Controllers\LabUploadController;
 use App\Http\Controllers\MembraneController;
 use App\Http\Controllers\MethodController;
 use App\Http\Controllers\PredictionsController;
+use App\Http\Controllers\NotificationPreferenceController;
 use App\Http\Controllers\ProteinController;
 use App\Http\Controllers\PublicationController;
 use App\Http\Controllers\PushSubscriptionController;
@@ -145,6 +146,14 @@ Route::group([], function () {
         ->group(function () {
             Route::post('/', 'store');
             Route::delete('/', 'destroy');
+        });
+
+    Route::prefix('notifications/preferences')
+        ->controller(NotificationPreferenceController::class)
+        ->middleware(['auth:sanctum', 'throttle:30,1'])
+        ->group(function () {
+            Route::get('/', 'index');
+            Route::put('/', 'update');
         });
 
     Route::prefix('feedback')
