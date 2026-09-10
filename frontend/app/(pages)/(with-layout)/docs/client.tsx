@@ -4,6 +4,7 @@ import { Spinner } from "@heroui/react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { FiMenu, FiX } from "react-icons/fi";
+import DOMPurify from "dompurify";
 
 type DocumentArticleTreeNode = {
   id: number;
@@ -612,7 +613,7 @@ function parseContent(content: string): ParsedArticleContent {
   });
 
   return {
-    html: parsedDocument.body.innerHTML,
+    html: DOMPurify.sanitize(parsedDocument.body.innerHTML),
     headings,
   };
 }

@@ -14,6 +14,7 @@ import {
 } from "@heroui/react";
 import { useEffect, useRef, useState } from "react";
 import { MdCloudDownload } from "react-icons/md";
+import DOMPurify from "dompurify";
 import MembraneModalContent from "./components/modalContent";
 
 export default function SectionDetail(props: { membraneId: string }) {
@@ -94,7 +95,7 @@ export default function SectionDetail(props: { membraneId: string }) {
           <div
             className="html-content-block"
             dangerouslySetInnerHTML={{
-              __html: data?.description || "",
+              __html: DOMPurify.sanitize(data?.description || ""),
             }}
           />
         </div>
