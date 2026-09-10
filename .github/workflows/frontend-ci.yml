@@ -60,7 +60,9 @@ jobs:
 
       - name: Run ESLint on changed files
         if: steps.changed.outputs.files != ''
-        run: npx eslint ${{ steps.changed.outputs.files }}
+        env:
+          FILES: ${{ steps.changed.outputs.files }}
+        run: npx eslint $FILES
 
   typecheck:
     name: TypeScript

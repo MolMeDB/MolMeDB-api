@@ -71,7 +71,9 @@ jobs:
 
       - name: Run Pint on changed files
         if: steps.changed.outputs.files != ''
-        run: vendor/bin/pint --test ${{ steps.changed.outputs.files }}
+        env:
+          FILES: ${{ steps.changed.outputs.files }}
+        run: vendor/bin/pint --test $FILES
 
   test:
     name: Test suite
