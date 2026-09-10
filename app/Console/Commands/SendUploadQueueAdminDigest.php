@@ -2,9 +2,11 @@
 
 namespace App\Console\Commands;
 
+use App\Enums\PermissionEnums;
 use App\Models\Config;
 use App\Models\NotificationTemplate;
 use App\Models\QueuedNotification;
+use App\Models\User;
 use App\Services\LabUploadAdminDigestQueue;
 use App\Services\NotificationService;
 use App\Services\SystemActivityLogger;
@@ -41,19 +43,29 @@ class SendUploadQueueAdminDigest extends Command
             return self::SUCCESS;
         }
 
-        $email = trim((string) Config::get(Config::KEY_LAB_UPLOAD_ADMIN_EMAIL_FALLBACK, ''));
-
-        if (! filled($email)) {
-            return self::SUCCESS;
-        }
-
-        $sent = $notificationService->sendEmailOnly($email, NotificationTemplate::KEY_UPLOAD_ADMIN_DIGEST, [
+        $digestData = [
             'count' => $pending->count(),
             'summary' => $formatter->format($pending),
-        ]);
+        ];
 
-        if (! $sent) {
-            return self::SUCCESS;
+        $admins = User::query()
+            ->permission(PermissionEnums::UPLOAD_QUEUE_MANAGE_ALL->value)
+            ->get();
+
+        if ($admins->isEmpty()) {
+            $email = trim((string) Config::get(Config::KEY_LAB_UPLOAD_ADMIN_EMAIL_FALLBACK, ''));
+
+            if (! filled($email)) {
+                return self::SUCCESS;
+            }
+
+            if (! $notificationService->sendEmailOnly($email, NotificationTemplate::KEY_UPLOAD_ADMIN_DIGEST, $digestData)) {
+                return self::SUCCESS;
+            }
+        } else {
+            foreach ($admins as $admin) {
+                $notificationService->send($admin, NotificationTemplate::KEY_UPLOAD_ADMIN_DIGEST, $digestData);
+            }
         }
 
         QueuedNotification::query()
