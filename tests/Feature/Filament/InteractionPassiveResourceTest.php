@@ -270,8 +270,10 @@ test('user with dataset edit own permission gets not found for interaction in fo
 
     $this->actingAs($user);
 
+    // Filament v5's EditRecord::authorizeAccess() does
+    // abort_unless(canEdit($record), 403) — a hardcoded 403, not 404.
     $this->get(InteractionPassiveResource::getUrl('edit', ['record' => $interaction]))
-        ->assertNotFound();
+        ->assertForbidden();
 });
 
 test('user with dataset view permission and dataset edit own permission cannot load the edit page for foreign passive interaction', function () {

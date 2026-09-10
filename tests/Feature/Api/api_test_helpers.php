@@ -276,6 +276,28 @@ function createApiExportFile(Model $owner, int $fileType, string $content = 'fak
     return $file;
 }
 
+/**
+ * Storage::fake('public') only swaps the resolved disk instance, it doesn't
+ * update config() — several parts of the app (e.g.
+ * UploadQueueFrontendConfigurator::openStream(), to avoid a long-lived
+ * process reusing a stale disk connection) call Storage::forgetDisk('public')
+ * before reading, which forces a re-resolve straight from config() and loses
+ * the fake. Point the real config entry at the same fake root directory
+ * Storage::fake() uses so a forgetDisk()+re-resolve still finds it.
+ */
+function fakePublicStorageForTests(): void
+{
+    $root = storage_path('framework/testing/disks/public');
+
+    config()->set('filesystems.disks.public', [
+        'driver' => 'local',
+        'root' => $root,
+        'visibility' => 'public',
+    ]);
+
+    Storage::fake('public');
+}
+
 function createApiPassiveInteraction(array $attributes = []): InteractionPassive
 {
     $structure = $attributes['structure'] ?? createApiStructure();

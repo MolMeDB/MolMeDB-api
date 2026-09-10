@@ -5,6 +5,7 @@ require_once __DIR__.'/api_test_helpers.php';
 use App\Models\Category;
 use App\Models\Dataset;
 use App\Models\User;
+use Illuminate\Support\Facades\Http;
 
 beforeEach(function () {
     prepareApiEndpointTestEnvironment();
@@ -27,22 +28,78 @@ test('structure show endpoint returns structure resource', function () {
 });
 
 test('structure mol 3d endpoint returns stored mol content', function () {
+    $molfile = validApiMolfile();
     $structure = createApiStructure([
         'identifier' => 'MM3002',
-        'molfile_3d' => 'MOLFILE CONTENT',
+        'molfile_3d' => $molfile,
     ]);
 
     $response = $this->get(apiRoutePath("api/structure/mol/3d/{$structure->identifier}"));
 
     $response->assertOk();
-    expect($response->getContent())->toBe('MOLFILE CONTENT')
+    expect($response->getContent())->toBe($molfile)
         ->and($response->headers->get('content-type'))->toContain('chemical/x-mdl-sdfile');
 });
 
-test('structure canonize smiles endpoint requires authentication', function () {
-    $this->getJson(apiRoutePath('api/structure/mol/canonize_smiles/CCO'))
-        ->assertUnauthorized();
+test('structure mol 3d endpoint regenerates invalid stored mol content', function () {
+    $molfile = validApiMolfile('Regenerated');
+    $structure = createApiStructure([
+        'identifier' => 'MM3003',
+        'molfile_3d' => 'BROKEN MOLFILE',
+    ]);
+
+    Http::fake([
+        'https://rdkit.test/test' => Http::response([], 200),
+        'https://rdkit.test/structure/3d*' => Http::response($molfile, 200),
+    ]);
+
+    $response = $this->get(apiRoutePath("api/structure/mol/3d/{$structure->identifier}"));
+
+    $response->assertOk();
+    expect($response->getContent())->toBe($molfile)
+        ->and($structure->refresh()->molfile_3d)->toBe($molfile);
 });
+
+test('structure mol 3d endpoint does not return invalid generated mol content', function () {
+    $structure = createApiStructure([
+        'identifier' => 'MM3004',
+        'molfile_3d' => 'BROKEN MOLFILE',
+    ]);
+
+    Http::fake([
+        'https://rdkit.test/test' => Http::response([], 200),
+        'https://rdkit.test/structure/3d*' => Http::response('', 200),
+    ]);
+
+    $this->getJson(apiRoutePath("api/structure/mol/3d/{$structure->identifier}"))
+        ->assertUnprocessable()
+        ->assertJsonPath('message', '3D structure could not be generated.');
+
+    expect($structure->refresh()->molfile_3d)->toBeNull();
+});
+
+test('structure canonize smiles endpoint is public and returns a canonized smiles', function () {
+    // This route carries no auth:sanctum middleware (routes/api.php) — it's
+    // a public read-only utility endpoint, unlike most of this group.
+    $this->getJson(apiRoutePath('api/structure/mol/canonize_smiles/CCO'))
+        ->assertOk()
+        ->assertJsonPath('request_smiles', 'CCO')
+        ->assertJsonStructure(['request_smiles', 'canonized_smiles']);
+});
+
+function validApiMolfile(string $name = 'Valid'): string
+{
+    return <<<MOL
+{$name}
+  MolMeDB          3D
+
+  2  1  0  0  0  0            999 V2000
+    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+    1.2000    0.0000    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0
+  1  2  1  0
+M  END
+MOL;
+}
 
 test('structure canonize smiles endpoint returns canonized smiles for authenticated user', function () {
     $user = User::factory()->create();

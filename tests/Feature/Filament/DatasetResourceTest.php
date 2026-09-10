@@ -278,8 +278,10 @@ test('user with dataset edit own permission cannot access the edit page for fore
 
     $this->actingAs($user);
 
+    // Filament v5's EditRecord::authorizeAccess() does
+    // abort_unless(canEdit($record), 403) — a hardcoded 403, not 404.
     $this->get(DatasetResource::getUrl('edit', ['record' => $dataset]))
-        ->assertNotFound();
+        ->assertForbidden();
 });
 
 test('user with dataset edit permission can update any dataset', function () {

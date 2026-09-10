@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\Identifier;
+
 require_once __DIR__.'/api_test_helpers.php';
 
 beforeEach(function () {
@@ -21,6 +23,27 @@ test('search structures endpoint returns matching structure records', function (
         ->assertJsonFragment([
             'title' => $structure->identifier,
         ]);
+});
+
+test('search structures endpoint marks records without identifier as unavailable', function () {
+    $structure = createApiStructure([
+        'identifier' => null,
+    ]);
+
+    Identifier::factory()->create([
+        'structure_id' => $structure->id,
+        'type' => Identifier::TYPE_NAME,
+        'value' => 'Pending molecule',
+        'state' => Identifier::STATE_VALIDATED,
+    ]);
+
+    $this->getJson(apiRoutePath('api/search/structures').'?query=Pending')
+        ->assertOk()
+        ->assertJsonPath('data.0.title', 'Pending molecule')
+        ->assertJsonPath('data.0.subtitle', null)
+        ->assertJsonPath('data.0.link', null)
+        ->assertJsonPath('data.0.isAvailable', false)
+        ->assertJsonPath('data.0.availabilityMessage', 'This molecule record is being prepared.');
 });
 
 test('search membranes endpoint returns matching membrane records', function () {

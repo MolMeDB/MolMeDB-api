@@ -101,6 +101,15 @@ jobs:
           --health-interval=5s
           --health-timeout=5s
           --health-retries=10
+      redis:
+        image: redis:alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
     env:
       APP_ENV: testing
       DB_CONNECTION: pgsql
@@ -109,17 +118,15 @@ jobs:
       DB_DATABASE: molmedb_testing
       DB_USERNAME: postgres
       DB_PASSWORD: postgres
-      # KNOWN LIMITATION (tracked as phase-2 tasks B3/B4, not yet fixed):
-      # database/migrations/2026_06_28_000003_..._prediction_datasets.php
-      # touches the `predictions` connection directly and assumes that
-      # schema already has a `datasets` table, which a fresh predictions
-      # DB doesn't. Using sqlite here keeps the *connection itself* working
-      # (the driver bingo image doesn't need to serve two schemas), but the
-      # full suite still fails on that migration until B3/B4 fix the
-      # ordering/assumption. Left in place so this workflow reflects real
-      # (currently red) status rather than hiding it behind more overrides.
+      # The `predictions` connection uses sqlite (:memory:) here — its
+      # schema (modules/PredictionWorkers/database/migrations, not on the
+      # default migration path) is migrated per-test by tests/Pest.php,
+      # not by this env config.
       DB_PREDICTIONS_DRIVER: sqlite
       DB_PREDICTIONS_DATABASE: ":memory:"
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: 6379
+      REDIS_CLIENT: predis
     steps:
       - uses: actions/checkout@v4
 

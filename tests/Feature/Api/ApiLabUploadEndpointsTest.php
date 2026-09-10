@@ -10,6 +10,7 @@ use App\Models\Publication;
 use App\Models\UploadQueue;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 
@@ -20,6 +21,13 @@ beforeEach(function () {
 afterEach(function () {
     resetApiRouteCdkDepictState();
     resetApiRouteRdkitState();
+
+    // Some tests below override EUROPE_PMC_ENDPOINT via putenv()/$_ENV, which
+    // is process-global state that otherwise leaks into every test that runs
+    // afterwards in the same process (e.g. Modules\References\EuropePMC's
+    // own tests), making them try to hit this fake host for real.
+    putenv('EUROPE_PMC_ENDPOINT');
+    unset($_ENV['EUROPE_PMC_ENDPOINT']);
 });
 
 test('lab upload selects endpoint returns filtered membranes methods and publications', function () {
@@ -129,9 +137,13 @@ test('lab upload endpoint stores dataset and upload queue and can create publica
         ->assertJsonPath('data.publication_id', Publication::query()->first()->id);
 
     $record = UploadQueue::query()->first();
-    expect($record->logs)->toHaveCount(1)
+    // Storing the record logs the upload itself, and — since a
+    // KEY_UPLOAD_RECEIVED notification template exists — a second log entry
+    // for the "upload received" notification sent to the uploader.
+    expect($record->logs)->toHaveCount(2)
         ->and($record->logs->first()->type->value)->toBe('UPLOAD')
-        ->and($record->logs->first()->state)->toBe(UploadQueue::STATE_UPLOADED);
+        ->and($record->logs->first()->state)->toBe(UploadQueue::STATE_UPLOADED)
+        ->and($record->logs->last()->type->value)->toBe('NOTIFICATION');
 
     expect(Dataset::query()->count())->toBe(1)
         ->and(File::query()->count())->toBe(1)
@@ -199,19 +211,105 @@ test('lab upload my-uploads endpoint returns only authenticated user records', f
     $this->actingAs($userA)
         ->getJson(apiRoutePath('api/lab/upload/my-uploads'))
         ->assertOk()
-        ->assertJsonPath('data.total', 1)
-        ->assertJsonPath('data.data.0.state_label', 'Waiting in queue')
+        ->assertJsonPath('meta.total', 1)
+        ->assertJsonPath('data.0.state_label', 'Pending upload')
         ->assertJsonStructure([
             'data' => [
-                'data' => [
-                    [
-                        'logs' => [
-                            '*' => ['message', 'context', 'type', 'state', 'timestamp'],
-                        ],
+                [
+                    'logs' => [
+                        '*' => ['message', 'context', 'type', 'state', 'timestamp'],
                     ],
                 ],
             ],
         ]);
+});
+
+test('lab upload my-uploads endpoint limits pagination size to twenty records', function () {
+    config()->set('services.turnstile.enabled', false);
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $dataset = createApiDataset([
+        'owner' => $user,
+    ]);
+
+    foreach (range(1, 25) as $index) {
+        $file = File::query()->create([
+            'path' => "upload_queue/passive/page-{$index}.csv",
+            'name' => "page-{$index}.csv",
+            'type' => File::TYPE_UPLOAD_PASSIVE,
+            'storage' => 'public',
+            'mime' => 'text/csv',
+            'hash' => md5("page-{$index}"),
+        ]);
+
+        UploadQueue::query()->create([
+            'type' => Dataset::TYPE_PASSIVE,
+            'state' => UploadQueue::STATE_UPLOADED,
+            'file_id' => $file->id,
+            'dataset_id' => $dataset->id,
+            'user_id' => $user->id,
+            'config' => [],
+        ]);
+    }
+
+    $this->actingAs($user)
+        ->getJson(apiRoutePath('api/lab/upload/my-uploads').'?per_page=50')
+        ->assertOk()
+        ->assertJsonCount(20, 'data')
+        ->assertJsonPath('meta.per_page', 20)
+        ->assertJsonPath('meta.total', 25)
+        ->assertJsonPath('meta.last_page', 2);
+
+    $this->actingAs($user)
+        ->getJson(apiRoutePath('api/lab/upload/my-uploads').'?per_page=50&page=2')
+        ->assertOk()
+        ->assertJsonCount(5, 'data')
+        ->assertJsonPath('meta.current_page', 2);
+});
+
+test('lab upload my-uploads endpoint handles legacy scalar log buckets', function () {
+    config()->set('services.turnstile.enabled', false);
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $dataset = createApiDataset([
+        'owner' => $user,
+    ]);
+
+    $file = File::query()->create([
+        'path' => 'upload_queue/passive/legacy.csv',
+        'name' => 'legacy.csv',
+        'type' => File::TYPE_UPLOAD_PASSIVE,
+        'storage' => 'public',
+        'mime' => 'text/csv',
+        'hash' => md5('legacy'),
+    ]);
+
+    $record = UploadQueue::query()->create([
+        'type' => Dataset::TYPE_PASSIVE,
+        'state' => UploadQueue::STATE_ERROR,
+        'file_id' => $file->id,
+        'dataset_id' => $dataset->id,
+        'user_id' => $user->id,
+        'config' => [],
+    ]);
+
+    DB::table('upload_queue')
+        ->where('id', $record->id)
+        ->update([
+            'logs' => json_encode([
+                'error' => 'Legacy validation failed.',
+                'warning' => 'Legacy warning.',
+            ]),
+        ]);
+
+    $this->actingAs($user)
+        ->getJson(apiRoutePath('api/lab/upload/my-uploads'))
+        ->assertOk()
+        ->assertJsonPath('data.0.logs.0.message', 'Legacy validation failed.')
+        ->assertJsonPath('data.0.logs.0.state_label', null)
+        ->assertJsonPath('data.0.logs.1.message', 'Legacy warning.');
 });
 
 test('lab upload reupload endpoint accepts replacement only for own error record', function () {
@@ -264,7 +362,7 @@ test('lab upload reupload endpoint accepts replacement only for own error record
 });
 
 test('lab upload configure preview and validate endpoints work for uploaded record', function () {
-    Storage::fake('public');
+    fakePublicStorageForTests();
 
     $user = User::factory()->create();
     $dataset = createApiDataset(['owner' => $user, 'type' => Dataset::TYPE_PASSIVE]);
@@ -299,17 +397,19 @@ test('lab upload configure preview and validate endpoints work for uploaded reco
         ->postJson(apiRoutePath("api/lab/upload/{$record->id}/configure/validate"), [
             'separator' => ',',
             'skip_first_row' => 1,
-            'attributes' => ['smiles', 'gpen'],
+            'attributes' => ['smiles', 'g_pen'],
         ])
         ->assertOk()
         ->assertJsonPath('data.config.quick_validation_ok', true);
 });
 
 test('lab upload enqueue endpoint moves configured record to pending state', function () {
-    Storage::fake('public');
+    fakePublicStorageForTests();
 
     $user = User::factory()->create();
     $dataset = createApiDataset(['owner' => $user, 'type' => Dataset::TYPE_PASSIVE]);
+
+    Storage::disk('public')->put('upload_queue/passive/queued.csv', "SMILES,Gpen\nCCO,1.25\n");
 
     $file = File::query()->create([
         'path' => 'upload_queue/passive/queued.csv',
@@ -329,7 +429,7 @@ test('lab upload enqueue endpoint moves configured record to pending state', fun
         'config' => [
             'separator' => ',',
             'skip_first_row' => 1,
-            'attributes' => ['smiles', 'gpen'],
+            'attributes' => ['smiles', 'g_pen'],
             'quick_validation_ok' => true,
         ],
     ]);
@@ -339,8 +439,14 @@ test('lab upload enqueue endpoint moves configured record to pending state', fun
         ->assertOk()
         ->assertJsonPath('data.state', UploadQueue::STATE_PENDING);
 
+    // QUEUE_CONNECTION=sync means ProcessUploadQueueRecord runs inline as
+    // part of the request above, not later — by the time we refresh, a
+    // valid upload has already been fully auto-validated and is correctly
+    // sitting at STATE_REVIEW_REQUIRED (every upload needs admin review
+    // before import), not still at the PENDING state the endpoint response
+    // reported immediately after enqueueing.
     $record->refresh();
-    expect($record->state)->toBe(UploadQueue::STATE_PENDING);
+    expect($record->state)->toBe(UploadQueue::STATE_REVIEW_REQUIRED);
 });
 
 test('lab upload cancel endpoint removes uploaded file and marks own record as canceled', function () {

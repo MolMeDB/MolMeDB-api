@@ -205,8 +205,10 @@ test('user with structure edit own permission gets not found for foreign structu
 
     $this->actingAs($user);
 
+    // Filament v5's EditRecord::authorizeAccess() does
+    // abort_unless(canEdit($record), 403) — a hardcoded 403, not 404.
     $this->get(StructureResource::getUrl('edit', ['record' => $structure]))
-        ->assertNotFound();
+        ->assertForbidden();
 });
 
 test('user with structure view permission and structure edit own permission cannot load the edit page for foreign structure', function () {
