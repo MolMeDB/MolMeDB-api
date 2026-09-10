@@ -26,6 +26,7 @@
     "react-icons": "^5.5.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4.1.11",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20",
