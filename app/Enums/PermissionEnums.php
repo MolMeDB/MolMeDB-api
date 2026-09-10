@@ -65,6 +65,8 @@ enum PermissionEnums: string
     case ROLES_EDIT = 'roles.edit';
     case ROLES_DELETE = 'roles.delete';
 
+    case SYSTEM_MONITOR = 'system.monitor';
+
     public function description(): string
     {
         return match ($this) {
@@ -117,6 +119,7 @@ enum PermissionEnums: string
             self::USERS_VIEW => 'Can view users',
             self::USERS_EDIT => 'Can manage basic user details',
             self::USERS_DELETE => 'Can soft-delete user',
+            self::SYSTEM_MONITOR => 'Can receive system health notifications (backups, failed jobs, notification failures)',
         };
     }
 
