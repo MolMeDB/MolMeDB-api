@@ -6,9 +6,10 @@ use Modules\References\EuropePMC\EuropePMC;
 use Modules\References\Models\Record;
 
 beforeEach(function () {
-    putenv('EUROPE_PMC_ENDPOINT=https://europepmc.test');
-    $_ENV['EUROPE_PMC_ENDPOINT'] = 'https://europepmc.test';
-    $_SERVER['EUROPE_PMC_ENDPOINT'] = 'https://europepmc.test';
+    // EuropePMC's constructor reads config('services.europe_pmc.endpoint')
+    // — point it at a fake host so these tests never depend on real network
+    // access to the actual EuropePMC API.
+    config()->set('services.europe_pmc.endpoint', 'https://europepmc.test');
 });
 
 test('europe pmc search returns mapped records and total', function () {

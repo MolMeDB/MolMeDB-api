@@ -1,4 +1,5 @@
 <?php
+
 namespace Modules\References\EuropePMC;
 
 use Dotenv\Dotenv;
@@ -17,39 +18,48 @@ class EuropePMC
 
     public function __construct()
     {
-        if (file_exists( __DIR__ . '/.env')) {
-            $dotenv = Dotenv::createImmutable(__DIR__);
-            $dotenv->load();
+        // Prefer the app's own config (config/services.php, itself backed by
+        // EUROPE_PMC_ENDPOINT) — this is also what makes the endpoint
+        // reliably overridable in tests via config()->set(), unlike env()/
+        // putenv(), which Illuminate\Support\Env caches behind a static,
+        // process-wide repository that a later putenv() call isn't
+        // guaranteed to be reflected in.
+        $this->baseUrl = (string) config('services.europe_pmc.endpoint', '');
+
+        // Fall back to this module's own .env (useful when it's used outside
+        // this app, e.g. extracted as a standalone package) only if the main
+        // app's config didn't provide anything.
+        if ($this->baseUrl === '' && file_exists(__DIR__.'/.env')) {
+            Dotenv::createImmutable(__DIR__)->load();
+            $this->baseUrl = env('EUROPE_PMC_ENDPOINT', '');
         }
 
-        $this->baseUrl = env('EUROPE_PMC_ENDPOINT', '');
-
-        if(!$this->baseUrl) throw new Exception("Europe PMC endpoint is not set. Check your .env file.");
+        if (! $this->baseUrl) {
+            throw new Exception('Europe PMC endpoint is not set. Check your .env file.');
+        }
     }
 
-
-    public function url() {
+    public function url()
+    {
         return $this->baseUrl;
     }
 
-    public function connected() {
+    public function connected()
+    {
         return $this->search('molmedb', page: 1, pageSize: 1) !== null;
     }
 
     /**
      * Returns list of EuropePMC articles matching the query
-     * 
      */
     public function search(
-        string $query, 
+        string $query,
         SortBy $sortBy = SortBy::SCORE,
         SortOrder $sortOrder = SortOrder::DESC,
         $page = 1,
         $pageSize = 25
-    )
-    {
-        try
-        {
+    ) {
+        try {
             $response = Http::timeout(10)
                 ->acceptJson()
                 ->get("{$this->baseUrl}/search", [
@@ -58,118 +68,118 @@ class EuropePMC
                     'sort' => "$sortBy->value $sortOrder->value",
                     'format' => 'json',
                     'page' => $page,
-                    'pageSize' => $pageSize
+                    'pageSize' => $pageSize,
                 ]);
 
             $response = $this->processResponse($response);
 
-            if(!$response) return null;
+            if (! $response) {
+                return null;
+            }
 
             $validator = Validator::make($response, [
                 'resultList.result' => 'required|array',
-                'hitCount' => 'required|integer'
+                'hitCount' => 'required|integer',
             ]);
 
-            if($validator->fails()){
+            if ($validator->fails()) {
                 return null;
             }
 
             return [
                 'total' => $response['hitCount'],
-                'records' => array_map(fn($record) => Record::fromEuropePMCResponse($record), $response['resultList']['result'])
+                'records' => array_map(fn ($record) => Record::fromEuropePMCResponse($record), $response['resultList']['result']),
             ];
-        }
-        catch(\Exception $e)
-        {
+        } catch (\Exception $e) {
             Log::error($e->getMessage(), ['query' => $query]);
+
             return null;
         }
     }
 
     /**
      * Returns detail of article
-     * 
-     * @return Record|null
      */
     public function detail(
         ?string $id,
         ?Sources $source
-    ) : ?Record
-    {
-        if(!$id || !$source) return null;
+    ): ?Record {
+        if (! $id || ! $source) {
+            return null;
+        }
 
-        try
-        {
+        try {
             $response = Http::timeout(10)
                 ->acceptJson()
                 ->get("{$this->baseUrl}/article/$source->value/$id", [
                     'resultType' => 'core',
-                    'format' => 'json'
+                    'format' => 'json',
                 ]);
 
             $response = $this->processResponse($response);
 
-            if(!$response) return null;
+            if (! $response) {
+                return null;
+            }
 
             $validator = Validator::make($response, [
-                'result' => 'required|array'
+                'result' => 'required|array',
             ]);
 
-            if($validator->fails()){
+            if ($validator->fails()) {
                 return null;
             }
 
             return Record::fromEuropePMCResponse($response['result']);
 
-        }
-        catch(Exception $e)
-        {
+        } catch (Exception $e) {
             Log::error($e->getMessage(), ['id' => $id, 'source', $source]);
+
             return null;
         }
     }
 
     /**
-     * Returns list of articles citing the given article 
+     * Returns list of articles citing the given article
      */
     public function citationList(
-        string $id, 
-        Sources $source, 
-        $page = 1, 
+        string $id,
+        Sources $source,
+        $page = 1,
         $pageSize = 25)
     {
-        try
-        {
+        try {
             $response = Http::timeout(10)
                 ->acceptJson()
                 ->get("{$this->baseUrl}/$source->value/$id/citations", [
                     'resultType' => 'core',
                     'format' => 'json',
                     'page' => $page,
-                    'pageSize' => $pageSize
+                    'pageSize' => $pageSize,
                 ]);
 
             $response = $this->processResponse($response);
 
-            if(!$response) return null;
+            if (! $response) {
+                return null;
+            }
 
             $validator = Validator::make($response, [
                 'citationList.citation' => 'required|array',
-                'hitCount' => 'required|integer'
+                'hitCount' => 'required|integer',
             ]);
 
-            if($validator->fails()){
+            if ($validator->fails()) {
                 return null;
             }
 
             return [
                 'total' => $response['hitCount'],
-                'records' => array_map(fn($record) => Record::fromEuropePMCResponse($record), $response['citationList']['citation'])
+                'records' => array_map(fn ($record) => Record::fromEuropePMCResponse($record), $response['citationList']['citation']),
             ];
-        }
-        catch(Exception $e)
-        {
+        } catch (Exception $e) {
             Log::error($e->getMessage(), ['id' => $id, 'source', $source]);
+
             return null;
         }
     }
@@ -178,71 +188,63 @@ class EuropePMC
      * Returns list of references
      */
     public function referencesList(
-        string $id, 
-        Sources $source, 
-        $page = 1, 
+        string $id,
+        Sources $source,
+        $page = 1,
         $pageSize = 25)
     {
-        try
-        {
+        try {
             $response = Http::timeout(10)
                 ->acceptJson()
                 ->get("{$this->baseUrl}/$source->value/$id/references", [
                     'resultType' => 'core',
                     'format' => 'json',
                     'page' => $page,
-                    'pageSize' => $pageSize
+                    'pageSize' => $pageSize,
                 ]);
 
             $response = $this->processResponse($response);
 
-            if(!$response) return null;
+            if (! $response) {
+                return null;
+            }
 
             $validator = Validator::make($response, [
                 'referenceList.reference' => 'required|array',
-                'hitCount' => 'required|integer'
+                'hitCount' => 'required|integer',
             ]);
 
-            if($validator->fails()){
+            if ($validator->fails()) {
                 return null;
             }
 
             return [
                 'total' => $response['hitCount'],
-                'records' => array_map(fn($record) => Record::fromEuropePMCResponse($record), $response['referenceList']['reference'])
+                'records' => array_map(fn ($record) => Record::fromEuropePMCResponse($record), $response['referenceList']['reference']),
             ];
-        }
-        catch(Exception $e)
-        {
+        } catch (Exception $e) {
             Log::error($e->getMessage(), ['id' => $id, 'source', $source]);
+
             return null;
         }
     }
 
-
     public function processResponse(\Illuminate\Http\Client\Response $response)
     {
-        if($response->successful())
-        {
+        if ($response->successful()) {
             return $response->json();
-        }
-        elseif ($response->clientError())
-        {
-            Log::error('Client error. Code:' . $response->status());
+        } elseif ($response->clientError()) {
+            Log::error('Client error. Code:'.$response->status());
+
             return null;
-        }
-        elseif ($response->serverError())
-        {
-            Log::error('Server error. Code:' . $response->status());
+        } elseif ($response->serverError()) {
+            Log::error('Server error. Code:'.$response->status());
+
             return null;
-        }
-        else 
-        {
-            Log::error('Unknown error. Code:' . $response->status());
+        } else {
+            Log::error('Unknown error. Code:'.$response->status());
+
             return null;
         }
     }
 }
-
-
-

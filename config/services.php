@@ -56,6 +56,10 @@ return [
         'base_api_url' => env('UNIPROT_BASE_API_URL', 'https://rest.uniprot.org/'),
     ],
 
+    'europe_pmc' => [
+        'endpoint' => env('EUROPE_PMC_ENDPOINT', ''),
+    ],
+
     'turnstile' => [
         'enabled' => env('TURNSTILE_ENABLED', true),
         'site_key' => env('TURNSTILE_SITE_KEY'),

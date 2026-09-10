@@ -21,13 +21,6 @@ beforeEach(function () {
 afterEach(function () {
     resetApiRouteCdkDepictState();
     resetApiRouteRdkitState();
-
-    // Some tests below override EUROPE_PMC_ENDPOINT via putenv()/$_ENV, which
-    // is process-global state that otherwise leaks into every test that runs
-    // afterwards in the same process (e.g. Modules\References\EuropePMC's
-    // own tests), making them try to hit this fake host for real.
-    putenv('EUROPE_PMC_ENDPOINT');
-    unset($_ENV['EUROPE_PMC_ENDPOINT']);
 });
 
 test('lab upload selects endpoint returns filtered membranes methods and publications', function () {
@@ -62,8 +55,7 @@ test('lab upload selects endpoint returns filtered membranes methods and publica
 });
 
 test('lab upload publication lookup endpoint returns europe pmc PMID records', function () {
-    putenv('EUROPE_PMC_ENDPOINT=https://europepmc.test');
-    $_ENV['EUROPE_PMC_ENDPOINT'] = 'https://europepmc.test';
+    config()->set('services.europe_pmc.endpoint', 'https://europepmc.test');
 
     Http::fake([
         'https://europepmc.test/search*' => Http::response([
@@ -94,8 +86,7 @@ test('lab upload publication lookup endpoint returns europe pmc PMID records', f
 });
 
 test('lab upload endpoint stores dataset and upload queue and can create publication from pmid lookup', function () {
-    putenv('EUROPE_PMC_ENDPOINT=https://europepmc.test');
-    $_ENV['EUROPE_PMC_ENDPOINT'] = 'https://europepmc.test';
+    config()->set('services.europe_pmc.endpoint', 'https://europepmc.test');
 
     Http::fake([
         'https://europepmc.test/article/MED/4001*' => Http::response([

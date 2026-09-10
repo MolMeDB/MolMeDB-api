@@ -13,16 +13,10 @@ use Modules\References\Models\Record;
 $testID = '37842337';
 
 beforeEach(function () {
-    // EuropePMC's constructor reads EUROPE_PMC_ENDPOINT from the environment
-    // at construction time — point it at a fake host so these tests never
-    // depend on real network access to the actual EuropePMC API.
-    putenv('EUROPE_PMC_ENDPOINT=https://europepmc.test');
-    $_ENV['EUROPE_PMC_ENDPOINT'] = 'https://europepmc.test';
-});
-
-afterEach(function () {
-    putenv('EUROPE_PMC_ENDPOINT');
-    unset($_ENV['EUROPE_PMC_ENDPOINT']);
+    // EuropePMC's constructor reads config('services.europe_pmc.endpoint')
+    // — point it at a fake host so these tests never depend on real network
+    // access to the actual EuropePMC API.
+    config()->set('services.europe_pmc.endpoint', 'https://europepmc.test');
 });
 
 test('EuropePMC API returns valid response', function () {
