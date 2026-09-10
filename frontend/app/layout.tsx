@@ -4,6 +4,7 @@ import "./globals.css";
 import Body from "@/components/_core/Body";
 import GoogleAnalytics from "@/components/_core/GoogleAnalytics";
 import FloatingDock from "@/components/_core/layout/FloatingDock";
+import ServiceWorkerRegistration from "@/components/_core/ServiceWorkerRegistration";
 import DownloaderWidget from "@/components/downloader/DownloaderWidget";
 import FeedbackWidget from "@/components/feedback/FeedbackWidget";
 import { UserSession } from "@/lib/api/admin/interfaces/User";
@@ -26,6 +27,7 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <Body>
+        <ServiceWorkerRegistration />
         <GoogleAnalytics />
         {children}
         <Suspense fallback={null}>
