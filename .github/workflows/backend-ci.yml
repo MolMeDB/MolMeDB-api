@@ -1,0 +1,132 @@
+name: Backend CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+    paths: &backend_paths
+      - "app/**"
+      - "bootstrap/**"
+      - "config/**"
+      - "database/**"
+      - "routes/**"
+      - "tests/**"
+      - "composer.json"
+      - "composer.lock"
+      - "phpunit.xml"
+      - ".github/workflows/backend-ci.yml"
+  push:
+    branches: [develop, main]
+    paths: *backend_paths
+
+permissions:
+  contents: read
+
+env:
+  PHP_VERSION: "8.4"
+
+jobs:
+  lint:
+    name: Pint (changed files)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+
+      - uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
+
+      - run: composer install --no-interaction --prefer-dist --no-progress
+
+      # This repo has never been Pint-formatted as a whole (263 pre-existing
+      # files fail --test on the Laravel preset, mostly old migrations).
+      # Rather than a big-bang reformat, CI only enforces style on files
+      # actually touched by this PR/push — new and edited code must be
+      # clean, untouched legacy files are left alone for now.
+      - name: Determine changed PHP files
+        id: changed
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE_SHA="${{ github.event.before }}"
+          fi
+
+          if [ -z "$BASE_SHA" ] || ! git cat-file -e "$BASE_SHA" 2>/dev/null; then
+            echo "No comparable base commit found — skipping Pint (nothing to diff against, e.g. first push of a branch)."
+            echo "files=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          FILES=$(git diff --name-only --diff-filter=ACMR "$BASE_SHA" "${{ github.sha }}" -- '*.php' | tr '\n' ' ')
+          echo "files=$FILES" >> "$GITHUB_OUTPUT"
+
+      - name: Run Pint on changed files
+        if: steps.changed.outputs.files != ''
+        run: vendor/bin/pint --test ${{ steps.changed.outputs.files }}
+
+  test:
+    name: Test suite
+    runs-on: ubuntu-latest
+    needs: lint
+    services:
+      db:
+        image: ghcr.io/molmedb/ci-bingo-postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: molmedb_testing
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      APP_ENV: testing
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: molmedb_testing
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      # KNOWN LIMITATION (tracked as phase-2 tasks B3/B4, not yet fixed):
+      # database/migrations/2026_06_28_000003_..._prediction_datasets.php
+      # touches the `predictions` connection directly and assumes that
+      # schema already has a `datasets` table, which a fresh predictions
+      # DB doesn't. Using sqlite here keeps the *connection itself* working
+      # (the driver bingo image doesn't need to serve two schemas), but the
+      # full suite still fails on that migration until B3/B4 fix the
+      # ordering/assumption. Left in place so this workflow reflects real
+      # (currently red) status rather than hiding it behind more overrides.
+      DB_PREDICTIONS_DRIVER: sqlite
+      DB_PREDICTIONS_DATABASE: ":memory:"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: mbstring, pdo_pgsql, pgsql, bcmath, gd, zip, intl
+          coverage: none
+
+      - uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
+
+      - run: composer install --no-interaction --prefer-dist --no-progress
+
+      - run: php artisan migrate --force
+
+      - run: php artisan test

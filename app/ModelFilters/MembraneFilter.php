@@ -1,4 +1,4 @@
-<?php 
+<?php
 
 namespace App\ModelFilters;
 
@@ -8,8 +8,8 @@ class MembraneFilter extends ModelFilter
 {
     public function query($name)
     {
-        return $this->whereRaw('LOWER(name) LIKE ?', ['%' . strtolower($name) . '%'])
-            ->orWhereRaw('LOWER(abbreviation) LIKE ?', ['%' . strtolower($name) . '%'])
+        return $this->whereRaw('LOWER(name) LIKE ?', ['%'.strtolower($name).'%'])
+            ->orWhereRaw('LOWER(abbreviation) LIKE ?', ['%'.strtolower($name).'%'])
             ->distinct();
     }
 

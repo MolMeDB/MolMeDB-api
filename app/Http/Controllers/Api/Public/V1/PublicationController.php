@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\Api\Public\V1;
 
-use App\Http\Controllers\Controller;
 use App\Http\Controllers\Api\Public\V1\Concerns\DownloadsExportFile;
+use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\Public\V1\PublicationResource;
 use App\Models\File;
 use App\Models\Publication;
