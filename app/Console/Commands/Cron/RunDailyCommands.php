@@ -9,7 +9,10 @@ use App\Console\Commands\Database\BackupDbIdsm;
 use App\Console\Commands\Database\BackupDbPredictions;
 use App\Console\Commands\UpdateExportFiles;
 use App\Console\Commands\UpdateStatistics;
+use App\Enums\PermissionEnums;
 use App\Models\Config;
+use App\Models\NotificationTemplate;
+use App\Services\NotificationService;
 use App\Services\SystemActivityLogger;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
@@ -40,7 +43,13 @@ class RunDailyCommands extends Command
     /**
      * Execute the console command.
      */
-    public function handle(SystemActivityLogger $activityLogger): int
+    private const BACKUP_COMMANDS = [
+        BackupDb::class,
+        BackupDbPredictions::class,
+        BackupDbIdsm::class,
+    ];
+
+    public function handle(SystemActivityLogger $activityLogger, NotificationService $notificationService): int
     {
         $commands = [
             [
@@ -171,8 +180,27 @@ class RunDailyCommands extends Command
         );
 
         $this->sendSummaryEmail($results, $startedAt, $finishedAt);
+        $this->notifyFailedBackups($results, $notificationService);
 
         return $successful ? Command::SUCCESS : Command::FAILURE;
+    }
+
+    private function notifyFailedBackups(array $results, NotificationService $notificationService): void
+    {
+        foreach ($results as $result) {
+            if ($result['successful'] || ! in_array($result['command'], self::BACKUP_COMMANDS, true)) {
+                continue;
+            }
+
+            $notificationService->sendToPermission(
+                PermissionEnums::SYSTEM_MONITOR->value,
+                NotificationTemplate::KEY_SYSTEM_ADMIN_BACKUP_FAILED,
+                [
+                    'label' => $result['label'],
+                    'error' => $result['error'] ?? 'Unknown error.',
+                ],
+            );
+        }
     }
 
     private function prepareLogDirectory(CarbonInterface $startedAt): string

@@ -73,13 +73,16 @@ class FlushQueuedNotifications extends Command
         $user = User::find($recipientId);
 
         if ($user) {
-            $data = $items->count() === 1
-                ? ($items->first()->data ?? [])
-                : [
-                    ...$items->last()->data ?? [],
-                    'count' => $items->count(),
-                    'items' => self::formatItemsList($items),
-                ];
+            // Always add count/items alongside the latest item's own fields —
+            // even for a single queued event — so a template can rely on
+            // either the per-item fields (older, singular-only templates)
+            // or {{ count }}/{{ items }} (templates written to summarize a
+            // cluster) regardless of how many events ended up batched.
+            $data = [
+                ...$items->last()->data ?? [],
+                'count' => $items->count(),
+                'items' => self::formatItemsList($items),
+            ];
 
             $notificationService->send($user, $type->value, $data, skipBatching: true);
         }

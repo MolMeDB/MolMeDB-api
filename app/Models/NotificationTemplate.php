@@ -43,6 +43,14 @@ class NotificationTemplate extends Model
 
     public const KEY_FEEDBACK_ADMIN_NEW_SUBMISSION = 'feedback.admin.new_submission';
 
+    public const KEY_SYSTEM_ADMIN_BACKUP_FAILED = 'system.admin.backup_failed';
+
+    public const KEY_SYSTEM_ADMIN_JOB_FAILED = 'system.admin.job_failed';
+
+    public const KEY_SYSTEM_ADMIN_NOTIFICATION_FAILURE = 'system.admin.notification_failure';
+
+    public const KEY_PREDICTION_ADMIN_REMOTE_SERVICE_DOWN = 'prediction.admin.remote_service_down';
+
     protected $guarded = [];
 
     /**
@@ -69,6 +77,10 @@ class NotificationTemplate extends Model
             self::KEY_EXPORT_FAILED => 'Export failed',
             self::KEY_ACCOUNT_ROLE_CHANGED => 'Your role was changed',
             self::KEY_FEEDBACK_ADMIN_NEW_SUBMISSION => 'Feedback admin: new submission',
+            self::KEY_SYSTEM_ADMIN_BACKUP_FAILED => 'System admin: backup failed',
+            self::KEY_SYSTEM_ADMIN_JOB_FAILED => 'System admin: queue job or scheduled task failed',
+            self::KEY_SYSTEM_ADMIN_NOTIFICATION_FAILURE => 'System admin: notification delivery failure',
+            self::KEY_PREDICTION_ADMIN_REMOTE_SERVICE_DOWN => 'Prediction admin: remote service unavailable',
         ];
     }
 

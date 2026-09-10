@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Cron;
 
+use App\Enums\PermissionEnums;
 use App\Jobs\CheckPredictionStatus;
 use App\Models\NotificationTemplate;
 use App\Models\User;
@@ -47,6 +48,7 @@ class RunPredictionsWorker extends Command
         RemotePredictionClient $client,
         PredictionSubmissionStructureValidator $structureValidator,
         SystemActivityLogger $activityLogger,
+        NotificationService $notificationService,
     ): int {
         if (! $client->isEnabled()) {
             $this->warn('Remote prediction service is disabled.');
@@ -77,6 +79,18 @@ class RunPredictionsWorker extends Command
                     ],
                     throttleKey: 'remote-prediction-authentication',
                 );
+
+                // This runs every minute (see routes/console.php); the type
+                // is Immediate (never batched) so an ongoing outage needs
+                // its own throttle here, or admins would get one alert per
+                // minute for as long as authentication keeps failing.
+                if (Cache::add('notification-throttle:prediction-remote-service-down', true, now()->addMinutes(30))) {
+                    $notificationService->sendToPermission(
+                        PermissionEnums::PREDICTION_DATASET_MANAGE_ALL->value,
+                        NotificationTemplate::KEY_PREDICTION_ADMIN_REMOTE_SERVICE_DOWN,
+                        ['error' => $throwable->getMessage()],
+                    );
+                }
 
                 return Command::FAILURE;
             }

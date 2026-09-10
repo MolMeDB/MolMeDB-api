@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\NotificationDeliveryMode;
 use App\Enums\NotificationType;
+use App\Enums\PermissionEnums;
 use App\Models\BaseModel;
 use App\Models\NotificationTemplate;
 use App\Models\User;
@@ -106,6 +107,29 @@ class NotificationService
     private function preferencesUrl(): string
     {
         return rtrim((string) config('app.frontend_url', config('app.url')), '/').'/account/settings#notifications';
+    }
+
+    /**
+     * Sends to every user holding the given permission, falling back to a
+     * single email address (e.g. from Config) when no such user exists yet.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function sendToPermission(string $permission, string|NotificationTemplate $template, array $data = [], ?string $fallbackEmail = null): void
+    {
+        $recipients = User::query()->permission($permission)->get();
+
+        if ($recipients->isEmpty()) {
+            if (filled($fallbackEmail)) {
+                $this->sendEmailOnly($fallbackEmail, $template, $data);
+            }
+
+            return;
+        }
+
+        foreach ($recipients as $recipient) {
+            $this->send($recipient, $template, $data);
+        }
     }
 
     /**
@@ -270,6 +294,8 @@ class NotificationService
                 'data_keys' => array_keys(Arr::dot($data)),
             ])
             ->log(Str::limit($description, 1000, '...'));
+
+        $this->alertNotificationFailure($description, $templateKey);
     }
 
     /**
@@ -284,5 +310,34 @@ class NotificationService
                 'template_key' => $templateKey,
             ])
             ->log(Str::limit($description, 1000, '...'));
+
+        $this->alertNotificationFailure($description, $templateKey);
+    }
+
+    /**
+     * Best-effort meta-alert for admins when the notification system itself
+     * is failing. Guards against recursion (a failure of this very alert
+     * must never re-trigger itself) and never lets a secondary failure here
+     * propagate — the original failure is already recorded in the activity
+     * log above regardless of whether this alert gets through.
+     */
+    private function alertNotificationFailure(string $description, ?string $templateKey): void
+    {
+        if ($templateKey === NotificationType::SYSTEM_ADMIN_NOTIFICATION_FAILURE->value) {
+            return;
+        }
+
+        try {
+            $this->sendToPermission(
+                PermissionEnums::SYSTEM_MONITOR->value,
+                NotificationType::SYSTEM_ADMIN_NOTIFICATION_FAILURE->value,
+                [
+                    'template_key' => $templateKey ?? 'unknown',
+                    'error' => $description,
+                ],
+            );
+        } catch (Throwable) {
+            // Swallowed deliberately — see docblock above.
+        }
     }
 }
