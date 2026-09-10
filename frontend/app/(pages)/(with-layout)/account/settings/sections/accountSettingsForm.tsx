@@ -45,9 +45,12 @@ export default function AccountSettingsForm(props: { email: string }) {
             <div className="rounded-md bg-primary-50 px-3 py-2 text-primary-700 dark:bg-warning-900/30 dark:text-warning-300">
               Change password
             </div>
-            <div className="rounded-md bg-default-100 px-3 py-2 text-default-500">
-              Notifications (coming soon)
-            </div>
+            <a
+              href="#notifications"
+              className="block rounded-md bg-default-100 px-3 py-2 text-default-500 hover:bg-default-200"
+            >
+              Notifications
+            </a>
             <div className="rounded-md bg-default-100 px-3 py-2 text-default-500">
               Privacy (coming soon)
             </div>
