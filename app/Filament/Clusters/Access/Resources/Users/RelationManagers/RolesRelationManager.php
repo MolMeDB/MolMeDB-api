@@ -12,7 +12,9 @@ use App\Enums\IconEnums;
 use App\Enums\PermissionEnums;
 use App\Enums\RoleEnums;
 use App\Filament\Clusters\Access\Resources\Users\UserResource;
+use App\Models\NotificationTemplate;
 use App\Policies\RolePolicy;
+use App\Services\NotificationService;
 use Filament\Forms;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
@@ -58,15 +60,27 @@ class RolesRelationManager extends RelationManager
                     })
                     ->color('primary')
                     ->visible(fn ($record): bool => RolePolicy::attach(Auth::user()))
+                    ->after(fn () => $this->notifyRoleChanged())
             ])
             ->recordActions([
                 DetachAction::make()
                     ->visible(fn ($record): bool => $this->ownerRecord->id !== Auth::user()->id && // Cannot detach own roles.
-                        RolePolicy::attach(Auth::user())) 
+                        RolePolicy::attach(Auth::user()))
+                    ->after(fn () => $this->notifyRoleChanged())
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
                 ]),
             ]);
+    }
+
+    private function notifyRoleChanged(): void
+    {
+        $user = $this->ownerRecord;
+        $roles = $user->roles()->pluck('name')->implode(', ');
+
+        app(NotificationService::class)->send($user, NotificationTemplate::KEY_ACCOUNT_ROLE_CHANGED, [
+            'roles' => $roles !== '' ? $roles : 'none',
+        ]);
     }
 }

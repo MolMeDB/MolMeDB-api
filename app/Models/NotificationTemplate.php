@@ -39,6 +39,8 @@ class NotificationTemplate extends Model
 
     public const KEY_EXPORT_FAILED = 'export.failed';
 
+    public const KEY_ACCOUNT_ROLE_CHANGED = 'account.role_changed';
+
     protected $guarded = [];
 
     /**
@@ -63,6 +65,7 @@ class NotificationTemplate extends Model
             self::KEY_PREDICTION_ADMIN_STATS_REPORT => 'Prediction admin: statistics report',
             self::KEY_EXPORT_READY => 'Export ready for download',
             self::KEY_EXPORT_FAILED => 'Export failed',
+            self::KEY_ACCOUNT_ROLE_CHANGED => 'Your role was changed',
         ];
     }
 
