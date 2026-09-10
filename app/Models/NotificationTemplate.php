@@ -41,6 +41,8 @@ class NotificationTemplate extends Model
 
     public const KEY_ACCOUNT_ROLE_CHANGED = 'account.role_changed';
 
+    public const KEY_FEEDBACK_ADMIN_NEW_SUBMISSION = 'feedback.admin.new_submission';
+
     protected $guarded = [];
 
     /**
@@ -66,6 +68,7 @@ class NotificationTemplate extends Model
             self::KEY_EXPORT_READY => 'Export ready for download',
             self::KEY_EXPORT_FAILED => 'Export failed',
             self::KEY_ACCOUNT_ROLE_CHANGED => 'Your role was changed',
+            self::KEY_FEEDBACK_ADMIN_NEW_SUBMISSION => 'Feedback admin: new submission',
         ];
     }
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\PermissionEnums;
 use App\Http\Requests\Feedback\RequestFeedbackEmailVerificationRequest;
 use App\Http\Requests\Feedback\StoreFeedbackRequest;
 use App\Http\Requests\Feedback\VerifyFeedbackEmailRequest;
@@ -13,13 +14,11 @@ use App\Models\FeedbackEmailVerification;
 use App\Models\FeedbackSubmission;
 use App\Models\NotificationTemplate;
 use App\Models\User;
-use App\Notifications\FeedbackReceived;
 use App\Services\EmailLoginService;
 use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -201,31 +200,36 @@ class FeedbackController extends Controller
 
     private function sendFeedbackAddedNotification(FeedbackSubmission $feedback): void
     {
-        $fallbackEmail = trim((string) Config::get(Config::KEY_FEEDBACK_EMAIL_FALLBACK, ''));
+        $data = $this->feedbackNotificationData($feedback);
+        $replyToEmail = $feedback->email;
+        $replyToName = $feedback->user?->name ?? $feedback->email;
 
-        if (! filled($fallbackEmail)) {
+        $admins = User::query()->permission(PermissionEnums::ADMIN_PANEL->value)->get();
+
+        if ($admins->isEmpty()) {
+            $fallbackEmail = trim((string) Config::get(Config::KEY_FEEDBACK_EMAIL_FALLBACK, ''));
+
+            if (filled($fallbackEmail)) {
+                app(NotificationService::class)->sendEmailOnly(
+                    $fallbackEmail,
+                    NotificationTemplate::KEY_FEEDBACK_ADMIN_NEW_SUBMISSION,
+                    $data,
+                    replyToEmail: $replyToEmail,
+                    replyToName: $replyToName,
+                );
+            }
+
             return;
         }
 
-        try {
-            Notification::route('mail', $fallbackEmail)
-                ->notify(new FeedbackReceived($feedback->loadMissing('user')));
-
-            activity(BaseModel::ACTIVITY_LOG_SYSTEM)
-                ->event('feedback_fallback_email_sent')
-                ->performedOn($feedback)
-                ->withProperties([
-                    'email' => $fallbackEmail,
-                ])
-                ->log('Feedback fallback email sent.');
-        } catch (Throwable $exception) {
-            activity(BaseModel::ACTIVITY_LOG_SYSTEM)
-                ->event('feedback_fallback_email_failed')
-                ->performedOn($feedback)
-                ->withProperties([
-                    'email' => $fallbackEmail,
-                ])
-                ->log(Str::limit($exception->getMessage(), 1000, '...'));
+        foreach ($admins as $admin) {
+            app(NotificationService::class)->send(
+                $admin,
+                NotificationTemplate::KEY_FEEDBACK_ADMIN_NEW_SUBMISSION,
+                $data,
+                replyToEmail: $replyToEmail,
+                replyToName: $replyToName,
+            );
         }
     }
 }

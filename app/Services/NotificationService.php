@@ -31,7 +31,7 @@ class NotificationService
     /**
      * @param  array<string, mixed>  $data
      */
-    public function send(User $user, string|NotificationTemplate $template, array $data = [], bool $skipBatching = false): ?UserNotification
+    public function send(User $user, string|NotificationTemplate $template, array $data = [], bool $skipBatching = false, ?string $replyToEmail = null, ?string $replyToName = null): ?UserNotification
     {
         $template = $this->resolveTemplate($template);
 
@@ -56,7 +56,7 @@ class NotificationService
         $emailAllowed = $this->preferences->emailEnabled($user, $template->key);
         $pushAllowed = $this->preferences->pushEnabled($user, $template->key);
 
-        $notification = $this->buildNotification($template, $data, $this->preferencesUrl(), $emailAllowed, $pushAllowed);
+        $notification = $this->buildNotification($template, $data, $this->preferencesUrl(), $emailAllowed, $pushAllowed, $replyToEmail, $replyToName);
 
         if (! $notification) {
             return null;
@@ -136,7 +136,7 @@ class NotificationService
     /**
      * @param  array<string, mixed>  $data
      */
-    public function sendEmailOnly(string $email, string|NotificationTemplate $template, array $data = []): bool
+    public function sendEmailOnly(string $email, string|NotificationTemplate $template, array $data = [], ?string $replyToEmail = null, ?string $replyToName = null): bool
     {
         $template = $this->resolveTemplate($template);
 
@@ -144,7 +144,7 @@ class NotificationService
             return false;
         }
 
-        $notification = $this->buildNotification($template, $data);
+        $notification = $this->buildNotification($template, $data, replyToEmail: $replyToEmail, replyToName: $replyToName);
 
         if (! $notification) {
             return false;
@@ -196,7 +196,7 @@ class NotificationService
     /**
      * @param  array<string, mixed>  $data
      */
-    private function buildNotification(NotificationTemplate $template, array $data, ?string $preferencesUrl = null, bool $emailAllowed = true, bool $pushAllowed = false): ?TemplatedNotification
+    private function buildNotification(NotificationTemplate $template, array $data, ?string $preferencesUrl = null, bool $emailAllowed = true, bool $pushAllowed = false, ?string $replyToEmail = null, ?string $replyToName = null): ?TemplatedNotification
     {
         try {
             return new TemplatedNotification(
@@ -212,6 +212,8 @@ class NotificationService
                 preferencesUrl: $preferencesUrl,
                 emailAllowed: $emailAllowed,
                 pushAllowed: $pushAllowed,
+                replyToEmail: $replyToEmail,
+                replyToName: $replyToName,
             );
         } catch (Throwable $exception) {
             $this->logRenderFailure(

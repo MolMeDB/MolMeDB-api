@@ -26,6 +26,8 @@ class TemplatedNotification extends Notification implements ShouldQueue
         public readonly ?string $preferencesUrl = null,
         public readonly bool $emailAllowed = true,
         public readonly bool $pushAllowed = false,
+        public readonly ?string $replyToEmail = null,
+        public readonly ?string $replyToName = null,
     ) {
         $this->afterCommit();
     }
@@ -64,6 +66,10 @@ class TemplatedNotification extends Notification implements ShouldQueue
             ->subject($this->emailSubject)
             ->greeting(' ')
             ->line(new HtmlString($this->emailMessage));
+
+        if ($this->replyToEmail) {
+            $mail->replyTo($this->replyToEmail, $this->replyToName);
+        }
 
         if ($this->preferencesUrl) {
             $mail->line(new HtmlString(
