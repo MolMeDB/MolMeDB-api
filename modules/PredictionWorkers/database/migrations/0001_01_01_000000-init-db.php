@@ -81,6 +81,7 @@ return new class extends Migration
             $table->string('method_type', 20)->index();
             $table->tinyInteger('priority')->default(Prediction::PRIORITY_LOW);
             $table->timestamps();
+            $table->timestamp('finished_notification_sent_at')->nullable()->after('updated_at');
         });
 
         Schema::connection($this->connection)->create('prediction_has_datasets', function (Blueprint $table) {
