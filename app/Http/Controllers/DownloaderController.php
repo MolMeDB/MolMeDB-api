@@ -40,6 +40,8 @@ class DownloaderController extends Controller
 
     public function store(DownloaderSelectionRequest $request): JsonResponse
     {
+        $userId = $request->user()?->id;
+
         $selection = DownloadQueue::normalizeSelection([
             'membrane_ids' => $request->membraneIds(),
             'method_ids' => $request->methodIds(),
@@ -60,6 +62,7 @@ class DownloaderController extends Controller
 
         $download = DownloadQueue::create([
             'uuid' => (string) Str::uuid(),
+            'user_id' => $userId,
             'state' => DownloadQueue::STATE_PENDING,
             'selection' => $selection,
             'selection_hash' => $selectionHash,

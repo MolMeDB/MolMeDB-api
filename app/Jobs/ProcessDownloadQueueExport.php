@@ -8,9 +8,11 @@ use App\Models\DownloadQueue;
 use App\Models\Filesystem;
 use App\Models\InteractionActive;
 use App\Models\InteractionPassive;
+use App\Models\NotificationTemplate;
 use App\Models\Publication;
 use App\Models\Structure;
 use App\Services\DownloaderFilterService;
+use App\Services\NotificationService;
 use App\Services\SystemActivityLogger;
 use Generator;
 use Illuminate\Bus\Queueable;
@@ -47,6 +49,7 @@ class ProcessDownloadQueueExport implements ShouldQueue
     public function handle(
         DownloaderFilterService $filters,
         SystemActivityLogger $activityLogger,
+        NotificationService $notificationService,
     ): void {
         $this->download->refresh();
 
@@ -60,6 +63,8 @@ class ProcessDownloadQueueExport implements ShouldQueue
                 $this->runToken,
                 'Download request expired before processing started.',
             );
+
+            $this->notifyFailure($notificationService, 'Download request expired before processing started.');
 
             return;
         }
@@ -151,12 +156,50 @@ class ProcessDownloadQueueExport implements ShouldQueue
                     throttleKey: 'download-export-completed',
                     seconds: 300,
                 );
+
+                $this->notifyReady($notificationService);
             }
         } catch (Throwable $exception) {
             $this->download->failProcessing($this->runToken, $exception->getMessage());
 
+            $this->notifyFailure($notificationService, $exception->getMessage());
+
             throw $exception;
         }
+    }
+
+    private function notifyReady(NotificationService $notificationService): void
+    {
+        $user = $this->download->user;
+
+        if (! $user) {
+            return;
+        }
+
+        $notificationService->send($user, NotificationTemplate::KEY_EXPORT_READY, [
+            'manage_url' => $this->manageUrl(),
+        ]);
+    }
+
+    private function notifyFailure(NotificationService $notificationService, string $errorMessage): void
+    {
+        $user = $this->download->user;
+
+        if (! $user) {
+            return;
+        }
+
+        $notificationService->send($user, NotificationTemplate::KEY_EXPORT_FAILED, [
+            'error_message' => $errorMessage,
+            'manage_url' => $this->manageUrl(),
+        ]);
+    }
+
+    private function manageUrl(): string
+    {
+        $frontendUrl = rtrim((string) config('app.frontend_url', config('app.url')), '/');
+
+        return "{$frontendUrl}/downloader?uuid={$this->download->uuid}";
     }
 
     /**

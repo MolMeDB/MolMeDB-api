@@ -15,6 +15,7 @@ import {
   Progress,
   Spinner,
 } from "@heroui/react";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FiDownload, FiSearch, FiTrash2 } from "react-icons/fi";
 
@@ -55,6 +56,7 @@ export default function DownloaderClient() {
   const [downloadUuid, setDownloadUuid] = useState<string | null>(null);
   const [wasRestarted, setWasRestarted] = useState(false);
   const pollRef = useRef<number | null>(null);
+  const searchParams = useSearchParams();
 
   const selection = useMemo(() => {
     return {
@@ -93,6 +95,22 @@ export default function DownloaderClient() {
       }
     };
   }, []);
+
+  // Resume tracking an export started earlier (e.g. from a "your export is
+  // ready" notification link) without requiring the original selection to
+  // still be in the downloader context.
+  useEffect(() => {
+    const uuid = searchParams.get("uuid");
+
+    if (!uuid) {
+      return;
+    }
+
+    setDownloadUuid(uuid);
+    setExportState("running");
+    startPolling(uuid);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   async function handleVerify() {
     setIsVerifying(true);

@@ -35,6 +35,10 @@ class NotificationTemplate extends Model
 
     public const KEY_PREDICTION_ADMIN_STATS_REPORT = 'prediction.admin.stats_report';
 
+    public const KEY_EXPORT_READY = 'export.ready';
+
+    public const KEY_EXPORT_FAILED = 'export.failed';
+
     protected $guarded = [];
 
     /**
@@ -57,6 +61,8 @@ class NotificationTemplate extends Model
             self::KEY_PREDICTION_JOB_DAILY_PROGRESS => 'Prediction job daily progress',
             self::KEY_PREDICTION_ADMIN_NEW_SUBMISSION => 'Prediction admin: new submission',
             self::KEY_PREDICTION_ADMIN_STATS_REPORT => 'Prediction admin: statistics report',
+            self::KEY_EXPORT_READY => 'Export ready for download',
+            self::KEY_EXPORT_FAILED => 'Export failed',
         ];
     }
 
