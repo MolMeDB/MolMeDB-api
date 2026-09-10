@@ -41,14 +41,15 @@ class NotificationService
         }
 
         $emailAllowed = $this->preferences->emailEnabled($user, $template->key);
+        $pushAllowed = $this->preferences->pushEnabled($user, $template->key);
 
-        $notification = $this->buildNotification($template, $data, $this->preferencesUrl());
+        $notification = $this->buildNotification($template, $data, $this->preferencesUrl(), $emailAllowed, $pushAllowed);
 
         if (! $notification) {
             return null;
         }
 
-        return DB::transaction(function () use ($user, $template, $notification, $emailAllowed): UserNotification {
+        return DB::transaction(function () use ($user, $template, $notification, $emailAllowed, $pushAllowed): UserNotification {
             $payload = $notification->toUserNotificationData();
 
             $record = UserNotification::query()->create([
@@ -62,13 +63,17 @@ class NotificationService
                 'data' => $payload['data'],
             ]);
 
-            if ($emailAllowed && $payload['email_subject'] && $payload['email_message']) {
+            $willEmail = $emailAllowed && $payload['email_subject'] && $payload['email_message'];
+
+            if ($willEmail || $pushAllowed) {
                 try {
                     $user->notify($notification);
 
-                    $record->forceFill([
-                        'emailed_at' => now(),
-                    ])->save();
+                    if ($willEmail) {
+                        $record->forceFill([
+                            'emailed_at' => now(),
+                        ])->save();
+                    }
                 } catch (Throwable $exception) {
                     $this->logEmailFailure(
                         description: $exception->getMessage(),
@@ -178,7 +183,7 @@ class NotificationService
     /**
      * @param  array<string, mixed>  $data
      */
-    private function buildNotification(NotificationTemplate $template, array $data, ?string $preferencesUrl = null): ?TemplatedNotification
+    private function buildNotification(NotificationTemplate $template, array $data, ?string $preferencesUrl = null, bool $emailAllowed = true, bool $pushAllowed = false): ?TemplatedNotification
     {
         try {
             return new TemplatedNotification(
@@ -192,6 +197,8 @@ class NotificationService
                     : null,
                 data: $data,
                 preferencesUrl: $preferencesUrl,
+                emailAllowed: $emailAllowed,
+                pushAllowed: $pushAllowed,
             );
         } catch (Throwable $exception) {
             $this->logRenderFailure(

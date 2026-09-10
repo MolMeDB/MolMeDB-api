@@ -2,6 +2,8 @@
 
 namespace App\Notifications;
 
+use App\Notifications\Channels\WebPushChannel;
+use App\Notifications\Messages\WebPushMessage;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -22,6 +24,8 @@ class TemplatedNotification extends Notification implements ShouldQueue
         public readonly ?string $emailMessage = null,
         public readonly array $data = [],
         public readonly ?string $preferencesUrl = null,
+        public readonly bool $emailAllowed = true,
+        public readonly bool $pushAllowed = false,
     ) {
         $this->afterCommit();
     }
@@ -31,7 +35,27 @@ class TemplatedNotification extends Notification implements ShouldQueue
      */
     public function via(object $notifiable): array
     {
-        return $this->hasEmail() ? ['mail'] : [];
+        $channels = [];
+
+        if ($this->emailAllowed && $this->hasEmail()) {
+            $channels[] = 'mail';
+        }
+
+        if ($this->pushAllowed) {
+            $channels[] = WebPushChannel::class;
+        }
+
+        return $channels;
+    }
+
+    public function toWebPush(object $notifiable): WebPushMessage
+    {
+        return new WebPushMessage(
+            title: html_entity_decode($this->notificationTitle, ENT_QUOTES),
+            body: html_entity_decode(strip_tags($this->notificationBody), ENT_QUOTES),
+            url: $this->data['manage_url'] ?? $this->data['dataset_url'] ?? $this->data['admin_url'] ?? null,
+            icon: rtrim((string) config('app.frontend_url'), '/').'/icons/192.png',
+        );
     }
 
     public function toMail(object $notifiable): MailMessage
