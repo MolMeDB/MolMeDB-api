@@ -24,6 +24,14 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# Next.js statically imports route modules while collecting page data during
+# `next build`, which requires JWT_SECRET to be set even though it's only
+# actually used at runtime (see frontend/lib/api/cookies.ts) — pass it as a
+# build arg so `docker build` can supply a value (any non-empty placeholder
+# works for the build itself; the real secret is what matters at runtime).
+ARG JWT_SECRET
+ENV JWT_SECRET=$JWT_SECRET
+
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry
 # Uncomment the following line in case you want to disable telemetry during the build.

@@ -3,7 +3,10 @@ import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 import { UserSession } from "./admin/interfaces/User";
 
-const SECRET_KEY: string = (() => {
+// Read lazily (not at module scope) so importing this file doesn't require
+// JWT_SECRET to be set — e.g. Next.js's production build statically
+// analyzes/imports route modules without runtime env vars present.
+function secretKey(): string {
   const key = process.env.JWT_SECRET;
   if (!key) {
     throw new Error(
@@ -11,7 +14,7 @@ const SECRET_KEY: string = (() => {
     );
   }
   return key;
-})();
+}
 const USER_SESSION_KEY = process.env
   .COOKIES_FRONTEND_SESSION_USER_KEY as string;
 const DEFAULT_COOKIE_MAX_AGE = 60 * 60 * 24;
@@ -50,11 +53,11 @@ function userCookieMaxAge(options: UserCookieOptions = {}): number {
 }
 
 function sign(data: object, maxAge = DEFAULT_COOKIE_MAX_AGE) {
-  return jwt.sign(data, SECRET_KEY, { expiresIn: maxAge });
+  return jwt.sign(data, secretKey(), { expiresIn: maxAge });
 }
 
 function unsign(token: string) {
-  return jwt.verify(token, SECRET_KEY);
+  return jwt.verify(token, secretKey());
 }
 
 function normalizeUserData(data: unknown): UserSession | null {
