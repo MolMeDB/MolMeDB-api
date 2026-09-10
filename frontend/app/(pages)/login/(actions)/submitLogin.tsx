@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { post } from "@/lib/api/admin";
 import ApiResponse from "@/lib/api/response";
 import { Cookie } from "@/lib/api/cookies";
+import { safeRedirectPath } from "@/utils/safeRedirect";
 
 export default async function submitLogin(
   _previousState: any,
@@ -15,7 +16,8 @@ export default async function submitLogin(
     remember: formData.get("remember") === "on",
   };
 
-  let redirectTo = formData.get("redirectTo")?.toString() ?? false;
+  let redirectTo: string | false =
+    safeRedirectPath(formData.get("redirectTo")?.toString()) ?? false;
 
   try {
     const result2 = await post("/login", rawFormData);

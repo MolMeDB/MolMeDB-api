@@ -3,7 +3,13 @@ import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 import { UserSession } from "./admin/interfaces/User";
 
-const SECRET_KEY = process.env.JWT_SECRET || "SECRET";
+const SECRET_KEY = process.env.JWT_SECRET;
+
+if (!SECRET_KEY) {
+  throw new Error(
+    "JWT_SECRET environment variable must be set to sign/verify the user session cookie."
+  );
+}
 const USER_SESSION_KEY = process.env
   .COOKIES_FRONTEND_SESSION_USER_KEY as string;
 const DEFAULT_COOKIE_MAX_AGE = 60 * 60 * 24;

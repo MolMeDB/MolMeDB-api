@@ -10,6 +10,7 @@ import { Cookie } from "@/lib/api/cookies";
 import LoginInformTable from "./(components)/LoginInformTable";
 import SiteNotifications from "@/components/_core/layout/SiteNotifications";
 import { cookies } from "next/headers";
+import { safeRedirectPath } from "@/utils/safeRedirect";
 
 export const metadata: Metadata = {
   title: "Login | MolMeDB",
@@ -29,7 +30,7 @@ export default async function LoginPage({ searchParams }: PageProps) {
   const isVerified = getParams?.verified === "1";
   const verifiedEmail = getParams?.email as string | undefined;
   const isExpired = getParams?.expired == "1";
-  const redirectTo = getParams?.redirect?.toString();
+  const redirectTo = safeRedirectPath(getParams?.redirect?.toString());
   
   var notification = null;
 
