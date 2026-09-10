@@ -7,7 +7,7 @@ import { Cookie } from "@/lib/api/cookies";
 import { safeRedirectPath } from "@/utils/safeRedirect";
 
 export default async function submitLogin(
-  _previousState: any,
+  _previousState: ApiResponse | null | undefined,
   formData: FormData
 ) {
   const rawFormData = {

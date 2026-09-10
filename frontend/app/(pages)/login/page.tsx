@@ -9,7 +9,6 @@ import { UserSession } from "@/lib/api/admin/interfaces/User";
 import { Cookie } from "@/lib/api/cookies";
 import LoginInformTable from "./(components)/LoginInformTable";
 import SiteNotifications from "@/components/_core/layout/SiteNotifications";
-import { cookies } from "next/headers";
 import { safeRedirectPath } from "@/utils/safeRedirect";
 
 export const metadata: Metadata = {
@@ -32,7 +31,7 @@ export default async function LoginPage({ searchParams }: PageProps) {
   const isExpired = getParams?.expired == "1";
   const redirectTo = safeRedirectPath(getParams?.redirect?.toString());
   
-  var notification = null;
+  let notification = null;
 
   if(isExpired){
      notification = <SiteNotifications
