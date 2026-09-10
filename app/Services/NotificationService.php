@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Enums\NotificationDeliveryMode;
+use App\Enums\NotificationType;
 use App\Models\BaseModel;
 use App\Models\NotificationTemplate;
 use App\Models\User;
@@ -23,12 +25,13 @@ class NotificationService
 
     public function __construct(
         private readonly NotificationPreferenceResolver $preferences,
+        private readonly NotificationBatcher $batcher,
     ) {}
 
     /**
      * @param  array<string, mixed>  $data
      */
-    public function send(User $user, string|NotificationTemplate $template, array $data = []): ?UserNotification
+    public function send(User $user, string|NotificationTemplate $template, array $data = [], bool $skipBatching = false): ?UserNotification
     {
         $template = $this->resolveTemplate($template);
 
@@ -38,6 +41,16 @@ class NotificationService
 
         if (! $this->preferences->isEligible($user, $template->key)) {
             return null;
+        }
+
+        if (! $skipBatching) {
+            $type = NotificationType::tryFrom($template->key);
+
+            if ($type && $type->deliveryMode() === NotificationDeliveryMode::BATCHED) {
+                $this->batcher->queue($user, $type, $data);
+
+                return null;
+            }
         }
 
         $emailAllowed = $this->preferences->emailEnabled($user, $template->key);

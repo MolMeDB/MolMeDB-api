@@ -27,6 +27,8 @@ class NotificationTemplate extends Model
 
     public const KEY_PREDICTION_JOB_FINISHED = 'prediction.job.finished';
 
+    public const KEY_PREDICTION_JOB_FINISHED_WITH_ERRORS = 'prediction.job.finished_with_errors';
+
     public const KEY_PREDICTION_JOB_DAILY_PROGRESS = 'prediction.job.daily_progress';
 
     public const KEY_PREDICTION_ADMIN_NEW_SUBMISSION = 'prediction.admin.new_submission';
@@ -51,6 +53,7 @@ class NotificationTemplate extends Model
             self::KEY_UPLOAD_ADMIN_DIGEST => 'Upload admin digest (throttled summary, max once per 2 hours)',
             self::KEY_PREDICTION_JOB_SUBMITTED => 'Prediction job submitted',
             self::KEY_PREDICTION_JOB_FINISHED => 'Prediction job finished',
+            self::KEY_PREDICTION_JOB_FINISHED_WITH_ERRORS => 'Prediction job finished with errors',
             self::KEY_PREDICTION_JOB_DAILY_PROGRESS => 'Prediction job daily progress',
             self::KEY_PREDICTION_ADMIN_NEW_SUBMISSION => 'Prediction admin: new submission',
             self::KEY_PREDICTION_ADMIN_STATS_REPORT => 'Prediction admin: statistics report',

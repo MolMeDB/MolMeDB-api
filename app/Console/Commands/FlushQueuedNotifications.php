@@ -81,7 +81,7 @@ class FlushQueuedNotifications extends Command
                     'items' => self::formatItemsList($items),
                 ];
 
-            $notificationService->send($user, $type->value, $data);
+            $notificationService->send($user, $type->value, $data, skipBatching: true);
         }
 
         QueuedNotification::query()->whereIn('id', $items->pluck('id'))->update(['notified_at' => now()]);

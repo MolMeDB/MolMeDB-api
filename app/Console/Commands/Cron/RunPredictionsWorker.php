@@ -698,7 +698,11 @@ class RunPredictionsWorker extends Command
                 $method = Prediction::enumMethod($dataset->method_type);
                 $s = $stats['stats'];
 
-                $notificationService->send($user, NotificationTemplate::KEY_PREDICTION_JOB_FINISHED, [
+                $templateKey = $state === PredictionDataset::STATE_FINISHED_WITH_ERRORS
+                    ? NotificationTemplate::KEY_PREDICTION_JOB_FINISHED_WITH_ERRORS
+                    : NotificationTemplate::KEY_PREDICTION_JOB_FINISHED;
+
+                $notificationService->send($user, $templateKey, [
                     'comment' => $dataset->comment ?: "Dataset #{$dataset->id}",
                     'total' => $s['total'],
                     'done' => $s['done'],
