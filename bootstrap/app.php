@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Middleware\EnsureEmailIsVerified;
+use App\Http\Middleware\NegotiatePublicApiFormat;
 use App\Http\Middleware\NormalizeLivewireUploadUrl;
+use App\Http\Middleware\PublicApiCors;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -43,6 +45,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'verified' => EnsureEmailIsVerified::class,
+            'public-cors' => PublicApiCors::class,
+            'negotiate-public-api-format' => NegotiatePublicApiFormat::class,
         ]);
 
         //

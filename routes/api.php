@@ -25,6 +25,12 @@ Route::middleware(['auth:sanctum'])->get('/user', function (Request $request) {
     return UserResource::make($request->user());
 });
 
+// Public, unauthenticated API — own rate limiter and CORS policy, not the
+// internal throttle:300,1 default group below.
+Route::prefix('public/v1')
+    ->middleware(['public-cors', 'throttle:public-api', 'negotiate-public-api-format'])
+    ->group(base_path('routes/public/v1.php'));
+
 Route::group([], function () {
     Route::get('test', function () {
         return response()->json(['message' => 'OK'], 200);

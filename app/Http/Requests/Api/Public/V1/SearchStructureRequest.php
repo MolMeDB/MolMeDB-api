@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Requests;
+namespace App\Http\Requests\Api\Public\V1;
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -16,8 +16,6 @@ class SearchStructureRequest extends FormRequest
     }
 
     /**
-     * Get the validation rules that apply to the request.
-     *
      * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
@@ -75,6 +73,6 @@ class SearchStructureRequest extends FormRequest
 
     public function perPage(): int
     {
-        return $this->integer('per_page', 10);
+        return min(max($this->integer('per_page', 20), 1), 100);
     }
 }

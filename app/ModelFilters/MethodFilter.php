@@ -12,6 +12,11 @@ class MethodFilter extends ModelFilter
             ->orWhereRaw('LOWER(abbreviation) LIKE ?', ['%'.strtolower($name).'%']);
     }
 
+    public function category($id)
+    {
+        return $this->whereHas('categories', fn ($q) => $q->where('categories.id', $id));
+    }
+
     public function setup()
     {
         $this->defaultOrder();

@@ -3,7 +3,6 @@
 namespace App\ModelFilters;
 
 use EloquentFilter\ModelFilter;
-use Modules\Rdkit\Rdkit;
 
 class StructureFilter extends ModelFilter
 {
@@ -23,12 +22,12 @@ class StructureFilter extends ModelFilter
     public function smiles($smiles)
     {
         $smiles = trim((string) $smiles);
-        $canonicalSmiles = (new Rdkit)->canonize_smiles($smiles);
 
-        return $this->where(
-            'structures.canonical_smiles',
-            $canonicalSmiles ?: $smiles,
-        );
+        if ($smiles === '') {
+            return $this;
+        }
+
+        return $this->exactMolecule($smiles);
     }
 
     public function substructure($smiles)

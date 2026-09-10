@@ -36,6 +36,24 @@ class Structure extends BaseModel
             );
     }
 
+    /**
+     * Matches structures that are the same molecule as the given SMILES,
+     * regardless of the exact notation used (bingo normalizes the structure
+     * itself, unlike a plain string comparison of canonical_smiles).
+     */
+    public function scopeExactMolecule(Builder $query, string $smiles): Builder
+    {
+        $canonicalSmiles = $query->getModel()->qualifyColumn('canonical_smiles');
+
+        return $query
+            ->whereNotNull($canonicalSmiles)
+            ->whereRaw("bingo.checkMolecule($canonicalSmiles) IS NULL")
+            ->whereRaw(
+                "$canonicalSmiles @ (?, '')::bingo.exact",
+                [trim($smiles)],
+            );
+    }
+
     protected static function boot()
     {
         parent::boot();

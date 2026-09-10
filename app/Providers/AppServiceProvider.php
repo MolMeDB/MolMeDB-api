@@ -13,6 +13,7 @@ use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Console\Events\CommandFinished;
+use Illuminate\Http\Middleware\HandleCors;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Event;
@@ -40,6 +41,12 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(ConfigModel::class, ConfigPolicy::class);
         Gate::policy(PredictionDataset::class, PredictionDatasetPolicy::class);
 
+        // The public API sets its own open CORS policy (App\Http\Middleware\PublicApiCors).
+        // The global HandleCors middleware runs as the outermost layer and would
+        // otherwise still attach config/cors.php's credentialed-frontend headers
+        // (e.g. Access-Control-Allow-Credentials) on top of it — skip it entirely here.
+        HandleCors::skipWhen(fn (Request $request): bool => $request->is('api/public/*'));
+
         RateLimiter::for('remote-prediction-status', fn (): Limit => Limit::perMinute(
             max(1, (int) config('prediction-workers.remote.worker.max_status_requests_per_minute', 30)),
         )->by('remote-prediction-status'));
@@ -48,6 +55,27 @@ class AppServiceProvider extends ServiceProvider
             $email = Str::lower((string) $request->input('email'));
 
             return Limit::perMinute(1)->by($email !== '' ? $email : $request->ip());
+        });
+
+        RateLimiter::for('public-api', function (Request $request): array {
+            return [
+                Limit::perMinute(60)->by('minute:'.$request->ip()),
+                Limit::perDay(5000)->by('day:'.$request->ip()),
+            ];
+        });
+
+        // Stacks on top of the blanket 'public-api' limiter (applied to the whole
+        // public/v1 route group) — only adds extra restriction when a substructure
+        // search (expensive Bingo query) is actually requested.
+        RateLimiter::for('public-api-substructure', function (Request $request): array {
+            if (! filled($request->query('substructure'))) {
+                return [];
+            }
+
+            return [
+                Limit::perMinute(6)->by('substructure-minute:'.$request->ip()),
+                Limit::perHour(30)->by('substructure-hour:'.$request->ip()),
+            ];
         });
 
         Event::listen(CommandFinished::class, RunPredictionsMigrationsAfterDefaultMigrate::class);
