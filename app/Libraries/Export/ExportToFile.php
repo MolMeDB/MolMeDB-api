@@ -150,14 +150,12 @@ class ExportToFile
                 throw new Exception('Header is not written to the target file.');
             }
 
-            $toWrite = '';
+            $toWrite = [];
             foreach ($this->header->items as $column) {
-                $toWrite .= $column->getValue($row).$separator;
+                $toWrite[] = $column->getValue($row);
             }
 
-            // Remove last character [;]
-            $toWrite = substr($toWrite, 0, -1);
-            fwrite($this->fileHandler, $toWrite.PHP_EOL);
+            fputcsv($this->fileHandler, $toWrite, $separator, '"', '\\');
         }
 
         return $this;
