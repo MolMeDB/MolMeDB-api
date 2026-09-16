@@ -125,8 +125,8 @@ class UpdateExportFiles extends Command
                     'pubchem.value as pubchem',
                     'drugbank.value as drugbank',
                     'name.value as name',
-                    'pub.citation as primary_citation',
-                    'pub2.citation as secondary_citation')
+                    ...ExportToFile::publicationColumns('pub', 'primary'),
+                    ...ExportToFile::publicationColumns('pub2', 'secondary'))
                 ->cursor() as $interaction) {
                 $statebar->advance();
                 $export->writeRow($interaction);
@@ -219,8 +219,8 @@ class UpdateExportFiles extends Command
                     'pubchem.value as pubchem',
                     'drugbank.value as drugbank',
                     'name.value as name',
-                    'pub.citation as primary_citation',
-                    'pub2.citation as secondary_citation')
+                    ...ExportToFile::publicationColumns('pub', 'primary'),
+                    ...ExportToFile::publicationColumns('pub2', 'secondary'))
                 ->cursor() as $interaction) {
                 $statebar->advance();
                 $export->writeRow($interaction);
@@ -315,8 +315,8 @@ class UpdateExportFiles extends Command
                     'pubchem.value as pubchem',
                     'drugbank.value as drugbank',
                     'name.value as name',
-                    'pub.citation as primary_citation',
-                    'pub2.citation as secondary_citation')
+                    ...ExportToFile::publicationColumns('pub', 'primary'),
+                    ...ExportToFile::publicationColumns('pub2', 'secondary'))
                 ->cursor() as $interaction) {
                 $statebar->advance();
                 $export->writeRow($interaction);
@@ -398,8 +398,8 @@ class UpdateExportFiles extends Command
                     'pubchem.value as pubchem',
                     'drugbank.value as drugbank',
                     'name.value as name',
-                    'pub.citation as primary_citation',
-                    'pub2.citation as secondary_citation')
+                    ...ExportToFile::publicationColumns('pub', 'primary'),
+                    ...ExportToFile::publicationColumns('pub2', 'secondary'))
                 ->cursor() as $interaction) {
                 $statebar->advance();
                 $export->writeRow($interaction);

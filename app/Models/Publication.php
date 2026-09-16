@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Modules\References\EuropePMC\Enums\Sources;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
@@ -87,6 +88,17 @@ class Publication extends BaseModel
     public function getSelectTitle() : string 
     {
         return "[$this->id]: $this->citation";
+    }
+
+    /**
+     * Returns the PubMed ID, which is only available for publications
+     * identified by a PubMed/Medline identifier.
+     */
+    public function getPmidAttribute() : ?string
+    {
+        return $this->identifier_source === Sources::MED->value
+            ? $this->identifier
+            : null;
     }
 
     /**
