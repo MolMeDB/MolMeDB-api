@@ -37,3 +37,14 @@ export interface IPublicationAuthor {
   full_name?: string;
   affiliation?: string;
 }
+
+export type PublicationLookupOption = {
+  provider: "europe_pmc";
+  pmid: string;
+  identifier_source?: string;
+  citation?: string;
+  title?: string;
+  journal?: string;
+  year?: number | string;
+  is_local?: boolean;
+};

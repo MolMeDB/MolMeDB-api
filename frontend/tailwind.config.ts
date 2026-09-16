@@ -61,6 +61,20 @@ const config: Config = {
         lg: "24px",
         xl: "32px",
       },
+      keyframes: {
+        animation_error_1: {
+          "0%": { transform: "rotate(20deg)" },
+          "100%": { transform: "rotate(25deg)" },
+        },
+        animation_error_2: {
+          "0%": { transform: "rotate(-15deg)" },
+          "100%": { transform: "rotate(-20deg)" },
+        },
+      },
+      animation: {
+        aura1: "animation_error_1 4s linear infinite alternate",
+        aura2: "animation_error_2 4s linear infinite alternate",
+      },
     },
   },
   darkMode: "media",

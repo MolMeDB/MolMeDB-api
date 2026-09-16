@@ -1,4 +1,4 @@
-<?php 
+<?php
 
 namespace App\ModelFilters;
 
@@ -8,13 +8,45 @@ class StructureFilter extends ModelFilter
 {
     public function query($name)
     {
-        return $this->join('identifiers as i', 'i.structure_id', '=', 'structures.id')
-            ->whereRaw('LOWER(i.value) LIKE ?', ['%' . strtolower($name) . '%'])
+        $query = trim((string) $name);
+
+        return $this->leftJoin('identifiers as i', 'i.structure_id', '=', 'structures.id')
+            ->where(function ($builder) use ($query): void {
+                $builder
+                    ->whereRaw('LOWER(i.value) LIKE ?', ['%'.mb_strtolower($query).'%'])
+                    ->orWhere('structures.canonical_smiles', $query);
+            })
             ->selectRaw('DISTINCT ON (structures.id) structures.*, i.value as matched_identifier');
+    }
+
+    public function smiles($smiles)
+    {
+        $smiles = trim((string) $smiles);
+
+        if ($smiles === '') {
+            return $this;
+        }
+
+        return $this->exactMolecule($smiles);
+    }
+
+    public function substructure($smiles)
+    {
+        $smiles = trim((string) $smiles);
+
+        if ($smiles === '') {
+            return $this;
+        }
+
+        return $this->containingSubstructure($smiles);
     }
 
     public function setup()
     {
+        if ($this->input('substructure')) {
+            return;
+        }
+
         $this->defaultOrder();
     }
 

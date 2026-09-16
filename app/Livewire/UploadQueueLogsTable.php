@@ -8,37 +8,37 @@ use App\Models\User;
 use App\ValueObjects\UploadQueueLog;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
-use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
+use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 
-class UploadQueueLogsTable extends TableWidget implements Tables\Contracts\HasTable, HasForms
+class UploadQueueLogsTable extends TableWidget implements HasForms, HasTable
 {
-    use InteractsWithTable;
     use InteractsWithForms;
+    use InteractsWithTable;
 
-    public ?\App\Models\UploadQueue $record = null;
-    protected int | string | array $columnSpan = 2;
+    public ?UploadQueue $record = null;
 
+    protected int|string|array $columnSpan = 2;
 
     public function getTableRecords(): EloquentCollection
     {
         $records = $this->record->logs;
 
         // Sort
-        $sort_by = $this->getTableSortColumn() ?? "timestamp";
-        $sort_dir = $this->getTableSortDirection() ?? "asc";
+        $sort_by = $this->getTableSortColumn() ?? 'timestamp';
+        $sort_dir = $this->getTableSortDirection() ?? 'asc';
         $records = $records->sortBy($sort_by, SORT_REGULAR, $sort_dir === 'asc');
 
         return $records;
     }
 
-    public function getTableRecordKey(Model $record): string
+    public function getTableRecordKey(Model|array $record): string
     {
         return $record->message;
     }
@@ -54,10 +54,33 @@ class UploadQueueLogsTable extends TableWidget implements Tables\Contracts\HasTa
                 TextColumn::make('context')
                     ->badge()
                     ->sortable()
+                    ->color(fn (UploadQueueLog $record) => match ($record->context) {
+                        UploadQUeueLogContextEnums::ERROR => 'danger',
+                        UploadQUeueLogContextEnums::INFO => 'primary',
+                        UploadQUeueLogContextEnums::SUCCESS => 'success',
+                        UploadQUeueLogContextEnums::WARNING => 'warning',
+                        default => 'default',
+                    })
+                    ->label('Severity'),
+                TextColumn::make('type')
+                    ->badge()
+                    ->sortable()
                     ->label('Type'),
+                TextColumn::make('state')
+                    ->badge()
+                    ->sortable()
+                    ->formatStateUsing(fn ($state) => $this->record->enumState($state))
+                    ->label('State'),
                 TextColumn::make('message')
                     ->html()
-                    ->color(fn (UploadQueueLog $record) => match($record->context) {
+                    ->formatStateUsing(fn (?string $state): string => nl2br(e($state ?? '')))
+                    ->wrap()
+                    ->limit(220)
+                    ->tooltip(fn (UploadQueueLog $record): string => $record->message)
+                    ->extraCellAttributes([
+                        'class' => 'max-w-xl whitespace-normal break-words',
+                    ])
+                    ->color(fn (UploadQueueLog $record) => match ($record->context) {
                         UploadQUeueLogContextEnums::ERROR => 'danger',
                         UploadQUeueLogContextEnums::INFO => 'primary',
                         UploadQUeueLogContextEnums::SUCCESS => 'success',
@@ -80,10 +103,10 @@ class UploadQueueLogsTable extends TableWidget implements Tables\Contracts\HasTa
             ->filters([
                 // ...
             ])
-            ->actions([
+            ->recordActions([
                 // ...
             ])
-            ->bulkActions([
+            ->toolbarActions([
                 // ...
             ]);
     }

@@ -1,0 +1,83 @@
+name: Docker image build validation
+
+# Build-only validation (no push, no deploy) that the production images
+# still build. CD is a separate, later concern.
+on:
+  pull_request:
+    branches: [develop, main]
+    paths: &docker_paths
+      - "docker/production/**"
+      - "docker/common/php-fpm/**"
+      - "app/**"
+      - "bootstrap/**"
+      - "config/**"
+      - "composer.json"
+      - "composer.lock"
+      - "public/**"
+      - "frontend/**"
+      - ".github/workflows/docker-build-validate.yml"
+  push:
+    branches: [develop, main]
+    paths: *docker_paths
+
+permissions:
+  contents: read
+
+jobs:
+  backend-image:
+    name: Backend (php-fpm, production target)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./docker/common/php-fpm/Dockerfile
+          target: production
+          push: false
+          cache-from: type=gha,scope=backend-image
+          cache-to: type=gha,mode=max,scope=backend-image
+
+  nginx-image:
+    name: Nginx
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # NOTE: this only validates that the Dockerfile itself builds — it
+      # copies public/ as-is without requiring built Vite assets to be
+      # present. It deliberately does NOT run `npm run build` (root
+      # package.json) first: that build is currently broken on develop
+      # (tailwind.config.js references a Filament v3-era preset path that
+      # no longer exists in the installed Filament v5/Tailwind v4 setup),
+      # unrelated to this workflow — see the follow-up task for that.
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./docker/production/nginx/Dockerfile
+          push: false
+          cache-from: type=gha,scope=nginx-image
+          cache-to: type=gha,mode=max,scope=nginx-image
+
+  frontend-image:
+    name: Frontend (Next.js)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          file: ./docker/production/frontend/Dockerfile
+          push: false
+          build-args: |
+            JWT_SECRET=ci-build-placeholder
+          cache-from: type=gha,scope=frontend-image
+          cache-to: type=gha,mode=max,scope=frontend-image

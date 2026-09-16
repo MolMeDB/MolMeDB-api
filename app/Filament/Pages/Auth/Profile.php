@@ -2,8 +2,8 @@
 
 namespace App\Filament\Pages\Auth;
 
+use Filament\Auth\Pages\EditProfile;
 use Filament\Forms\Components\TextInput;
-use Filament\Pages\Auth\EditProfile;
 
 class Profile extends EditProfile
 {

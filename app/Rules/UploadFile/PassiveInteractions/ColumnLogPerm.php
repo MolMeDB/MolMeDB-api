@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Rules\UploadFile\PassiveInteractions;
 
 use App\Models\Method;
@@ -10,6 +11,7 @@ use Illuminate\Support\Facades\Validator;
 class ColumnLogPerm implements ColumnTypeInterface, DataAwareRule
 {
     public static string $key = 'logperm';
+
     public static string $label = 'LogPerm';
 
     /**
@@ -27,25 +29,23 @@ class ColumnLogPerm implements ColumnTypeInterface, DataAwareRule
     public function setData(array $data): static
     {
         $this->data = $data;
- 
+
         return $this;
     }
 
     public static function make(): static
     {
-        return new static();
+        return new static;
     }
 
-    public function isOutOfLimits($value, Method $method): bool 
+    public function isOutOfLimits($value, Method $method): bool
     {
         $limits = $method->parameters?->alert_limits;
 
-        if($limits && isset($limits['logperm']) && 
-            is_numeric($limits['logperm']['min']) && 
-            is_numeric($limits['logperm']['max']))
-        {
-            if($value < $limits['logperm']['min'] || $value > $limits['logperm']['max'])
-            {
+        if ($limits && isset($limits['logperm']) &&
+            is_numeric($limits['logperm']['min']) &&
+            is_numeric($limits['logperm']['max'])) {
+            if ($value < $limits['logperm']['min'] || $value > $limits['logperm']['max']) {
                 return true;
             }
         }
@@ -62,7 +62,12 @@ class ColumnLogPerm implements ColumnTypeInterface, DataAwareRule
         );
 
         if ($validator->fails()) {
-            $fail("Column " . self::$label . " must be a number.");
+            $fail('Column '.self::$label.' must be a number.');
         }
+    }
+
+    public function validate_fast(string $attribute, mixed $value, Closure $fail): void
+    {
+        $this->validate($attribute, $value, $fail);
     }
 }

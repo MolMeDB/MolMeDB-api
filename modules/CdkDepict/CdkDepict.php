@@ -40,11 +40,21 @@ class CdkDepict
             return;
         }
 
+        $publicUrl = config('services.cdk_depict_url');
+        if(!$publicUrl)
+        {
+            self::$STATUS = false;
+            return;
+        }
+
         try
         {
-            self::$url_parameters['host'] = rtrim(config('services.cdk_depict_url') ?? "", '/');
-            // Try to connect   
-            self::try_connect();
+            self::$url_parameters['host'] = rtrim($publicUrl, '/');
+            // Use internal URL for health check if configured, otherwise fall back to public URL.
+            // The public URL's /test endpoint hits Laravel, not CDK Depict.
+            $internalUrl = config('services.cdk_depict_internal_url');
+            $pingHost = $internalUrl ? rtrim($internalUrl, '/') : self::$url_parameters['host'];
+            self::try_connect($pingHost);
         }
         catch(Exception $e)
         {
@@ -56,9 +66,10 @@ class CdkDepict
     /**
      * Check remote server status
      */
-    public static function try_connect()
+    public static function try_connect(string $pingHost = '')
     {
-        $response = Http::withUrlParameters(self::$url_parameters)->get('{+host}/test');
+        $host = $pingHost ?: self::$url_parameters['host'];
+        $response = Http::get($host . '/test');
         self::$STATUS = $response->successful();
     }
 

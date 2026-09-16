@@ -1,5 +1,6 @@
 "use client";
 
+import DownloaderSuggestion from "@/components/downloader/DownloaderSuggestion";
 import { getJson } from "@/lib/api/admin";
 import HttpJsonResponse from "@/lib/api/admin/interfaces/http/jsonResponse";
 import IMethod from "@/lib/api/admin/interfaces/Method";
@@ -13,6 +14,7 @@ import {
 } from "@heroui/react";
 import { useEffect, useRef, useState } from "react";
 import { MdCloudDownload } from "react-icons/md";
+import DOMPurify from "dompurify";
 import MethodModalContent from "./components/modalContent";
 
 export default function SectionDetail(props: { methodId: string }) {
@@ -61,6 +63,13 @@ export default function SectionDetail(props: { methodId: string }) {
 
   return (
     <div ref={detailSectionRef} className="min-h-64 w-full">
+      {data ? (
+        <DownloaderSuggestion
+          category="method"
+          id={String(data.id)}
+          label={data.name}
+        />
+      ) : null}
       {isLoading ? (
         <div className="flex-1 flex justify-center items-center">
           <Spinner label="Loading..." variant="wave" size="lg" />
@@ -86,7 +95,7 @@ export default function SectionDetail(props: { methodId: string }) {
           <div
             className="html-content-block"
             dangerouslySetInnerHTML={{
-              __html: data?.description || "",
+              __html: DOMPurify.sanitize(data?.description || ""),
             }}
           />
         </div>

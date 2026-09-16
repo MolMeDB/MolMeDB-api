@@ -4,7 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use RyanChandler\BladeCaptureDirective\BladeCaptureDirectiveServiceProvider;
 
 return new class extends Migration
 {
@@ -32,7 +31,9 @@ return new class extends Migration
             $table->softDeletesDatetime();
         });
 
-        DB::statement('ALTER TABLE structures ALTER COLUMN identifier TYPE CITEXT;');
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE structures ALTER COLUMN identifier TYPE CITEXT;');
+        }
 
         Schema::create('identifiers', function (Blueprint $table) {
             $table->bigIncrements('id');
@@ -48,7 +49,9 @@ return new class extends Migration
             $table->softDeletes();
         });
 
-        DB::statement('ALTER TABLE identifiers ALTER COLUMN value TYPE CITEXT;');
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE identifiers ALTER COLUMN value TYPE CITEXT;');
+        }
 
         Schema::create('files', function (Blueprint $table) {
             $table->id();
@@ -80,10 +83,10 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('comment')->nullable();
-            $table->timestamps(); 
+            $table->timestamps();
         });
 
-        Schema::create('datasets', function(Blueprint $table) {
+        Schema::create('datasets', function (Blueprint $table) {
             $table->id();
             $table->tinyInteger('type');
             $table->string('name', 255);
@@ -110,11 +113,9 @@ return new class extends Migration
             $table->integer('user_id')->nullable();
             $table->foreign('user_id')->references('id')->on('users')->restrictOnDelete();
             $table->json('logs')->nullable();
-            $table->timestamps(); 
+            $table->timestamps();
         });
 
-
-       
     }
 
     /**

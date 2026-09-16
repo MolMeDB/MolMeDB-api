@@ -17,7 +17,7 @@ return [
     */
 
     'default' => env('DB_CONNECTION', 'sqlite'),
-    'default_predictions' => env('DB_PREDICTIONS_CONNECTION', 'sqlite'),
+    'default_predictions' => env('DB_PREDICTIONS_CONNECTION', 'predictions'),
 
     /*
     |--------------------------------------------------------------------------
@@ -59,7 +59,7 @@ return [
             'strict' => true,
             'engine' => null,
             'options' => extension_loaded('pdo_mysql') ? array_filter([
-                PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+                Pdo\Mysql::ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],
         ],
 
@@ -79,7 +79,7 @@ return [
             'strict' => true,
             'engine' => null,
             'options' => extension_loaded('pdo_mysql') ? array_filter([
-                PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+                Pdo\Mysql::ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],
         ],
 
@@ -99,7 +99,7 @@ return [
         ],
 
         'predictions' => [
-            'driver' => 'pgsql',
+            'driver' => env('DB_PREDICTIONS_DRIVER', 'pgsql'),
             'url' => env('DB_PREDICTIONS_URL'),
             'host' => env('DB_PREDICTIONS_HOST', '127.0.0.1'),
             'port' => env('DB_PREDICTIONS_PORT', '5432'),
@@ -111,6 +111,22 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => 'prefer',
+        ],
+
+        'molmedb_old' => [
+            'driver' => 'mysql',
+            // 'url' => "molmedb.upol.cz",
+            'host' => 'molmedb.upol.cz',
+            'port' => '3307',
+            'database' => 'molmedb',
+            'username' => 'umolmedb',
+            'password' => 'K.[wVKSc2lEV-6UY',
+            // 'charset' => env('DB_OLD_CHARSET', 'utf8mb4'),
+            // 'collation' => env('DB_OLD_COLLATION', 'utf8mb4_unicode_ci'),
+            // 'prefix' => '',
+            // 'prefix_indexes' => true,
+            // 'strict' => true,
+            // 'engine' => null,
         ],
 
         'sqlsrv' => [
@@ -144,6 +160,10 @@ return [
     'migrations' => [
         'table' => 'migrations',
         'update_date_on_publish' => true,
+    ],
+
+    'migrations_predictions' => [
+        'table' => env('DB_PREDICTIONS_MIGRATIONS_TABLE', 'migrations'),
     ],
 
     /*

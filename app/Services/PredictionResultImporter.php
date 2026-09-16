@@ -1,0 +1,251 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\Dataset;
+use App\Models\InteractionPassive;
+use App\Models\Structure;
+use JsonSerializable;
+use Modules\PredictionWorkers\Models\Prediction;
+use Modules\PredictionWorkers\Models\PredictionMethod;
+use Modules\PredictionWorkers\Models\PredictionStructure;
+use Modules\Rdkit\Rdkit;
+
+/**
+ * Turns a finished prediction's parsed COSMO result into a real passive
+ * interaction record, following the same Structure-matching / reference
+ * conventions as the manual upload pipeline (UploadQueueInteractionPayloadBuilder).
+ */
+class PredictionResultImporter
+{
+    /**
+     * @return 'imported'|'duplicate'|'error'
+     */
+    public function import(Prediction $prediction, ?PredictionMethod $method): string
+    {
+        if (! $method) {
+            return $this->fail($prediction, "No prediction_methods definition found for method_type [{$prediction->method_type}].");
+        }
+
+        if (! $method->remote_id) {
+            return $this->fail($prediction, "Prediction method [{$method->key}] has no real Method mapped (remote_id is empty).");
+        }
+
+        if (! $method->primary_publication_id) {
+            return $this->fail($prediction, "Prediction method [{$method->key}] has no primary reference configured.");
+        }
+
+        $realMembraneId = $prediction->predictionMembrane?->remote_id;
+
+        if (! $realMembraneId) {
+            return $this->fail($prediction, "Prediction membrane [{$prediction->membrane_id}] has no real Membrane mapped (remote_id is empty).");
+        }
+
+        $logPerm = $this->extractLogPerm($prediction);
+
+        if ($logPerm === null) {
+            return $this->fail($prediction, 'Could not extract LogPerm from the parsed result data.');
+        }
+
+        $predictionStructure = $prediction->predictionStructure;
+
+        if (! $predictionStructure || trim((string) $predictionStructure->canonical_smiles) === '') {
+            return $this->fail($prediction, 'Prediction structure has no canonical SMILES.');
+        }
+
+        $structure = $this->resolveStructure($predictionStructure);
+
+        $existing = $this->findDuplicate(
+            $structure->id,
+            (int) $method->primary_publication_id,
+            (int) $method->remote_id,
+            $realMembraneId,
+            (float) $prediction->temperature,
+        );
+
+        if ($existing) {
+            $sameValue = $existing->logperm !== null
+                && round((float) $existing->logperm, 2) === $logPerm;
+
+            $prediction->forceFill([
+                'step' => Prediction::STEP_RESULT_DB_STORE,
+                'logs' => $prediction->logsWithWorkerEvent(
+                    $sameValue
+                        ? "Matching interaction #{$existing->id} already exists with the same LogPerm value - skipped."
+                        : "Interaction #{$existing->id} already exists with a different LogPerm value (existing={$existing->logperm}, new={$logPerm}) - skipped, not overwritten.",
+                    [
+                        'existing_interaction_id' => $existing->id,
+                        'existing_logperm' => $existing->logperm,
+                        'new_logperm' => $logPerm,
+                    ],
+                    'RESULT IMPORT',
+                ),
+            ])->save();
+
+            return 'duplicate';
+        }
+
+        $dataset = $this->resolveDataset($method, $prediction, $realMembraneId);
+
+        $interaction = InteractionPassive::query()->create([
+            'dataset_id' => $dataset->id,
+            'structure_id' => $structure->id,
+            'publication_id' => $method->primary_publication_id,
+            'temperature' => round((float) $prediction->temperature, 2),
+            'ph' => null,
+            'charge' => null,
+            'logperm' => $logPerm,
+            // Keep in sync with when the underlying prediction was actually
+            // created, not when this import job happened to run.
+            'created_at' => $prediction->created_at,
+        ]);
+
+        $prediction->forceFill([
+            'step' => Prediction::STEP_RESULT_DB_STORE,
+            'logs' => $prediction->logsWithWorkerEvent(
+                "Imported into interaction #{$interaction->id} (dataset #{$dataset->id}).",
+                [
+                    'interaction_id' => $interaction->id,
+                    'dataset_id' => $dataset->id,
+                    'structure_id' => $structure->id,
+                    'logperm' => $logPerm,
+                ],
+                'RESULT IMPORT',
+            ),
+        ])->save();
+
+        return 'imported';
+    }
+
+    private function fail(Prediction $prediction, string $message): string
+    {
+        $prediction->forceFill([
+            'logs' => $prediction->logsWithWorkerEvent($message, [], 'RESULT IMPORT', 'error'),
+        ])->save();
+
+        return 'error';
+    }
+
+    /**
+     * PredictionResult.data is the COSMO XML parsed into [{solutes: [{logPerm, ...}]}]
+     * (see CosmoXmlParser/SoluteResult). Each prediction is scoped to a single
+     * structure, so the first job's first solute is taken as the value.
+     *
+     * Older results predate `data` always being populated at parse time - fall
+     * back to lazily parsing the stored XML file via loadParsedResults(), which
+     * returns the same shape as a PredictionResultJson DTO (jsonSerialize()
+     * normalizes it back to the plain array shape the `data` column would hold).
+     */
+    private function extractLogPerm(Prediction $prediction): ?float
+    {
+        $result = $prediction->predictionResult;
+
+        if (! $result) {
+            return null;
+        }
+
+        $data = $result->data;
+
+        if (! is_array($data)) {
+            $parsed = $result->loadParsedResults();
+            $data = $parsed instanceof JsonSerializable ? $parsed->jsonSerialize() : null;
+        }
+
+        if (! is_array($data)) {
+            return null;
+        }
+
+        $logPerm = $data[0]['solutes'][0]['logPerm'] ?? null;
+
+        // Match the manual upload pipeline's normalizeInteractionValue(), which
+        // rounds every stored numeric interaction value to 2 decimals.
+        return is_numeric($logPerm) ? round((float) $logPerm, 2) : null;
+    }
+
+    /**
+     * Re-canonicalizes via the same Rdkit service the manual upload pipeline uses
+     * (UploadQueueExternalLookupCache::canonicalSmiles()), rather than trusting
+     * PredictionStructure.canonical_smiles as-is - the prediction pipeline's own
+     * canonicalizer is a different code path and isn't guaranteed to produce
+     * byte-identical strings, which would otherwise risk duplicate Structure rows.
+     *
+     * Also backfills PredictionStructure.remote_id with the resolved real
+     * Structure's id - this link was never populated by anything before (0%
+     * of rows had it set), which is why the Prediction detail page couldn't
+     * link to a real structure.
+     */
+    private function resolveStructure(PredictionStructure $predictionStructure): Structure
+    {
+        $smiles = trim((string) $predictionStructure->canonical_smiles);
+        $canonical = (new Rdkit)->canonize_smiles($smiles) ?: $smiles;
+
+        $structure = Structure::withTrashed()->where('canonical_smiles', $canonical)->first()
+            ?? Structure::create(['canonical_smiles' => $canonical]);
+
+        if ($predictionStructure->remote_id !== $structure->id) {
+            $predictionStructure->forceFill(['remote_id' => $structure->id])->save();
+        }
+
+        return $structure;
+    }
+
+    /**
+     * Scoped to this importer's own output only (same structure, real method,
+     * real membrane, primary publication, temperature, and charge/ph IS NULL -
+     * this pipeline never has charge/ph data). Deliberately does NOT match
+     * against unrelated pre-existing data such as the legacy "COSMO 2024" bulk
+     * import (dataset #521), which records real per-ionization charge values
+     * and isn't comparable to this job's output - this only guards against
+     * re-importing a prediction this same job already processed.
+     */
+    private function findDuplicate(int $structureId, int $publicationId, int $methodId, int $membraneId, float $temperature): ?InteractionPassive
+    {
+        return InteractionPassive::query()
+            ->where('structure_id', $structureId)
+            ->where('publication_id', $publicationId)
+            ->whereNull('charge')
+            ->whereNull('ph')
+            ->whereHas('dataset', function ($query) use ($methodId, $membraneId): void {
+                $query->where('method_id', $methodId)->where('membrane_id', $membraneId);
+            })
+            ->get()
+            ->first(fn (InteractionPassive $interaction): bool => $interaction->temperature !== null
+                && round((float) $interaction->temperature, 2) === round($temperature, 2));
+    }
+
+    /**
+     * One dataset per (method, membrane, calendar month it was imported in) -
+     * e.g. "cosmoperm-DOPC-06/26" - rather than one growing forever per
+     * (method, membrane). The name itself is the matching key (together with
+     * type/membrane_id/method_id for clarity/safety), so a new month
+     * naturally starts a new dataset without any extra date-range logic.
+     */
+    private function resolveDataset(PredictionMethod $method, Prediction $prediction, int $realMembraneId): Dataset
+    {
+        $period = now()->format('m/y');
+        $membraneAbbreviation = $prediction->predictionMembrane?->abbreviation ?: "membrane-{$realMembraneId}";
+        $name = "{$method->key}-{$membraneAbbreviation}-{$period}";
+
+        $dataset = Dataset::query()->firstOrCreate(
+            [
+                'type' => Dataset::TYPE_PASSIVE_INTERNAL_COSMO,
+                'membrane_id' => $realMembraneId,
+                'method_id' => $method->remote_id,
+                'name' => $name,
+            ],
+            [
+                'comment' => 'Automatically generated by ImportFinishedPredictionResults.',
+                'created_by' => null,
+            ],
+        );
+
+        if ($method->secondary_publication_id) {
+            $dataset->publications()->syncWithPivotValues(
+                [$method->secondary_publication_id],
+                ['model_type' => Dataset::class],
+            );
+        }
+
+        return $dataset;
+    }
+}

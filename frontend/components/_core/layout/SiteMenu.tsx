@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Avatar,
   Button,
   Dropdown,
   DropdownItem,
@@ -19,14 +20,63 @@ import {
 import SiteLogoLink from "./SiteLogoLink";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { FaMagnifyingGlass } from "react-icons/fa6";
 import SearchEngine from "../providers/searchEngine";
 import { MdOutlineLayers, MdPeopleOutline } from "react-icons/md";
 import { BsBoxes } from "react-icons/bs";
+import { FaUserAlt } from "react-icons/fa";
+import { UserSession } from "@/lib/api/admin/interfaces/User";
+import SiteMenuUser from "./SiteMenuUser";
+import { IoMdLogOut } from "react-icons/io";
+import { IoSettingsOutline } from "react-icons/io5";
+import SiteNotificationsBell from "./notifications/SiteNotificationsBell";
 // import { UserSession } from "@/lib/api/admin/interfaces/user";
 
+const browseMenuItems = [
+  {
+    key: "membranes",
+    href: "/browse/membranes",
+    title: "Membranes",
+    icon: <MdOutlineLayers size={25} />,
+  },
+  {
+    key: "methods",
+    href: "/browse/methods",
+    title: "Methods",
+    icon: <FaMagnifyingGlass className="p-0.5" size={24} />,
+  },
+  {
+    key: "proteins",
+    href: "/browse/proteins",
+    title: "Proteins",
+    icon: <BsBoxes size={23} />,
+  },
+  {
+    key: "datasets",
+    href: "/browse/datasets",
+    title: "Datasets",
+    icon: <MdPeopleOutline size={23} />,
+  },
+];
+
+const mainMenuItems = [
+  {
+    href: "/stats",
+    title: "Statistics",
+  },
+  {
+    href: "/lab",
+    title: "Lab",
+  },
+  {
+    href: "/docs",
+    title: "Documentation",
+  },
+];
+
 export function SiteMenu(props: {
-  // user?: UserSession;
+  user?: UserSession;
   hideLogoOnTop?: boolean;
   hideMenu?: boolean;
   isLogoClickable?: boolean;
@@ -69,7 +119,7 @@ export function SiteMenu(props: {
             aria-label={isMenuOpen ? "Close menu" : "Open menu"}
           />
         )}
-        <h1 className="sr-only">Pokusnice</h1>
+        <h1 className="sr-only">MolMeDB</h1>
         {(!props.hideLogoOnTop || isScrolled || isMenuOpen) && (
           <SiteLogoLink
             isScrolled={isScrolled || isMenuOpen}
@@ -100,61 +150,48 @@ export function SiteMenu(props: {
               </label>
             </DropdownTrigger>
             <DropdownMenu>
-              <DropdownItem
-                key={"membranes"}
-                as={Link}
-                href="/browse/membranes"
-                color="secondary"
-                // textValue="Membranes"
-                startContent={<MdOutlineLayers size={25} />}
-                className="!no-underline"
-              >
-                Membranes
-              </DropdownItem>
-              <DropdownItem
-                key={"methods"}
-                color="secondary"
-                startContent={<FaMagnifyingGlass className="p-0.5" size={24} />}
-                href="/browse/methods"
-                textValue="Methods"
-                className="!no-underline"
-              >
-                <label className="md:text-md cursor-pointer">Methods</label>
-              </DropdownItem>
-              <DropdownItem
-                key={"transporters"}
-                color="secondary"
-                textValue="Transporters"
-                startContent={<BsBoxes size={23} />}
-                href="/browse/proteins"
-                className="!no-underline"
-              >
-                <label className="md:text-md cursor-pointer">Proteins</label>
-              </DropdownItem>
+              <DropdownSection showDivider>
+                {browseMenuItems.slice(0, 3).map((item) => (
+                  <DropdownItem
+                    key={item.key}
+                    as={Link}
+                    href={item.href}
+                    color="secondary"
+                    textValue={item.title}
+                    startContent={item.icon}
+                    className="!no-underline"
+                  >
+                    <label className="md:text-md cursor-pointer">
+                      {item.title}
+                    </label>
+                  </DropdownItem>
+                ))}
+              </DropdownSection>
               <DropdownSection>
-                <DropdownItem
-                  key={"sets"}
-                  textValue="Datasets"
-                  color="secondary"
-                  startContent={<MdPeopleOutline size={23} />}
-                  href="/browse/datasets"
-                  className="!no-underline"
-                >
-                  <label className="md:text-md cursor-pointer">Datasets</label>
-                </DropdownItem>
+                {browseMenuItems.slice(3).map((item) => (
+                  <DropdownItem
+                    key={item.key}
+                    as={Link}
+                    href={item.href}
+                    textValue={item.title}
+                    color="secondary"
+                    startContent={item.icon}
+                    className="!no-underline"
+                  >
+                    <label className="md:text-md cursor-pointer">
+                      {item.title}
+                    </label>
+                  </DropdownItem>
+                ))}
               </DropdownSection>
             </DropdownMenu>
           </Dropdown>
         </NavbarItem>
-        <NavbarItem>
-          <MenuLink href="/stats" title="Statistics" />
-        </NavbarItem>
-        <NavbarItem isActive>
-          <MenuLink href="/lab" title="Lab" />
-        </NavbarItem>
-        <NavbarItem>
-          <MenuLink href="/docs" title="Documentation" />
-        </NavbarItem>
+        {mainMenuItems.map((item) => (
+          <NavbarItem key={item.href}>
+            <MenuLink href={item.href} title={item.title} />
+          </NavbarItem>
+        ))}
         <div>
           <Button
             size="md"
@@ -165,11 +202,29 @@ export function SiteMenu(props: {
           >
             Search
           </Button>
-          <SearchEngine
-            isOpenSE={isVisibleSE}
-            onClose={() => setIsVisibleSE(false)}
-          />
         </div>
+        {props.user?.id ? (
+          <div className="flex items-center gap-2">
+            <SiteNotificationsBell />
+            <SiteMenuUser user={props.user} />
+          </div>
+        ) : (
+          <div>
+            <Button
+              as={Link}
+              size="md"
+              startContent={<FaUserAlt size={16} />}
+              variant="solid"
+              color="primary"
+              href="/login"
+              className={`
+              rounded-full
+            `}
+            >
+              Login
+            </Button>
+          </div>
+        )}
         {/* <Input
           classNames={{
             base: "max-w-full sm:max-w-[10rem] h-10",
@@ -209,106 +264,117 @@ export function SiteMenu(props: {
         <Link href="/login">{/* <UserDetailButton /> */}</Link>
         {/* )} */}
       </NavbarContent>
-      <NavbarMenu className="flex flex-col gap-2 dark:bg-background-dark/80">
+      <NavbarMenu className="flex flex-col gap-1 px-5 pt-5 dark:bg-background-dark/95">
         <NavbarMenuItem>
-          {/* <Link href={props?.user ? "/logout" : "/login"}>
-            <UserDetailButton user={props.user} toMenu />
-          </Link> */}
+          <Button
+            fullWidth
+            color="secondary"
+            variant="flat"
+            startContent={<FaMagnifyingGlass size={18} />}
+            onPress={() => {
+              setIsVisibleSE(true);
+              setIsMenuOpen(false);
+            }}
+            className="justify-start h-12 text-base font-semibold"
+          >
+            Search
+          </Button>
         </NavbarMenuItem>
-        {/* <Divider /> */}
-        <NavbarMenuItem onClick={() => setIsMenuOpen(false)}>
-          {/* <Dropdown>
-            <DropdownTrigger className="cursor-pointer">
-              <label
-                className="tap-highlight-transparent font-semibold
-        outline-none data-[focus-visible=true]:z-10 data-[focus-visible=true]:outline-2 
-        data-[focus-visible=true]:outline-focus data-[focus-visible=true]:outline-offset-2 
-        text-medium no-underline hover:underline hover:opacity-80 active:opacity-disabled 
-        transition-opacity data-[active=true]:text-primary data-[active=true]:font-semibold
-        w-full h-12 text-xl"
-              >
-                Browse
-              </label>
-            </DropdownTrigger>
-            <DropdownMenu> */}
-          {/* <DropdownItem
-                key={"membranes"}
-                color="secondary"
-                startContent={<MdOutlineLayers size={25} />}
-                href="/browse/membranes"
-                className="!no-underline"
-              >
-                <label className="md:text-md cursor-pointer no-underline">
-                  Membranes
-                </label>
-              </DropdownItem> */}
-          {/* <DropdownItem
-                key={"methods"}
-
-                color="secondary"
-                startContent={<FaMagnifyingGlass className="p-0.5" size={24} />}
-                href="/browse/methods"
-                className="!no-underline"
-              >
-                <label className="md:text-md cursor-pointer">Methods</label>
-              </DropdownItem>
-              <DropdownItem
-                key={"transporters"}
-                color="secondary"
-                startContent={<BsBoxes size={23} />}
-                href="/browse/proteins"
-                className="!no-underline"
-              > */}
-          {/* <Link className="underline-none" href="/browse/proteins"> */}
-          {/* <label className="md:text-md cursor-pointer">
-                  Transporters
-                </label> */}
-          {/* </Link> */}
-          {/* </DropdownItem> */}
-          {/* <DropdownSection>
-                <DropdownItem
-                  key={"sets"}
-                  color="secondary"
-                  startContent={<MdPeopleOutline size={23} />}
-                  href="/browse/datasets"
-                  className="!no-underline"
-                >
-                  <label className="md:text-md cursor-pointer">Sources</label>
-                </DropdownItem>
-              </DropdownSection> */}
-          {/* </DropdownMenu> */}
-          {/* </Dropdown> */}
+        <NavbarMenuItem>
+          <div className="pt-4 pb-1 text-xs font-bold uppercase tracking-wide text-foreground/50">
+            Browse
+          </div>
         </NavbarMenuItem>
-        <NavbarMenuItem onClick={() => setIsMenuOpen(false)}>
-          <MenuItem
-            href="/stats"
-            title="Statistics" //demoMark={!props.user?.id}
-          />
+        {browseMenuItems.map((item) => (
+          <NavbarMenuItem key={item.href} onClick={() => setIsMenuOpen(false)}>
+            <MenuItem href={item.href} title={item.title} icon={item.icon} />
+          </NavbarMenuItem>
+        ))}
+        <NavbarMenuItem>
+          <div className="pt-4 pb-1 text-xs font-bold uppercase tracking-wide text-foreground/50">
+            MolMeDB
+          </div>
         </NavbarMenuItem>
-        <NavbarMenuItem onClick={() => setIsMenuOpen(false)}>
-          <MenuItem
-            href="/lab"
-            title="Lab"
-            // demoMark={!props.user?.id}
-          />
+        {mainMenuItems.map((item) => (
+          <NavbarMenuItem key={item.href} onClick={() => setIsMenuOpen(false)}>
+            <MenuItem href={item.href} title={item.title} />
+          </NavbarMenuItem>
+        ))}
+        <NavbarMenuItem>
+          <div className="pt-4 pb-1 text-xs font-bold uppercase tracking-wide text-foreground/50">
+            Account
+          </div>
         </NavbarMenuItem>
-        <NavbarMenuItem onClick={() => setIsMenuOpen(false)}>
-          <MenuItem href="/docs" title="Documentation" />
-        </NavbarMenuItem>
+        {props.user?.id ? (
+          <>
+            <NavbarMenuItem>
+              <div className="flex items-center justify-between gap-3 rounded-lg py-2">
+                <span className="text-lg font-semibold">Notifications</span>
+                <SiteNotificationsBell />
+              </div>
+            </NavbarMenuItem>
+            <NavbarMenuItem onClick={() => setIsMenuOpen(false)}>
+              <MenuItem
+                href="/account/settings"
+                title="Account settings"
+                icon={<IoSettingsOutline size={22} />}
+              />
+            </NavbarMenuItem>
+            <NavbarMenuItem onClick={() => setIsMenuOpen(false)}>
+              <MenuItem
+                href="/api/logout"
+                title="Log out"
+                icon={<IoMdLogOut size={22} />}
+                color="danger"
+              />
+            </NavbarMenuItem>
+          </>
+        ) : (
+          <NavbarMenuItem onClick={() => setIsMenuOpen(false)}>
+            <MenuItem
+              href="/login"
+              title="Login"
+              icon={<FaUserAlt size={18} />}
+              color="primary"
+            />
+          </NavbarMenuItem>
+        )}
       </NavbarMenu>
+      <SearchEngine
+        isOpenSE={isVisibleSE}
+        onClose={() => setIsVisibleSE(false)}
+      />
     </Navbar>
   );
 }
 
-const MenuItem = ({ href = "#", title = "", demoMark = false }) => {
+const MenuItem = ({
+  href = "#",
+  title = "",
+  demoMark = false,
+  icon,
+  color,
+}: {
+  href?: string;
+  title?: string;
+  demoMark?: boolean;
+  icon?: ReactNode;
+  color?: "primary" | "danger";
+}) => {
   return (
     <Link
-      className="relative inline-flex items-center gap-2 tap-highlight-transparent font-semibold
+      className={`relative inline-flex items-center gap-3 tap-highlight-transparent font-semibold
         outline-none data-[focus-visible=true]:z-10 data-[focus-visible=true]:outline-2 
         data-[focus-visible=true]:outline-focus data-[focus-visible=true]:outline-offset-2 
         no-underline hover:underline hover:opacity-80 active:opacity-disabled 
         transition-opacity data-[active=true]:text-primary data-[active=true]:font-semibold
-        w-full h-12 text-lg"
+        w-full h-12 text-lg ${
+          color === "danger"
+            ? "text-danger"
+            : color === "primary"
+              ? "text-primary"
+              : ""
+        }`}
       href={href}
     >
       {demoMark && (
@@ -316,6 +382,7 @@ const MenuItem = ({ href = "#", title = "", demoMark = false }) => {
           Demo
         </div>
       )}
+      {icon ? <span className="shrink-0">{icon}</span> : null}
       {title}
     </Link>
   );
@@ -336,34 +403,38 @@ const MenuLink = ({ href = "#", title = "" }) => {
   );
 };
 
-// const UserDetailButton = (props: { user?: UserSession; toMenu?: boolean }) => (
-//   <div
-//     className={`flex flex-row items-center gap-4 no-wrap ${
-//       props.toMenu && "pt-6 pb-4"
-//     }`}
-//   >
-//     <Avatar
-//       isBordered={!props.toMenu}
-//       className="transition-transform"
-//       color="secondary"
-//       size={props.toMenu ? "md" : "sm"}
-//     />
-//     <div className="max-w-40 flex flex-col justify-center cursor-pointer">
-//       {props.user ? (
-//         <label
-//           className={`text-sm font-bold cursor-pointer whitespace-nowrap text-purple-400 ${
-//             props.toMenu && "text-black/70"
-//           }`}
-//         >{`${props.user?.first_name} ${props.user?.last_name}`}</label>
-//       ) : (
-//         <label className="text-sm font-bold cursor-pointer">Přihlásit se</label>
-//       )}
-//       <label className="text-xs line-clamp-1 wrap-break-word leading-[1] cursor-pointer">
-//         {props.user?.school_name ?? ""}
-//       </label>
-//     </div>
-//   </div>
-// );
+export const UserDetailButton = (props: {
+  user?: UserSession;
+  toMenu?: boolean;
+}) => (
+  <div
+    className={`flex flex-row items-center gap-4 no-wrap ${
+      props.toMenu && "pt-6 pb-4"
+    }`}
+  >
+    <Avatar
+      isBordered={!props.toMenu}
+      className="transition-transform"
+      color="secondary"
+      size={props.toMenu ? "md" : "sm"}
+    />
+    <div className="max-w-40 flex flex-col justify-center cursor-pointer">
+      {props.user ? (
+        <label
+          className={`text-sm font-bold cursor-pointer whitespace-nowrap  ${
+            props.toMenu && "text-black/70"
+          }`}
+        >
+          {" "}
+          {props.user?.name ??
+            `${props.user?.first_name} ${props.user?.last_name}`}
+        </label>
+      ) : (
+        <label className="text-sm font-bold cursor-pointer">Log in</label>
+      )}
+    </div>
+  </div>
+);
 
 // const SearchIcon = ({
 //   size = 24,

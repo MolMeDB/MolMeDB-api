@@ -20,7 +20,10 @@ test('email can be verified', function () {
 
     Event::assertDispatched(Verified::class);
     expect($user->fresh()->hasVerifiedEmail())->toBeTrue();
-    $response->assertRedirect(config('app.frontend_url').'/dashboard?verified=1');
+    // VerifyEmailController redirects to the login page (not a /dashboard
+    // route, which doesn't exist), with the verified email so the frontend
+    // can prefill/confirm it — see app/Http/Controllers/Auth/VerifyEmailController.php.
+    $response->assertRedirect(config('app.frontend_url').'/login?verified=1&email='.urlencode($user->email));
 });
 
 test('email is not verified with invalid hash', function () {

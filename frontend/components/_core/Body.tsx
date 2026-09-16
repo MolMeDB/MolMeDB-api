@@ -1,5 +1,6 @@
 "use client";
 
+import { DownloaderProvider } from "@/components/_core/providers/downloader";
 import { cn, HeroUIProvider, ToastProvider } from "@heroui/react";
 import { Plus_Jakarta_Sans } from "next/font/google";
 
@@ -14,12 +15,16 @@ export default function Body(props: { children: React.ReactNode }) {
       className={cn(
         `${geistSans.className} min-h-dvh antialiased`,
         "text-foreground",
-        "bg-[#f0f1f5] dark:bg-[#111111]"
+        "bg-[#f0f1f5] dark:bg-[#111111]",
       )}
     >
       <HeroUIProvider>
-        <ToastProvider placement="top-right" toastOffset={60} />
-        <div className="flex flex-col w-full min-h-dvh">{props.children}</div>
+        <ToastProvider placement="top-right" toastOffset={80} />
+        <DownloaderProvider>
+          <div className="flex flex-col w-full min-h-dvh">
+            {props.children}
+          </div>
+        </DownloaderProvider>
       </HeroUIProvider>
     </body>
   );

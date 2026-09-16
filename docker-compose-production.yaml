@@ -1,20 +1,48 @@
 services:
   web:
-    image: nginx:alpine
+    image: molmedb-nginx
+    build:
+      context: .
+      dockerfile: ./docker/production/nginx/Dockerfile
+      target: production
     container_name: molmedb-nginx
     restart: unless-stopped
     volumes:
-     - ./:/var/www
-     - molmedb-storage-production:/var/www/storage
-     - ./docker/production/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./storage:/var/www/storage
     tty: true
     ports:
       - "8443:443"
     networks:
       - molmedb-network
     depends_on:
-      - app
-        # condition: service_healthy 
+      app:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
+
+  # One-shot setup step: ./storage is a host bind-mount, so it can be empty on
+  # a fresh host and silently shadow whatever directory structure the image
+  # creates at build time. Every other service waits for this to finish
+  # successfully before starting, regardless of whether it goes through
+  # entrypoint.sh (the worker services bypass it via entrypoint: []).
+  storage-init:
+    image: molmedb-backend
+    container_name: molmedb-storage-init
+    user: "root"
+    entrypoint: []
+    command:
+      - sh
+      - -c
+      - |
+        mkdir -p storage/app/public storage/framework/cache storage/framework/sessions storage/framework/views storage/logs
+        chown -R www-data:www-data storage
+        chmod -R 775 storage
+    working_dir: /var/www
+    volumes:
+      - ./storage:/var/www/storage
+    networks:
+      - molmedb-network
+    restart: "no"
 
   app:
     image: molmedb-backend
@@ -26,25 +54,33 @@ services:
     restart: unless-stopped
     container_name: molmedb-backend
     volumes:
-      - ./:/var/www
-      - molmedb-storage-production:/var/www/storage
-      - /var/www/bootstrap
+      - ./storage:/var/www/storage
     env_file:
       - .env
     environment:
       # - APP_ENV=production
       # - APP_DEBUG=false
-      - FRONTEND_URL=http://frontend:3000 
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_PREDICTIONS_HOST=db-predictions
+      - DB_PREDICTIONS_PORT=5432
+      - DB_QUEUE_RETRY_AFTER=1900
+      - REDIS_HOST=redis
     networks:
       - molmedb-network
-    # healthcheck: // TODO
-    #   test: ["CMD-SHELL", "php-fpm-healthcheck || exit 1"]
-    #   interval: 10s
-    #   timeout: 5s
-    #   retries: 3
+    healthcheck:
+      test: ["CMD-SHELL", "php-fpm-healthcheck || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
     depends_on:
       db:
         condition: service_healthy
+      db-predictions:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
 
   app-scheduler-worker:
     image: molmedb-backend 
@@ -55,21 +91,108 @@ services:
     environment:
       - SERVICE_TAGS=dev
       - SERVICE_NAME=molmedb-scheduler-worker
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_PREDICTIONS_HOST=db-predictions
+      - DB_PREDICTIONS_PORT=5432
+      - DB_QUEUE_RETRY_AFTER=1900
+      - REDIS_HOST=redis
     working_dir: /var/www
     volumes:
-      - ./:/var/www
-      - /var/www/bootstrap
+      - ./storage:/var/www/storage
     networks:
       - molmedb-network
     depends_on:
-      - app
-    command: php artisan schedule:work
+      app:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+      db-predictions:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rdkit:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
+    entrypoint: []
+    command: ["php", "artisan", "schedule:work"]
     restart: unless-stopped 
+
+  app-queue-worker:
+    image: molmedb-backend
+    container_name: molmedb-queue-worker
+    tty: true
+    env_file:
+      - .env
+    environment:
+      - SERVICE_TAGS=dev
+      - SERVICE_NAME=molmedb-queue-worker
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_PREDICTIONS_HOST=db-predictions
+      - DB_PREDICTIONS_PORT=5432
+      - DB_QUEUE_RETRY_AFTER=1900
+      - REDIS_HOST=redis
+    working_dir: /var/www
+    volumes:
+      - ./storage:/var/www/storage
+    networks:
+      - molmedb-network
+    depends_on:
+      app:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+      db-predictions:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
+    entrypoint: []
+    command: ["php", "artisan", "queue:work", "--queue=upload,default", "--sleep=3", "--tries=3", "--timeout=1800", "--memory=512"]
+    restart: unless-stopped
+
+  app-predictions-queue-worker:
+    image: molmedb-backend
+    container_name: molmedb-predictions-queue-worker
+    tty: true
+    env_file:
+      - .env
+    environment:
+      - SERVICE_TAGS=dev
+      - SERVICE_NAME=molmedb-predictions-queue-worker
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_PREDICTIONS_HOST=db-predictions
+      - DB_PREDICTIONS_PORT=5432
+      - DB_QUEUE_RETRY_AFTER=1900
+      - REDIS_HOST=redis
+    working_dir: /var/www
+    volumes:
+      - ./storage:/var/www/storage
+    networks:
+      - molmedb-network
+    depends_on:
+      app:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+      db-predictions:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
+    entrypoint: []
+    command: ["php", "artisan", "queue:work", "--queue=predictions", "--sleep=5", "--tries=1", "--timeout=150", "--memory=256"]
+    restart: unless-stopped
 
   # frontend:
   #   container_name: molmedb-frontend
   #   build:
-  #     context: ./frontend/src
+  #     context: ./frontend
   #     dockerfile: ../../docker/production/frontend/Dockerfile
   #   restart: unless-stopped
   #   networks:
@@ -79,7 +202,7 @@ services:
   #   environment:
   #     #if you???re using Windows, you may need to uncomment the next line - Sol from @Kobe E
   #     # - WATCHPACK_POLLING=true
-  #     - NEXT_PUBLIC_BACKEND_URL=http://web:443
+  #     - NEXT_BACKEND_URL=http://web:443
   #     - NODE_ENV=production
   #   ports:
   #     - 3000:3000
@@ -110,6 +233,29 @@ services:
     networks:
       - molmedb-network
 
+  db-predictions:
+    build: ./database/extensions/bingo
+    platform: linux/amd64
+    privileged: true
+    container_name: molmedb-predictions-db
+    env_file: ./.env
+    environment:
+      POSTGRES_DB: ${DB_PREDICTIONS_DATABASE}
+      POSTGRES_USER: ${DB_PREDICTIONS_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PREDICTIONS_PASSWORD}
+    ports:
+      - "5434:5432"
+    shm_size: '8gb'
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "${DB_PREDICTIONS_USERNAME}", "-d", "${DB_PREDICTIONS_DATABASE}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - molmedb-predictions-db:/var/lib/postgresql/data
+    networks:
+      - molmedb-network
+
   adminer:
     image: adminer
     container_name: molmedb-adminer
@@ -126,12 +272,20 @@ services:
     container_name: molmedb-redis
     restart: unless-stopped
     command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD}"
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
     ports:
       - "6379:6379"
     volumes:
       - molmedb-redis:/data
     networks:
       - molmedb-network
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   rdkit:
     build:
@@ -141,22 +295,29 @@ services:
     ports:
       - "9696:80"
     restart: unless-stopped
+    networks:
+      - molmedb-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/test"]
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost/test', timeout=5)"]
       interval: 120s
       timeout: 10s
       retries: 5
       start_period: 10s
-    
 
-  
+  cdkdepict:
+    image: simolecule/cdkdepict:latest
+    container_name: cdkdepict
+    networks:
+      - molmedb-network
+    ports:
+      - "1661:8080"
+    restart: unless-stopped    
+
 
 volumes:
-  molmedb-storage-production:
   molmedb-db:
+  molmedb-predictions-db:
   molmedb-redis:
 
 networks:
   molmedb-network:
-
-

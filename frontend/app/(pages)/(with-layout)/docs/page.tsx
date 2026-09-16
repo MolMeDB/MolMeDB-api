@@ -1,12 +1,10 @@
 import SimpleSiteHeader from "@/components/_core/layout/SimpleSiteHeader";
 import SiteFooter from "@/components/_core/layout/SiteFooter";
 import SiteContent from "@/components/_core/layout/SiteContent";
-import { MdBook, MdBookOnline, MdOutlineComputer } from "react-icons/md";
-import { FaBookOpen } from "react-icons/fa6";
 import { GiBookshelf } from "react-icons/gi";
 import Client from "./client";
 
-export default async function LabPage() {
+export default async function DocsPage() {
   return (
     <>
       <SimpleSiteHeader>
@@ -19,14 +17,14 @@ export default async function LabPage() {
           </div>
         </div>
       </SimpleSiteHeader>
-      {/* <SiteContent> */}
-      <div className="min-h-screen pb-16">
-        {/* <StatsContent /> */}
-        <SiteContent classNameChildren="!max-w-[1500px] h-full">
-          <Client />
+      <div className="min-h-screen pb-16 w-full bg-default-100">
+        <SiteContent
+          className="!bg-transparent"
+          classNameChildren="!max-w-[1500px] h-full"
+        >
+          <Client initialSlug={[]} />
         </SiteContent>
       </div>
-      {/* </SiteContent> */}
       <SiteFooter />
     </>
   );

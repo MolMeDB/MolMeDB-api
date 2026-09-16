@@ -78,7 +78,7 @@ services:
   #   environment:
   #     #if you???re using Windows, you may need to uncomment the next line - Sol from @Kobe E
   #     # - WATCHPACK_POLLING=true
-  #     - NEXT_PUBLIC_BACKEND_URL=http://web:80 # Do not change
+  #     - NEXT_BACKEND_URL=http://web:80 # Do not change
   #   ports:
   #     - 3000:3000
   #   depends_on:
@@ -106,6 +106,29 @@ services:
       retries: 5
     volumes:
       - molmedb-db:/var/lib/postgresql/data
+    networks:
+      - molmedb-dev-network
+
+  db-predictions:
+    build: ./database/extensions/bingo
+    platform: linux/amd64
+    privileged: true
+    container_name: molmedb-dev-predictions-db
+    env_file: ./.env
+    environment:
+      POSTGRES_DB: ${DB_PREDICTIONS_DATABASE}
+      POSTGRES_USER: ${DB_PREDICTIONS_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PREDICTIONS_PASSWORD}
+    ports:
+      - "5434:5432"
+    shm_size: '8gb'
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "${DB_PREDICTIONS_USERNAME}", "-d", "${DB_PREDICTIONS_DATABASE}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - molmedb-predictions-db:/var/lib/postgresql/data
     networks:
       - molmedb-dev-network
 
@@ -140,6 +163,8 @@ services:
     ports:
       - "9696:80"
     restart: unless-stopped
+    networks:
+      - molmedb-dev-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost/test"]
       interval: 120s
@@ -147,10 +172,19 @@ services:
       retries: 5
       start_period: 10s
   
+  cdkdepict:
+    image: simolecule/cdkdepict:latest
+    container_name: cdkdepict
+    networks:
+      - molmedb-dev-network
+    ports:
+      - "1661:8080"
+    restart: unless-stopped
 
 volumes:
   molmedb-dev-storage-production:
   molmedb-db:
+  molmedb-predictions-db:
   molmedb-redis:
 
 networks:

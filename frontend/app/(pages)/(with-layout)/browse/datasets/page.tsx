@@ -4,10 +4,19 @@ import SiteFooter from "@/components/_core/layout/SiteFooter";
 import { FaMagnifyingGlass } from "react-icons/fa6";
 import SectionWrapper from "./section/wrapper";
 
-export default async function BrowseDatasetsPage() {
+export const revalidate = 3600;
+
+type PageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function BrowseDatasetsPage({ searchParams }: PageProps) {
   // const publications: FilteredResponse<IPublication> = (
   //   await getViewData(`/publication`)
   // )?.data;
+
+  const params = await searchParams;
+  const id = typeof params?.id === "string" ? params.id : undefined;
 
   return (
     <>
@@ -24,7 +33,7 @@ export default async function BrowseDatasetsPage() {
       </SimpleSiteHeader>
       <SiteContent>
         <div className="min-h-screen flex flex-col gap-8 pb-16">
-          <SectionWrapper />
+          <SectionWrapper initialDatasetId={id} />
         </div>
       </SiteContent>
       <SiteFooter />

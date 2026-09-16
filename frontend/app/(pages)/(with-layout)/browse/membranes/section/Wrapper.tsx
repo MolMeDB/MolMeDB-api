@@ -9,16 +9,20 @@ import { useSearchParams } from "next/navigation";
 export default function SectionWrapper(props: { categories: ICategory[] }) {
   const [selectedMembraneId, setSelectedMembraneId] = useState("");
   const searchParams = useSearchParams();
+  const membraneIdFromUrl = searchParams.get("id") || "";
 
   useEffect(() => {
-    setSelectedMembraneId(searchParams.get("id") || "");
-  }, [searchParams]);
+    if (membraneIdFromUrl !== "") {
+      setSelectedMembraneId(membraneIdFromUrl);
+    }
+  }, [membraneIdFromUrl]);
 
   return (
     props.categories && (
       <>
         <SectionPieChart
           categories={props.categories}
+          selectedMembraneId={selectedMembraneId}
           setSelectedMembraneId={setSelectedMembraneId}
         />
         <div className="h-1 w-full bg-zinc-100 dark:bg-background-dark-2" />

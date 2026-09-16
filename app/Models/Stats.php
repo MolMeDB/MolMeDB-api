@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\DTO\Stats\Counts;
+use App\DTO\Stats\LineChart;
+use App\DTO\Stats\BarChart;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * @property \App\DTO\Stats\Counts $content_counts
+ * @property Counts $content_counts
  */
 class Stats extends Model
 {
@@ -35,78 +38,78 @@ class Stats extends Model
         return $obj;
     }
 
-    public static function getCountStats() : \App\DTO\Stats\Counts
+    public static function getCountStats() : Counts
     {
         $d = self::getByType(self::TYPE_COUNTS);
-        return \App\DTO\Stats\Counts::from($d->content);
+        return Counts::from($d->content);
     }
 
-    public static function setCountStats(\App\DTO\Stats\Counts $counts) : void
+    public static function setCountStats(Counts $counts) : void
     {
         $d = self::getByType(self::TYPE_COUNTS);
         $d->content = $counts->toArray();
         $d->save();
     }
 
-    public static function getInteractionSubstanceHistory() : \App\DTO\Stats\LineChart
+    public static function getInteractionSubstanceHistory() : LineChart
     {
         $d = self::getByType(self::TYPE_INTERACTION_SUBSTANCE_HISTORY);
-        return \App\DTO\Stats\LineChart::from($d->content);
+        return LineChart::from($d->content);
     }
 
-    public static function setInteractionSubstanceHistory(\App\DTO\Stats\LineChart $data) : void
+    public static function setInteractionSubstanceHistory(LineChart $data) : void
     {
         $d = self::getByType(self::TYPE_INTERACTION_SUBSTANCE_HISTORY);
         $d->content = $data->toArray();
         $d->save();
     }
 
-    public static function getDatabasesBarData() : \App\DTO\Stats\BarChart
+    public static function getDatabasesBarData() : BarChart
     {
         $d = self::getByType(self::TYPE_DATABASES_BAR_COUNTS);
-        return \App\DTO\Stats\BarChart::from($d->content);
+        return BarChart::from($d->content);
     }
 
-    public static function setDatabasesBarData(\App\DTO\Stats\BarChart $data) : void
+    public static function setDatabasesBarData(BarChart $data) : void
     {
         $d = self::getByType(self::TYPE_DATABASES_BAR_COUNTS);
         $d->content = $data->toArray();
         $d->save();
     }
 
-    public static function getProteinBarData() : \App\DTO\Stats\BarChart
+    public static function getProteinBarData() : BarChart
     {
         $d = self::getByType(self::TYPE_PROTEIN_BAR_COUNTS);
-        return \App\DTO\Stats\BarChart::from($d->content);
+        return BarChart::from($d->content);
     }
 
-    public static function setProteinBarData(\App\DTO\Stats\BarChart $data) : void
+    public static function setProteinBarData(BarChart $data) : void
     {
         $d = self::getByType(self::TYPE_PROTEIN_BAR_COUNTS);
         $d->content = $data->toArray();
         $d->save();
     }
 
-    public static function getPublicationByYearStatsData() : \App\DTO\Stats\LineChart
+    public static function getPublicationByYearStatsData() : LineChart
     {
         $d = self::getByType(self::TYPE_PUBLICATIONS_BY_YEAR_STATS);
-        return \App\DTO\Stats\LineChart::from($d->content);
+        return LineChart::from($d->content);
     }
 
-    public static function setPublicationByYearStatsData(\App\DTO\Stats\LineChart $data) : void
+    public static function setPublicationByYearStatsData(LineChart $data) : void
     {
         $d = self::getByType(self::TYPE_PUBLICATIONS_BY_YEAR_STATS);
         $d->content = $data->toArray();
         $d->save();
     }
 
-    public static function getPublicationByJournalStatsData() : \App\DTO\Stats\BarChart
+    public static function getPublicationByJournalStatsData() : BarChart
     {
         $d = self::getByType(self::TYPE_PUBLICATIONS_BY_JOURNAL_STATS);
-        return \App\DTO\Stats\BarChart::from($d->content);
+        return BarChart::from($d->content);
     }
 
-    public static function setPublicationByJournalStatsData(\App\DTO\Stats\BarChart $data) : void
+    public static function setPublicationByJournalStatsData(BarChart $data) : void
     {
         $d = self::getByType(self::TYPE_PUBLICATIONS_BY_JOURNAL_STATS);
         $d->content = $data->toArray();

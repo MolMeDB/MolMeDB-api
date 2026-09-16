@@ -30,10 +30,17 @@ return [
 
     'disks' => [
 
+        'local' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private'),
+            'throw' => false,
+        ],
+
         'private' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
             'serve' => true,
+            'url' => env('APP_URL').'/private',
             'throw' => false,
         ],
 
@@ -56,6 +63,20 @@ return [
         //     'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
         //     'throw' => false,
         // ],
+
+        // Legacy COSMO worker server - holds the old optimization/COSMO output
+        // files referenced by app/Console/Commands/UpdatePredictions.php.
+        'cosmo_runner' => [
+            'driver' => 'sftp',
+            'host' => env('COSMO_RUNNER_HOST'),
+            'port' => env('COSMO_RUNNER_PORT', 22),
+            'username' => env('COSMO_RUNNER_USERNAME'),
+            'password' => env('COSMO_RUNNER_PASSWORD'),
+            'privateKey' => env('COSMO_RUNNER_PRIVATE_KEY'),
+            'passphrase' => env('COSMO_RUNNER_PASSPHRASE'),
+            'root' => env('COSMO_RUNNER_ROOT', '/'),
+            'timeout' => 30,
+        ],
 
     ],
 

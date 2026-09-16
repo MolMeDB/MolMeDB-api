@@ -6,7 +6,7 @@ import { IoMdStats } from "react-icons/io";
 import SectionStats from "./charts";
 import DatasetsTable from "./table";
 
-export default function SectionWrapper() {
+export default function SectionWrapper(props: { initialDatasetId?: string }) {
   return (
     <div className="flex flex-col items-center gap-8">
       <Tabs
@@ -30,7 +30,7 @@ export default function SectionWrapper() {
             </div>
           }
         >
-          <DatasetsTable />
+          <DatasetsTable initialDatasetId={props.initialDatasetId} />
         </Tab>
         <Tab
           key="stats"

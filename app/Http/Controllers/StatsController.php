@@ -24,7 +24,8 @@ class StatsController extends Controller
                     ],
                     'structures' => $count_data->total_structures,
                     'membranes' => $count_data->total_membranes,
-                    'methods' => $count_data->total_methods
+                    'methods' => $count_data->total_methods,
+                    'proteins' => $count_data->total_proteins
                 ],
                 'plots' => [
                     'interactionsLine' => [

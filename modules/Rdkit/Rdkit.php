@@ -78,7 +78,7 @@ class Rdkit extends IdentifiersWorker
      */
     public static function try_connect()
     {
-        $response = Http::withUrlParameters(self::$url_parameters)->get('{+host}/test');
+        $response = Http::timeout(5)->withUrlParameters(self::$url_parameters)->get('{+host}/test');
         self::$STATUS = $response->successful();
     }
 

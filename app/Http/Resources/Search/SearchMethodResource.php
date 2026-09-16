@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Resources\Search;
 
 use Illuminate\Http\Request;
@@ -13,13 +14,18 @@ class SearchMethodResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        return array 
-        (
+        return
+        [
             'title' => $this->abbreviation,
             'subtitle' => $this->name,
             'description' => null,
             'link' => "/browse/methods?id=$this->id",
-            'imageUrl' => null
-        );
+            'imageUrl' => null,
+            'downloader' => [
+                'category' => 'method',
+                'id' => (string) $this->id,
+                'label' => $this->name,
+            ],
+        ];
     }
 }

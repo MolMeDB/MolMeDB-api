@@ -1,0 +1,162 @@
+name: Frontend CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+    paths: &frontend_paths
+      - "frontend/**"
+      - ".github/workflows/frontend-ci.yml"
+  push:
+    branches: [develop, main]
+    paths: *frontend_paths
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: frontend
+
+jobs:
+  lint:
+    name: ESLint (changed files)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      # This codebase has never been linted before (no ESLint config
+      # existed until this workflow was introduced — Next.js 16 also
+      # dropped the old `next lint` command entirely). Rather than a
+      # big-bang cleanup of ~280 pre-existing findings, only enforce
+      # style on files actually touched by this PR/push.
+      - name: Determine changed frontend files
+        id: changed
+        run: |
+          # Release PR (develop -> main): the cumulative diff is effectively the
+          # whole frontend, and every commit in it already passed this same gate
+          # when it was pushed to develop. Re-running it here would only
+          # re-report the pre-existing findings this job exists to stay out of.
+          if [ "${{ github.event_name }}" = "pull_request" ] \
+             && [ "${{ github.base_ref }}" = "main" ] \
+             && [ "${{ github.head_ref }}" = "develop" ]; then
+            echo "Release PR (develop -> main) — already gated on every push to develop. Skipping lint."
+            echo "files=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+            # A PR is checked out as the merge commit, whose parent IS the base
+            # branch tip, so diffing straight against that tip also drags in
+            # every commit that landed on the base branch after this one forked.
+            # The merge base is the real "what does this branch change" line.
+            BASE_SHA=$(git merge-base "${{ github.event.pull_request.base.sha }}" "$HEAD_SHA" 2>/dev/null || true)
+          else
+            HEAD_SHA="${{ github.sha }}"
+            BASE_SHA="${{ github.event.before }}"
+          fi
+
+          if [ -z "$BASE_SHA" ] || ! git cat-file -e "$BASE_SHA" 2>/dev/null; then
+            echo "No comparable base commit found — skipping lint (nothing to diff against, e.g. first push of a branch)."
+            echo "files=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          FILES=$(git diff --name-only --diff-filter=ACMR "$BASE_SHA" "$HEAD_SHA" -- 'frontend/*.ts' 'frontend/*.tsx' | sed 's#^frontend/##' | tr '\n' ' ')
+          echo "files=$FILES" >> "$GITHUB_OUTPUT"
+        working-directory: .
+
+      - name: Run ESLint on changed files
+        if: steps.changed.outputs.files != ''
+        env:
+          FILES: ${{ steps.changed.outputs.files }}
+        run: npx eslint $FILES
+
+  typecheck:
+    name: TypeScript
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+      - run: npx tsc --noEmit
+
+  build:
+    name: next build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+      - run: npm run build
+        env:
+          # next build statically imports route modules while collecting
+          # page data, which touches lib/api/cookies.ts — it no longer
+          # requires this to be set (the check is lazy, only enforced at
+          # actual sign/verify time), but keep a placeholder in case a
+          # future code path adds another build-time-evaluated secret.
+          JWT_SECRET: ci-build-placeholder
+
+  e2e:
+    name: Playwright e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright's OS dependencies (cache hit)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      # Playwright's webServer config builds nothing itself — it just runs
+      # the mock backend and `next start` against an already-built .next/.
+      - run: npm run build
+
+      - run: npx playwright test
+
+      - uses: actions/upload-artifact@v4
+        if: '!cancelled()'
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 14

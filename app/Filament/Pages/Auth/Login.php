@@ -2,15 +2,14 @@
 
 namespace App\Filament\Pages\Auth;
 
+use Filament\Auth\Http\Responses\LoginResponse;
 use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
 use Filament\Facades\Filament;
-use Filament\Http\Responses\Auth\LoginResponse;
 use Filament\Models\Contracts\FilamentUser;
-use Filament\Pages\Auth\Login as AuthLogin;
 use Filament\Pages\Page;
 use Illuminate\Validation\ValidationException;
 
-class Login extends AuthLogin
+class Login extends \Filament\Auth\Pages\Login
 {
     public function authenticate(): ?LoginResponse
     {
@@ -32,7 +31,7 @@ class Login extends AuthLogin
 
         if (
             ($user instanceof FilamentUser) &&
-            (! $user->canAccessPanel(Filament::getCurrentPanel()))
+            (! $user->canAccessPanel(Filament::getCurrentOrDefaultPanel()))
         ) {
             Filament::auth()->logout();
 

@@ -2,6 +2,7 @@
 namespace App\Rules\UploadFile\Identifiers;
 
 use App\Rules\UploadFile\ColumnTypeInterface;
+use App\Services\External\Chemical\Unichem\Unichem;
 use Closure;
 
 class ColumnUniprot implements ColumnTypeInterface
@@ -18,15 +19,15 @@ class ColumnUniprot implements ColumnTypeInterface
 
     public function validate(string $attribute, $value, Closure $fail): void
     {
-        $maxLength = self::$maxLength;
-        if (!is_string($value) || empty($value) || strlen($value) > $maxLength || strlen($value) <= 2) {
-            $fail("Column " . self::$label . " must be a string between 3 and $maxLength characters.");
-        }
+        $this->validate_fast($attribute, $value, $fail);
+    }
 
+    public function validate_fast(string $attribute, mixed $value, Closure $fail): void
+    {
+        $maxLength = self::$maxLength;
         $value = trim($value);
-        if(!preg_match('/^([A-N,R-Z][0-9]([A-Z][A-Z, 0-9][A-Z, 0-9][0-9]){1,2})|([O,P,Q][0-9][A-Z, 0-9][A-Z, 0-9][A-Z, 0-9][0-9])(\.\d+)?$/', $value))
-        {
-            $fail("Column " . self::$label . " must be a valid UniProt ID. Check https://registry.identifiers.org/registry/uniprot .");
+        if (! is_string($value) || empty($value) || strlen($value) > $maxLength || ! preg_match('/^([A-N,R-Z][0-9]([A-Z][A-Z, 0-9][A-Z, 0-9][0-9]){1,2})|([O,P,Q][0-9][A-Z, 0-9][A-Z, 0-9][A-Z, 0-9][0-9])(\.\d+)?$/', $value)) {
+            $fail('Column '.self::$label." must be a valid UniProt ID.");
         }
     }
 }

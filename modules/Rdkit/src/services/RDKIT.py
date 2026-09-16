@@ -1,3 +1,5 @@
+from collections import Counter
+
 from rdkit import Chem, DataStructs
 from rdkit.Chem import Descriptors
 from rdkit.Chem import Crippen
@@ -9,6 +11,10 @@ from lib.exceptions.InvalidParameter import InvalidParameterError
 import services.gen_confomers as cnf
 
 class RDKIT:
+    PREDICTION_MAX_ATOMS = 120
+    PREDICTION_ALLOWED_ATOMIC_NUMBERS = {1, 6, 7, 8, 9, 15, 16, 17, 35, 53}
+    PREDICTION_ALLOWED_ELEMENTS = ["C", "H", "O", "N", "P", "S", "F", "Cl", "Br", "I"]
+
     # Fragment molecule
     # def mmpaFragment(self, params = {}, parent = None):
     #     if "mol" not in params.keys():
@@ -115,6 +121,63 @@ class RDKIT:
         if mol is None:
             raise InvalidParameterError("smi")
         return ApiResponse(200, Chem.MolToSmiles(mol))
+
+    def validatePredictionSmiles(self, params = {}):
+        req_smiles = params["smi"]
+        mol = Chem.MolFromSmiles(req_smiles)
+
+        if mol is None or mol.GetNumAtoms() == 0:
+            return ApiResponse(422, {
+                "valid": False,
+                "errors": ["The SMILES string is invalid."],
+                "max_atoms": self.PREDICTION_MAX_ATOMS,
+                "allowed_elements": self.PREDICTION_ALLOWED_ELEMENTS,
+            }, ResponseType.JSON)
+
+        fragment_count = len(Chem.GetMolFrags(mol))
+        mol_with_hydrogens = Chem.AddHs(mol)
+        atom_count = mol_with_hydrogens.GetNumAtoms()
+        element_counts = dict(sorted(Counter(
+            atom.GetSymbol() for atom in mol_with_hydrogens.GetAtoms()
+        ).items()))
+        disallowed_elements = sorted({
+            atom.GetSymbol()
+            for atom in mol_with_hydrogens.GetAtoms()
+            if atom.GetAtomicNum() not in self.PREDICTION_ALLOWED_ATOMIC_NUMBERS
+        })
+        errors = []
+
+        if fragment_count != 1:
+            errors.append(
+                "Only one connected molecule is allowed; salts and disconnected structures are not supported."
+            )
+
+        if atom_count > self.PREDICTION_MAX_ATOMS:
+            errors.append(
+                f"The molecule contains {atom_count} atoms including hydrogens; "
+                f"the maximum is {self.PREDICTION_MAX_ATOMS}."
+            )
+
+        if disallowed_elements:
+            errors.append(
+                "The molecule contains unsupported elements: "
+                + ", ".join(disallowed_elements)
+                + ". Allowed elements: "
+                + ", ".join(self.PREDICTION_ALLOWED_ELEMENTS)
+                + "."
+            )
+
+        return ApiResponse(422 if errors else 200, {
+            "valid": not errors,
+            "canonical_smiles": Chem.MolToSmiles(mol),
+            "atom_count": atom_count,
+            "element_counts": element_counts,
+            "fragment_count": fragment_count,
+            "disallowed_elements": disallowed_elements,
+            "max_atoms": self.PREDICTION_MAX_ATOMS,
+            "allowed_elements": self.PREDICTION_ALLOWED_ELEMENTS,
+            "errors": errors,
+        }, ResponseType.JSON)
 
     # get charge of structure
     def formalCharge(self, params = {}):
@@ -279,4 +342,3 @@ class RDKIT:
 
         
 
-        

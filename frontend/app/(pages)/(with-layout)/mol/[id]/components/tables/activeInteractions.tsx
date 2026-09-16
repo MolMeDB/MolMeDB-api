@@ -6,6 +6,7 @@ import { activeInteractionsColumns } from "./columns";
 
 export default function ActiveInteractionTable(props: {
   structure: IStructure;
+  onTotalItemsChange?: (totalItems: number) => void;
 }) {
   return (
     <UiTable<IInteractionActive>
@@ -14,6 +15,7 @@ export default function ActiveInteractionTable(props: {
       columns={activeInteractionsColumns}
       itemKey="id"
       defaultRowsPerPage={8}
+      onTotalItemsChange={props.onTotalItemsChange}
     />
   );
 }

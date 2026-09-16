@@ -1,9 +1,13 @@
-<?php 
+<?php
+
 namespace Modules\References\Models;
 
+use Carbon\Carbon;
 use Modules\References\EuropePMC\Enums\Sources;
+use Throwable;
 
-class Record {
+class Record
+{
     public function __construct(
         /** EuropePMC Identifier of the Article */
         public ?string $id,
@@ -19,9 +23,9 @@ class Record {
         public ?string $title,
         /** Comma separated list of authors  */
         public ?string $authorString,
-        /** List of authors 
+        /** List of authors
          * @var Author[]
-        */
+         */
         public ?array $authors,
         /** Digital object identifier */
         public ?string $doi,
@@ -49,45 +53,49 @@ class Record {
         public ?array $fullTextUrls,
         /** Page info */
         public ?string $pageInfo
-    ){}
+    ) {}
 
     public static function getValue($data, $key, $default = null)
     {
-        if(!is_array($data)) return null;
+        if (! is_array($data)) {
+            return null;
+        }
 
         $keys = explode('.', $key);
         foreach ($keys as $key) {
             if (isset($data[$key])) {
                 $data = $data[$key] ?? [];
-            }
-            else
-            {
+            } else {
                 return $default;
             }
         }
+
         return $data ?? $default;
     }
 
-    public function citation() 
+    public function citation()
     {
         $authors = $this->getAuthorString();
 
-        return "$authors: $this->title. " .
-            $this->journal?->title . ', ' .
-            ($this->journal?->volume ? 'Volume ' . $this->journal->volume . (
-                $this->journal?->issue ? ' (' . $this->journal->issue . ')' : ''
-            ) : '') . ', ' . 
-            ($this->pageInfo ? $this->pageInfo . ', ' : '') . 
+        return "$authors: $this->title. ".
+            $this->journal?->title.', '.
+            ($this->journal?->volume ? 'Volume '.$this->journal->volume.(
+                $this->journal?->issue ? ' ('.$this->journal->issue.')' : ''
+            ) : '').', '.
+            ($this->pageInfo ? $this->pageInfo.', ' : '').
             $this->journal?->yearOfPublication;
     }
 
-    public function getAuthorString() {
-        if($this->authorString) return $this->authorString;
+    public function getAuthorString()
+    {
+        if ($this->authorString) {
+            return $this->authorString;
+        }
 
-        return implode(', ', array_map(fn($author) => $author->getFullName(), $this->authors));
+        return implode(', ', array_map(fn ($author) => $author->getFullName(), $this->authors));
     }
 
-    public static function fromCrossRefResponse(array $data) : Record
+    public static function fromCrossRefResponse(array $data): Record
     {
         $title = self::getValue($data, 'title');
         $issn = self::getValue($data, 'ISSN');
@@ -104,8 +112,8 @@ class Record {
                 count($journalName) ? $journalName[0] : null,
                 self::getValue($data, 'issue'),
                 self::getValue($data, 'volume'),
-                count($published) > 2 ? $published[0] . '-' . $published[1] . '-' . $published[2] : null,
-                count($published) > 1 ? $published[1] : null, 
+                count($published) > 2 ? $published[0].'-'.$published[1].'-'.$published[2] : null,
+                count($published) > 1 ? $published[1] : null,
                 count($published) ? $published[0] : null,
                 is_array($issn) && count($issn) ? $issn[0] : null,
                 null
@@ -113,7 +121,7 @@ class Record {
             is_array($title) && count($title) ? $title[0] : null,
             null,
             array_map(fn ($author) => new Author(
-                self::getValue($author, 'given') . ' ' . self::getValue($author, 'family'),
+                self::getValue($author, 'given').' '.self::getValue($author, 'family'),
                 self::getValue($author, 'given'),
                 self::getValue($author, 'family'),
                 null,
@@ -135,7 +143,7 @@ class Record {
         );
     }
 
-    public static function fromEuropePMCResponse(array $data) : Record
+    public static function fromEuropePMCResponse(array $data): Record
     {
         return new self(
             self::getValue($data, 'id'),
@@ -154,26 +162,39 @@ class Record {
             ),
             self::getValue($data, 'title'),
             self::getValue($data, 'authorString'),
-            array_map(fn($author) => new Author(
-                self::getValue($author,'fullName'),
-                self::getValue($author,'firstName'),
-                self::getValue($author,'lastName'),
-                self::getValue($author,'initials'),
-                array_map(fn($affiliation) => self::getValue($affiliation, 'affiliation'), self::getValue($author,'authorAffiliationDetailsList.authorAffiliation') ?? [])
+            array_map(fn ($author) => new Author(
+                self::getValue($author, 'fullName'),
+                self::getValue($author, 'firstName'),
+                self::getValue($author, 'lastName'),
+                self::getValue($author, 'initials'),
+                array_map(fn ($affiliation) => self::getValue($affiliation, 'affiliation'), self::getValue($author, 'authorAffiliationDetailsList.authorAffiliation') ?? [])
             ), self::getValue($data, 'authorList.author') ?? []),
             self::getValue($data, 'doi'),
-            self::getValue($data, 'isOpenAccess') ? self::getValue($data, 'isOpenAccess') == "Y" : null,
-            self::getValue($data, 'inEPMC') ? self::getValue($data, 'inEPMC') == "Y" : null,
-            self::getValue($data, 'hasPDF') ? self::getValue($data, 'hasPDF') == "Y" : null,
-            self::getValue($data, 'hasBook') ? self::getValue($data, 'hasBook') == "Y" : null,
-            self::getValue($data, 'hasSuppl') ? self::getValue($data, 'hasSuppl') == "Y" : null,
+            self::getValue($data, 'isOpenAccess') ? self::getValue($data, 'isOpenAccess') == 'Y' : null,
+            self::getValue($data, 'inEPMC') ? self::getValue($data, 'inEPMC') == 'Y' : null,
+            self::getValue($data, 'hasPDF') ? self::getValue($data, 'hasPDF') == 'Y' : null,
+            self::getValue($data, 'hasBook') ? self::getValue($data, 'hasBook') == 'Y' : null,
+            self::getValue($data, 'hasSuppl') ? self::getValue($data, 'hasSuppl') == 'Y' : null,
             self::getValue($data, 'abstractText'),
             self::getValue($data, 'affiliation'),
             self::getValue($data, 'citedByCount'),
-            self::getValue($data, 'hasReferences') ? self::getValue($data, 'hasReferences') == "Y" : null,
+            self::getValue($data, 'hasReferences') ? self::getValue($data, 'hasReferences') == 'Y' : null,
             self::getValue($data, 'keywordList.keyword'),
-            array_map(fn($fullTextUrl) => self::getValue($fullTextUrl, 'url'), self::getValue($data, 'fullTextUrlList.fullTextUrl') ?? []),
+            array_map(fn ($fullTextUrl) => self::getValue($fullTextUrl, 'url'), self::getValue($data, 'fullTextUrlList.fullTextUrl') ?? []),
             self::getValue($data, 'pageInfo')
         );
+    }
+
+    public function publicationDate(): ?string
+    {
+        if (! is_string($this->journal?->dateOfPublication) || trim($this->journal->dateOfPublication) === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($this->journal->dateOfPublication)->toDateString();
+        } catch (Throwable) {
+            return null;
+        }
     }
 }

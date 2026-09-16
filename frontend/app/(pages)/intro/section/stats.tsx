@@ -1,50 +1,100 @@
 "use client";
+import { getJson } from "@/lib/api/admin";
+import IStatsGlobal from "@/lib/api/admin/interfaces/Stats";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 
-const items = [
+type StatKey =
+  | "molecules"
+  | "behaviour"
+  | "membranes"
+  | "methods"
+  | "proteins"
+  | "interactions";
+
+const items: { key: StatKey; label: string; image: string }[] = [
   {
-    count: "970,000+",
+    key: "behaviour",
     label: "behaviour",
     image: "/assets/layout/intro/stats/behaviour2.png",
   },
   {
-    count: "56",
+    key: "membranes",
     label: "membranes",
     image: "/assets/layout/intro/stats/membrane.png",
   },
   {
-    count: "32",
+    key: "methods",
     label: "methods",
     image: "/assets/layout/intro/stats/method.png",
   },
   {
-    count: "360",
+    key: "proteins",
     label: "proteins",
     image: "/assets/layout/intro/stats/protein.png",
   },
   {
-    count: "3,000+",
+    key: "interactions",
     label: "interactions",
     image: "/assets/layout/intro/stats/interaction.png",
   },
 ];
 
+function formatCount(stats: IStatsGlobal | null, key: StatKey): string {
+  if (!stats) {
+    return "...";
+  }
+
+  const value: number = {
+    molecules: stats.total.structures,
+    behaviour: stats.total.interactions.passive,
+    membranes: stats.total.membranes,
+    methods: stats.total.methods,
+    proteins: stats.total.proteins,
+    interactions: stats.total.interactions.active,
+  }[key];
+
+  return typeof value === "number" ? value.toLocaleString() : "...";
+}
+
 export default function StatsSection() {
+  const [stats, setStats] = useState<IStatsGlobal | null>(null);
+
+  useEffect(() => {
+    let isCurrent = true;
+
+    getJson("/api/stats").then((response) => {
+      if (!isCurrent) {
+        return;
+      }
+
+      if (response && response.code === 200) {
+        setStats(response.data?.data ?? null);
+      }
+    });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, []);
+
   return (
     <>
       <div className="lg:hidden">
-        <StatsContent size="small" />
+        <StatsContent size="small" stats={stats} />
       </div>
       <div className="hidden lg:block">
-        <StatsContent size="large" />
+        <StatsContent size="large" stats={stats} />
       </div>
     </>
   );
 }
 
-function StatsContent(props: { size: "small" | "large" }) {
+function StatsContent(props: {
+  size: "small" | "large";
+  stats: IStatsGlobal | null;
+}) {
   const containerRef = useRef(null);
   const [height, setHeight] = useState(900); // default height
   const [width, setWidth] = useState(800); // default width
@@ -406,7 +456,9 @@ function StatsContent(props: { size: "small" | "large" }) {
               className="w-auto h-full"
             />
             <div className="flex flex-col justify-center text-white">
-              <h2 className="text-xl lg:text-3xl font-bold">490,000+</h2>
+              <h2 className="text-xl lg:text-3xl font-bold">
+                {formatCount(props.stats, "molecules")}
+              </h2>
               <p className="text-lg lg:text-xl uppercase font-semibold">
                 molecules
               </p>
@@ -418,7 +470,8 @@ function StatsContent(props: { size: "small" | "large" }) {
             ...(props.size === "small"
               ? [...items.slice(0, 3), items[4], items[3]]
               : items),
-          ].map(({ count, label, image }, i) => {
+          ].map(({ key, label, image }, i) => {
+            const count = formatCount(props.stats, key);
             const space = 20;
             var w = (width - (items.length - 1) * space) / items.length;
             var h = ElementHeight;

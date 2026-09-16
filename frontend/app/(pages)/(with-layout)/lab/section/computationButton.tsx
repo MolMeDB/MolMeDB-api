@@ -1,21 +1,11 @@
 "use client";
-import { addToast } from "@heroui/react";
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { useEffect } from "react";
+import Link from "next/link";
 
-export default function SectionComputationButtons() {
-  useEffect(() => {
-    addToast({
-      title: "Temporarily unavailable",
-      description:
-        "This page is still under development. Please check back later.",
-      color: "warning",
-      shouldShowTimeoutProgress: true,
-      timeout: 20000,
-    });
-  }, []);
-
+export default function SectionComputationButtons(props: {
+  isLoggedIn: boolean;
+}) {
   return (
     <>
       <div className="flex flex-col md:flex-row gap-8 md:gap-16">
@@ -40,8 +30,9 @@ export default function SectionComputationButtons() {
         </div>
       </div>
 
-      <div className="w-full flex flex-col sm:flex-row justify-center items-center gap-8 lg:gap-16 lg:h-[250px]">
-        <motion.div
+      <div className="relative w-full flex flex-col sm:flex-row justify-center items-center gap-8 lg:gap-16 lg:h-[250px]">
+        <motion.a
+          href="/lab/new-predictions"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           className="h-[150px] lg:h-[250px] w-auto sm:w-1/3 relative cursor-pointer bg-zinc-500 rounded-2xl lg:rounded-4xl"
@@ -59,8 +50,9 @@ export default function SectionComputationButtons() {
               New calculations
             </label>
           </div>
-        </motion.div>
-        <motion.div
+        </motion.a>
+        <motion.a
+          href="/lab/running-predictions"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           className="h-[150px] lg:h-[250px] w-auto sm:w-1/3 relative cursor-pointer bg-zinc-500 rounded-2xl lg:rounded-4xl"
@@ -75,10 +67,10 @@ export default function SectionComputationButtons() {
           />
           <div className="absolute bottom-0 left-0 w-full h-1/2 bg-white/20 backdrop-blur-md rounded-b-2xl overflow-hidden flex flex-row justify-center items-center">
             <label className="text-md lg:text-xl font-bold uppercase text-zinc-100">
-              Download results
+              Running calculations
             </label>
           </div>
-        </motion.div>
+        </motion.a>
       </div>
     </>
   );

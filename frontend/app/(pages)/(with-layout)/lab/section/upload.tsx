@@ -1,7 +1,7 @@
 "use client";
 import { Button } from "@heroui/react";
-import { motion } from "framer-motion";
 import Image from "next/image";
+import Link from "next/link";
 import { MdOutlineCloudUpload } from "react-icons/md";
 
 export default function SectionUpload() {
@@ -19,15 +19,19 @@ export default function SectionUpload() {
               DOI.
             </b>
           </p>
-          <Button
-            endContent={<MdOutlineCloudUpload size={25} />}
-            size="lg"
-            variant="solid"
-            color="primary"
-            className="text-white"
-          >
-            Upload
-          </Button>
+          <div className="flex flex-col justify-center gap-1">
+            <Button
+              as={Link}
+              href="/lab/upload"
+              endContent={<MdOutlineCloudUpload size={25} />}
+              size="lg"
+              variant="solid"
+              color="primary"
+              className="text-white"
+            >
+              Upload
+            </Button>
+          </div>
         </div>
         <div className="w-full lg:w-1/2 lg:h-[350px] flex justify-center">
           <Image

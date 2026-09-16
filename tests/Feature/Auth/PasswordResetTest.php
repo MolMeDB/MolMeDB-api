@@ -6,20 +6,22 @@ use Illuminate\Support\Facades\Notification;
 
 test('reset password link can be requested', function () {
     Notification::fake();
+    config()->set('services.turnstile.enabled', false);
 
     $user = User::factory()->create();
 
-    $this->post('/forgot-password', ['email' => $user->email]);
+    $this->post('/forgot-password', ['email' => $user->email, 'turnstile_token' => 'test-token']);
 
     Notification::assertSentTo($user, ResetPassword::class);
 });
 
 test('password can be reset with valid token', function () {
     Notification::fake();
+    config()->set('services.turnstile.enabled', false);
 
     $user = User::factory()->create();
 
-    $this->post('/forgot-password', ['email' => $user->email]);
+    $this->post('/forgot-password', ['email' => $user->email, 'turnstile_token' => 'test-token']);
 
     Notification::assertSentTo($user, ResetPassword::class, function (object $notification) use ($user) {
         $response = $this->post('/reset-password', [

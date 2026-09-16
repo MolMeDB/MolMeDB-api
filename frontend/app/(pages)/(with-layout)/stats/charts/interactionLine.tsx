@@ -74,21 +74,33 @@ export default function InteractionLine(props: { data: ILineChartSetting }) {
             timeUnit: "month",
             count: 1,
           },
+          gridIntervals: [
+            {
+              timeUnit: "year",
+              count: 1,
+            },
+          ],
           renderer: am5xy.AxisRendererX.new(root, {
             minorGridEnabled: true,
-            minorLabelsEnabled: true,
+            minorLabelsEnabled: false,
           }),
           tooltip: am5.Tooltip.new(root, {}),
         })
       );
 
-      xAxis.set("minorDateFormats", {
-        month: "MM",
+      xAxis.set("dateFormats", {
+        month: "yyyy",
+        year: "yyyy",
+      });
+
+      xAxis.set("periodChangeDateFormats", {
+        month: "yyyy",
+        year: "yyyy",
       });
 
       xAxis.setAll({
         groupData: false,
-        markUnitChange: false,
+        markUnitChange: true,
       });
 
       let yAxis = chart.yAxes.push(

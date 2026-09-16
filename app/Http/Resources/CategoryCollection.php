@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use Illuminate\Support\Collection;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\ResourceCollection;
 
@@ -25,7 +26,7 @@ class CategoryCollection extends ResourceCollection
      * Format a single category with its children.
      *
      * @param mixed $category
-     * @param \Illuminate\Support\Collection $categories
+     * @param Collection $categories
      * @return array
      */
     private function formatCategory($category, $categories): array

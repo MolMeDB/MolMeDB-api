@@ -3,6 +3,8 @@ import SiteFooter from "@/components/_core/layout/SiteFooter";
 import { FaChartLine } from "react-icons/fa6";
 import StatsContent from "./content";
 import IStatsGlobal from "@/lib/api/admin/interfaces/Stats";
+
+export const revalidate = 3600;
 import { getViewData } from "@/lib/api/frontend";
 
 export default async function StatsPage() {

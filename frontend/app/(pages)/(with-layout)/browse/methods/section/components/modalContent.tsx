@@ -3,6 +3,7 @@
 import { getJson } from "@/lib/api/admin";
 import IFile from "@/lib/api/admin/interfaces/File";
 import IMethod, { IMethodStats } from "@/lib/api/admin/interfaces/Method";
+import { downloadFile } from "@/utils/downloadFile";
 import {
   addToast,
   Button,
@@ -13,10 +14,7 @@ import {
   Spinner,
 } from "@heroui/react";
 import Image from "next/image";
-import Link from "next/link";
 import { useEffect, useState } from "react";
-
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 export default function MethodModalContent(props: {
   data: IMethod;
@@ -25,6 +23,33 @@ export default function MethodModalContent(props: {
   const [stats, setStats] = useState<IMethodStats | null>(null);
   const [lastExport, setLastExport] = useState<IFile | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleDownload = async () => {
+    if (!lastExport?.hash || isExporting) {
+      return;
+    }
+
+    setIsExporting(true);
+
+    try {
+      await downloadFile(
+        `/api/export/files/${lastExport.hash}`,
+        `method-${props.data.abbreviation}-interactions.zip`,
+      );
+    } catch {
+      addToast({
+        title: "Export failed",
+        description:
+          "An error occurred while preparing the file. Please try again later.",
+        color: "danger",
+        shouldShowTimeoutProgress: true,
+        timeout: 6000,
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   useEffect(() => {
     getJson("/api/method/" + props.data.id + "/stats").then((response) => {
@@ -108,13 +133,13 @@ export default function MethodModalContent(props: {
               ) : null}
               <div className="flex flex-col gap-1">
                 <Button
-                  as={Link}
-                  href={`${BACKEND_URL}/download/public/${lastExport?.hash}`}
-                  isDisabled={!lastExport || !lastExport.hash}
+                  isDisabled={!lastExport?.hash || isExporting}
+                  isLoading={isExporting}
                   color="secondary"
                   size="lg"
+                  onPress={handleDownload}
                 >
-                  Export
+                  {isExporting ? "Preparing export..." : "Export"}
                 </Button>
                 {lastExport && lastExport.created_at ? (
                   <p className="text-sm text-foreground/50">

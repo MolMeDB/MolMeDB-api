@@ -1,25 +1,61 @@
 "use client";
 
-import { getJson } from "@/lib/api/admin";
 import { Spinner } from "@heroui/react";
 import Head from "next/head";
 import Script from "next/script";
 import { useEffect, useRef } from "react";
 
-export default function MolStar(props: { sdfPath: string }) {
+export default function MolStar(props: { sdfPath: string; onError?: () => void }) {
   const viewerRef = useRef(null);
 
   useEffect(() => {
-    const checkAndInit = () => {
+    let isMounted = true;
+    let isInitializing = false;
+
+    const verifyStructureFile = async () => {
+      try {
+        const response = await fetch(props.sdfPath);
+
+        if (!response.ok) {
+          props.onError?.();
+          return false;
+        }
+
+        const content = await response.text();
+
+        if (!content.trim()) {
+          props.onError?.();
+          return false;
+        }
+
+        return true;
+      } catch (error) {
+        props.onError?.();
+        return false;
+      }
+    };
+
+    const checkAndInit = async () => {
+      if (isInitializing) {
+        return false;
+      }
+
       if (
         typeof window !== "undefined" &&
         (window as any).PDBeMolstarPlugin &&
         viewerRef.current
       ) {
+        isInitializing = true;
         const instance = new (window as any).PDBeMolstarPlugin();
 
         // Get file content
         if (!props.sdfPath) return true;
+
+        const isStructureFileValid = await verifyStructureFile();
+
+        if (!isMounted || !isStructureFileValid) {
+          return true;
+        }
 
         const options = {
           customData: {
@@ -41,18 +77,28 @@ export default function MolStar(props: { sdfPath: string }) {
           bgColor: "white",
           reactive: true,
         };
-        instance.render(viewerRef.current, options);
+        try {
+          instance.render(viewerRef.current, options);
+        } catch (error) {
+          props.onError?.();
+        }
+
         return true;
       }
       return false;
     };
 
     const interval = setInterval(() => {
-      if (checkAndInit()) clearInterval(interval);
+      void checkAndInit().then((isInitialized) => {
+        if (isInitialized) clearInterval(interval);
+      });
     }, 100);
 
-    return () => clearInterval(interval);
-  }, []);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [props.sdfPath]);
 
   return (
     <div className="w-full h-full">

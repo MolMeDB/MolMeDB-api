@@ -2,6 +2,8 @@
 
 namespace App\Rules;
 
+use Exception;
+use Illuminate\Translation\PotentiallyTranslatedString;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Http\UploadedFile;
@@ -12,7 +14,7 @@ class FileUniqueByHash implements ValidationRule
     /**
      * Run the validation rule.
      *
-     * @param  \Closure(string, ?string=): \Illuminate\Translation\PotentiallyTranslatedString  $fail
+     * @param Closure(string, ?string=):PotentiallyTranslatedString $fail
      */
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
@@ -23,7 +25,7 @@ class FileUniqueByHash implements ValidationRule
 
         try {
             $hash = md5_file($value->getRealPath());
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $fail('Cannot read the file. Try again.');
             return;
         }

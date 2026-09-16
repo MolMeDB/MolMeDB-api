@@ -1,0 +1,9 @@
+User-agent: *
+Crawl-delay: 2
+
+User-agent: Googlebot
+Disallow: /api/
+Disallow: /lab/
+Disallow: /account/
+Disallow: /downloader/
+Disallow: /mol/

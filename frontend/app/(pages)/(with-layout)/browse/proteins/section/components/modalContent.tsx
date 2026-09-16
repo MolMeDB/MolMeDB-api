@@ -2,6 +2,7 @@
 
 import { getJson } from "@/lib/api/admin";
 import IProtein, { IProteinStats } from "@/lib/api/admin/interfaces/Protein";
+import { downloadFile } from "@/utils/downloadFile";
 import {
   addToast,
   Button,
@@ -12,10 +13,8 @@ import {
   Spinner,
 } from "@heroui/react";
 import Image from "next/image";
-import Link from "next/link";
 import { useEffect, useState } from "react";
-
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
+import { MdDownload } from "react-icons/md";
 
 export default function ProteinModalContent(props: {
   data: IProtein;
@@ -23,6 +22,33 @@ export default function ProteinModalContent(props: {
 }) {
   const [stats, setStats] = useState<IProteinStats | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async () => {
+    if (!stats?.interactions_count || isExporting) {
+      return;
+    }
+
+    setIsExporting(true);
+
+    try {
+      await downloadFile(
+        `/api/export/protein/${props.data.id}/interactions`,
+        `protein-${props.data.uniprot_id}-interactions.csv`,
+      );
+    } catch {
+      addToast({
+        title: "Export failed",
+        description:
+          "An error occurred while preparing the file. Please try again later.",
+        color: "danger",
+        shouldShowTimeoutProgress: true,
+        timeout: 6000,
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   useEffect(() => {
     getJson("/api/protein/" + props.data.id + "/stats").then((response) => {
@@ -106,13 +132,14 @@ export default function ProteinModalContent(props: {
               ) : null}
               <div className="flex flex-col gap-1">
                 <Button
-                  as={Link}
-                  href={`${BACKEND_URL}/api/protein/${props.data.id}/download/interactions`}
-                  isDisabled={!stats?.interactions_count}
+                  isDisabled={!stats?.interactions_count || isExporting}
+                  isLoading={isExporting}
                   color="secondary"
                   size="lg"
+                  startContent={!isExporting ? <MdDownload size={22} /> : null}
+                  onPress={handleExport}
                 >
-                  Export
+                  {isExporting ? "Preparing export..." : "Export"}
                 </Button>
                 {stats?.interactions_count ? (
                   <p className="text-sm text-foreground/50">

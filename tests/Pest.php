@@ -1,5 +1,11 @@
 <?php
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schema;
+use Spatie\Permission\PermissionRegistrar;
+use Tests\TestCase;
+
 /*
 |--------------------------------------------------------------------------
 | Test Case
@@ -11,10 +17,47 @@
 |
 */
 
-pest()->extend(Tests\TestCase::class)
-    ->use(Illuminate\Foundation\Testing\RefreshDatabase::class)
+// Hooks must be chained here (not declared via separate top-level
+// beforeEach()/afterEach() calls below) to actually apply to the Feature/
+// module tests targeted by ->in(...) — a bare beforeEach()/afterEach() at
+// this file's top level does not compose with an explicit ->in(...) target
+// set; it silently never fires for the files matched here.
+pest()->extend(TestCase::class)
+    ->use(RefreshDatabase::class)
+    ->beforeEach(function () {
+        if (! gc_enabled()) {
+            gc_enable();
+        }
+
+        // The PredictionWorkers module's migrations aren't in the default
+        // database/migrations path, so RefreshDatabase's migrate:fresh
+        // never creates their schema — normally it's only applied via
+        // RunPredictionsMigrationsAfterDefaultMigrate, which fires on the
+        // plain `migrate` command, not `migrate:fresh`. The in-memory
+        // sqlite connection used for it in tests is rebuilt fresh (and
+        // rolled back) per test, so this has to run every time.
+        if (! Schema::connection('predictions')->hasTable('structures')) {
+            Artisan::call('migrate', [
+                '--database' => 'predictions',
+                '--path' => 'modules/PredictionWorkers/database/migrations',
+                '--realpath' => true,
+                '--force' => true,
+            ]);
+        }
+    })
+    ->afterEach(function () {
+        if (class_exists(PermissionRegistrar::class)) {
+            app(PermissionRegistrar::class)->forgetCachedPermissions();
+        }
+
+        gc_collect_cycles();
+
+        if (function_exists('gc_mem_caches')) {
+            gc_mem_caches();
+        }
+    })
     ->in(
-        'Feature', 
+        'Feature',
         '../modules/*/tests/Feature'
     );
 

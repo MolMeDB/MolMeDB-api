@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Rules\UploadFile\PassiveInteractions;
 
 use App\Rules\UploadFile\ColumnTypeInterface;
@@ -8,11 +9,12 @@ use Illuminate\Support\Facades\Validator;
 class ColumnXmin implements ColumnTypeInterface
 {
     public static string $key = 'x_min';
+
     public static string $label = 'Xmin';
 
     public static function make(): static
     {
-        return new static();
+        return new static;
     }
 
     public function validate(string $attribute, $value, Closure $fail): void
@@ -24,7 +26,12 @@ class ColumnXmin implements ColumnTypeInterface
         );
 
         if ($validator->fails()) {
-            $fail("Column " . self::$label . " must be a number.");
+            $fail('Column '.self::$label.' must be a number.');
         }
+    }
+
+    public function validate_fast(string $attribute, mixed $value, Closure $fail): void
+    {
+        $this->validate($attribute, $value, $fail);
     }
 }

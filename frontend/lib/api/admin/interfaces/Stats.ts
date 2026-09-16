@@ -7,6 +7,7 @@ export default interface IStatsGlobal {
     structures: number;
     membranes: number;
     methods: number;
+    proteins: number;
   };
   plots: {
     interactionsLine?: ILineChartSetting;

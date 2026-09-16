@@ -1,0 +1,17 @@
+import { get } from "@/lib/api/admin";
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  try {
+    const response = await get("/api/docs/tree");
+    const json = await response.json();
+
+    return NextResponse.json(json, { status: response.status });
+  } catch {
+    return NextResponse.json(
+      { message: "Failed to load documentation menu." },
+      { status: 500 },
+    );
+  }
+}
+

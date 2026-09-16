@@ -17,6 +17,8 @@ return [
 
     'default' => env('CACHE_STORE', 'database'),
 
+    'prediction_stats_store' => env('PREDICTION_STATS_CACHE_STORE', 'redis'),
+
     /*
     |--------------------------------------------------------------------------
     | Cache Stores

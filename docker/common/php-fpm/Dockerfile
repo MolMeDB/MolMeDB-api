@@ -1,7 +1,10 @@
-# Use the official PHP image as a base image
-FROM php:8.3-fpm as builder
+# syntax=docker/dockerfile:1
 
-# Copy composer.lock and composer.json
+# Use the official PHP image as a base image
+FROM php:8.4-fpm AS builder
+
+# Copy dependency manifests separately so dependency installation stays cached
+# when only application source files change.
 COPY composer.lock composer.json /var/www/
 
 # Set working directory
@@ -43,28 +46,51 @@ RUN docker-php-ext-install pdo_pgsql pgsql
 RUN docker-php-ext-configure intl
 RUN docker-php-ext-install intl
 
-# Install composer
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+# Install Composer from its official image.
+COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
+
+# Install production PHP dependencies before copying the application source.
+# Scripts need the full Laravel application, so they are run after COPY below.
+RUN composer install \
+    --no-interaction \
+    --no-dev \
+    --prefer-dist \
+    --optimize-autoloader \
+    --no-scripts
 
 # Copy existing application directory contents
 COPY . /var/www
 
+# Never carry host-generated Laravel caches into the production image.
+RUN mkdir -p \
+        bootstrap/cache \
+        storage/app/public \
+        storage/framework/cache \
+        storage/framework/sessions \
+        storage/framework/views \
+        storage/logs \
+    && find bootstrap/cache -type f -name '*.php' -delete \
+    && php artisan package:discover --ansi
 
-FROM builder as production
+
+FROM builder AS production
 
 RUN apt-get update && apt-get install -y \
     libpq-dev \
     libicu-dev \
     libzip-dev \
     libfcgi-bin \
+    postgresql-client \
     nano \
-    procps 
+    procps
     
 RUN apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 RUN curl -o /usr/local/bin/php-fpm-healthcheck \
     https://raw.githubusercontent.com/renatomefi/php-fpm-healthcheck/master/php-fpm-healthcheck \
-    && chmod +x /usr/local/bin/ 
+    && chmod +x /usr/local/bin/php-fpm-healthcheck
+
+COPY ./docker/common/php-fpm/conf.d/zz-pool.conf /usr/local/etc/php-fpm.d/zz-pool.conf
 
 # Copy the initialization script
 COPY ./docker/production/php-fpm/entrypoint.sh /usr/local/bin/entrypoint.sh
@@ -86,10 +112,12 @@ COPY --from=builder /usr/local/bin/docker-php-ext-* /usr/local/bin/
 # security in a live environment.
 # -----------------------------------------------------------
 RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
-RUN echo "extension=pdo_pgsql.so" >> "$PHP_INI_DIR/php.ini"
+# RUN echo "extension=pdo_pgsql.so" >> "$PHP_INI_DIR/php.ini"
+COPY ./docker/common/php-fpm/conf.d/uploads.ini "$PHP_INI_DIR/conf.d/uploads.ini"
 
-# Enable PHP-FPM status page by modifying zz-docker.conf with sed
-RUN sed -i '/\[www\]/a pm.status_path = /status' /usr/local/etc/php-fpm.d/zz-docker.conf
+# Enable PHP-FPM status and ping endpoints in the www pool.
+RUN sed -i '/\[www\]/a pm.status_path = /status' /usr/local/etc/php-fpm.d/www.conf \
+ && sed -i '/\[www\]/a ping.path = /ping' /usr/local/etc/php-fpm.d/www.conf
 
 # Copy existing application directory permissions
 COPY --from=builder --chown=www-data:www-data /var/www /var/www

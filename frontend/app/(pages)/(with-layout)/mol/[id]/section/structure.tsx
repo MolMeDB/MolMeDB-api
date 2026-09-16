@@ -20,10 +20,9 @@ export default function Compound2D3DStructure(props: { compound: IStructure }) {
     onClose: onClose2D,
   } = useDisclosure();
   const [is3Ddisplayed, setIs3Ddisplayed] = useState(false);
+  const [structure3DError, setStructure3DError] = useState(false);
 
   const [isLoading, setIsLoading] = useState(true);
-
-  console.log(props.compound.structure_2d_url);
 
   return (
     <div className="flex flex-col gap-4">
@@ -35,7 +34,10 @@ export default function Compound2D3DStructure(props: { compound: IStructure }) {
             isDisabled={!props.compound.structure_3d_url}
             color="primary"
             checked={is3Ddisplayed}
-            onChange={(e) => setIs3Ddisplayed(e.target.checked)}
+            onChange={(e) => {
+              setStructure3DError(false);
+              setIs3Ddisplayed(e.target.checked);
+            }}
             thumbIcon={({ isSelected, className }) => (
               <Md3dRotation className={className} />
             )}
@@ -78,9 +80,21 @@ export default function Compound2D3DStructure(props: { compound: IStructure }) {
               </ModalContent>
             </Modal>
           </div>
+        ) : structure3DError ? (
+          <div className="flex h-[305px] w-full flex-col items-center justify-center gap-2 rounded-2xl bg-danger-50 px-8 text-center text-danger-700 dark:bg-danger-950/20">
+            <h3 className="font-semibold">
+              3D structure could not be generated
+            </h3>
+            <p className="max-w-md text-sm">
+              Please try again later.
+            </p>
+          </div>
         ) : (
           <div className="flex flex-col justify-center items-center pt-8 px-8 relative h-[305px] w-full">
-            <MolStar sdfPath={props.compound.structure_3d_url} />
+            <MolStar
+              sdfPath={props.compound.structure_3d_url}
+              onError={() => setStructure3DError(true)}
+            />
           </div>
         )}
       </DetailSection>

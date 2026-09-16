@@ -1,0 +1,167 @@
+name: Backend CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+    paths: &backend_paths
+      - "app/**"
+      - "bootstrap/**"
+      - "config/**"
+      - "database/**"
+      - "routes/**"
+      - "tests/**"
+      - "composer.json"
+      - "composer.lock"
+      - "phpunit.xml"
+      - ".github/workflows/backend-ci.yml"
+  push:
+    branches: [develop, main]
+    paths: *backend_paths
+
+permissions:
+  contents: read
+
+env:
+  PHP_VERSION: "8.4"
+
+jobs:
+  lint:
+    name: Pint (changed files)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+
+      - uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
+
+      - run: composer install --no-interaction --prefer-dist --no-progress
+
+      # This repo has never been Pint-formatted as a whole (263 pre-existing
+      # files fail --test on the Laravel preset, mostly old migrations).
+      # Rather than a big-bang reformat, CI only enforces style on files
+      # actually touched by this PR/push — new and edited code must be
+      # clean, untouched legacy files are left alone for now.
+      - name: Determine changed PHP files
+        id: changed
+        run: |
+          # Release PR (develop -> main): the cumulative diff is effectively the
+          # whole repository, and every commit in it already passed this same
+          # gate when it was pushed to develop. Re-running it here would only
+          # re-report the pre-existing findings this job exists to stay out of.
+          if [ "${{ github.event_name }}" = "pull_request" ] \
+             && [ "${{ github.base_ref }}" = "main" ] \
+             && [ "${{ github.head_ref }}" = "develop" ]; then
+            echo "Release PR (develop -> main) — already gated on every push to develop. Skipping Pint."
+            echo "files=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+            # A PR is checked out as the merge commit, whose parent IS the base
+            # branch tip, so diffing straight against that tip also drags in
+            # every commit that landed on the base branch after this one forked.
+            # The merge base is the real "what does this branch change" line.
+            BASE_SHA=$(git merge-base "${{ github.event.pull_request.base.sha }}" "$HEAD_SHA" 2>/dev/null || true)
+          else
+            HEAD_SHA="${{ github.sha }}"
+            BASE_SHA="${{ github.event.before }}"
+          fi
+
+          if [ -z "$BASE_SHA" ] || ! git cat-file -e "$BASE_SHA" 2>/dev/null; then
+            echo "No comparable base commit found — skipping Pint (nothing to diff against, e.g. first push of a branch)."
+            echo "files=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          FILES=$(git diff --name-only --diff-filter=ACMR "$BASE_SHA" "$HEAD_SHA" -- '*.php' | tr '\n' ' ')
+          echo "files=$FILES" >> "$GITHUB_OUTPUT"
+
+      - name: Run Pint on changed files
+        if: steps.changed.outputs.files != ''
+        env:
+          FILES: ${{ steps.changed.outputs.files }}
+        run: vendor/bin/pint --test $FILES
+
+  test:
+    name: Test suite
+    runs-on: ubuntu-latest
+    needs: lint
+    permissions:
+      contents: read
+      # Needed for the runner's GITHUB_TOKEN to pull the private
+      # ghcr.io/molmedb/ci-bingo-postgres image published by
+      # bingo-postgres-image.yml — the workflow-level `contents: read`
+      # above replaces (not merges with) GITHUB_TOKEN's default scopes,
+      # so packages:read must be requested explicitly here.
+      packages: read
+    services:
+      db:
+        image: ghcr.io/molmedb/ci-bingo-postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: molmedb_testing
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+      redis:
+        image: redis:alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      APP_ENV: testing
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: molmedb_testing
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      # The `predictions` connection uses sqlite (:memory:) here — its
+      # schema (modules/PredictionWorkers/database/migrations, not on the
+      # default migration path) is migrated per-test by tests/Pest.php,
+      # not by this env config.
+      DB_PREDICTIONS_DRIVER: sqlite
+      DB_PREDICTIONS_DATABASE: ":memory:"
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: 6379
+      REDIS_CLIENT: predis
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: mbstring, pdo_pgsql, pgsql, bcmath, gd, zip, intl
+          coverage: none
+
+      - uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
+
+      - run: composer install --no-interaction --prefer-dist --no-progress
+
+      - run: php artisan migrate --force
+
+      - run: php artisan test

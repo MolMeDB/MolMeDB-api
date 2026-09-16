@@ -12,7 +12,7 @@ return new class extends Migration
     /**
      * Run the migrations.
      */
-   public function up(): void
+    public function up(): void
     {
         Schema::connection($this->connection)->create('structures', function (Blueprint $table) {
             $table->bigIncrements('id');
@@ -45,12 +45,12 @@ return new class extends Migration
             $table->softDeletes();
         });
 
-         Schema::connection($this->connection)->create('results', function (Blueprint $table) {
+        Schema::connection($this->connection)->create('results', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('file_id')->unsigned()->nullable();
             $table->foreign('file_id')->references('id')->on('files')->restrictOnDelete();
             $table->json('data')->nullable();
-            $table->timestamps(); 
+            $table->timestamps();
         });
 
         Schema::connection($this->connection)->create('predictions', function (Blueprint $table) {
@@ -81,15 +81,16 @@ return new class extends Migration
             $table->string('method_type', 20)->index();
             $table->tinyInteger('priority')->default(Prediction::PRIORITY_LOW);
             $table->timestamps();
+            $table->timestamp('finished_notification_sent_at')->nullable()->after('updated_at');
         });
 
         Schema::connection($this->connection)->create('prediction_has_datasets', function (Blueprint $table) {
-             $table->id();
-             $table->bigInteger('prediction_id')->unsigned();
-             $table->foreign('prediction_id')->references('id')->on('predictions')->cascadeOnDelete();
-             $table->bigInteger('dataset_id')->unsigned();
-             $table->foreign('dataset_id')->references('id')->on('datasets')->cascadeOnDelete();
-             $table->timestamps();
+            $table->id();
+            $table->bigInteger('prediction_id')->unsigned();
+            $table->foreign('prediction_id')->references('id')->on('predictions')->cascadeOnDelete();
+            $table->bigInteger('dataset_id')->unsigned();
+            $table->foreign('dataset_id')->references('id')->on('datasets')->cascadeOnDelete();
+            $table->timestamps();
         });
 
         Schema::connection($this->connection)->create('job_progress', function (Blueprint $table) {

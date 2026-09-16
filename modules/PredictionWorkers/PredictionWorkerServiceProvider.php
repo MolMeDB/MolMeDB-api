@@ -1,10 +1,19 @@
-<?php 
+<?php
+
 namespace Modules\PredictionWorkers;
 
-class PredictionWorkerServiceProvider extends \Illuminate\Support\ServiceProvider
+use Illuminate\Support\ServiceProvider;
+use Modules\PredictionWorkers\Services\RemotePrediction\RemotePredictionClient;
+
+class PredictionWorkerServiceProvider extends ServiceProvider
 {
-    public function boot()
+    public function register(): void
     {
-        $this->loadMigrationsFrom(__DIR__.'/database/migrations');
+        $this->app->singleton(RemotePredictionClient::class);
+    }
+
+    public function boot(): void
+    {
+        //
     }
 }

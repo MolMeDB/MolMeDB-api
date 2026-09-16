@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Structure;
 use Illuminate\Console\Command;
 use Modules\Rdkit\Rdkit;
 
@@ -30,7 +31,7 @@ class UnifyStrucureRecords extends Command
 
         $startId = (int) $this->argument('startId');
 
-        $total = \App\Models\Structure::where('id', '>=', $startId)->count();
+        $total = Structure::where('id', '>=', $startId)->count();
 
         $this->warn('Total ' . $total . ' structures will be processed.');
 
@@ -44,7 +45,7 @@ class UnifyStrucureRecords extends Command
             return;
         }
 
-        $structures = \App\Models\Structure::where('id', '>=', $startId)
+        $structures = Structure::where('id', '>=', $startId)
             ->orderBy('id')
             ->cursor();
 
@@ -90,7 +91,7 @@ class UnifyStrucureRecords extends Command
                 return;
             }
 
-            $representant = \App\Models\Structure::where('canonical_smiles', $repr_smiles)
+            $representant = Structure::where('canonical_smiles', $repr_smiles)
                 ->orderBy('id', 'asc')
                 ->first();
 
@@ -151,7 +152,7 @@ class UnifyStrucureRecords extends Command
                     return;
                 }
 
-                $representant = \App\Models\Structure::create([
+                $representant = Structure::create([
                     'canonical_smiles' => $repr_smiles,
                     'inchi' => $generalInfo->inchi,
                     'inchikey' => $generalInfo->inchikey,
@@ -167,5 +168,10 @@ class UnifyStrucureRecords extends Command
 
         $this->info('Done.');
         $this->warn('Do not forget to check identifiers of the changed structures. Run: php artisan structures:check-internal-identifiers');
+        if ($this->confirm('Do you want to run it immediately?', true)) {
+            $this->call('structures:check-internal-identifiers', [
+                '--force' => True
+            ]);
+        }
     }
 }

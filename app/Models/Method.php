@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\MethodFactory;
 use App\Casts\MethodParametersCasts;
 use EloquentFilter\Filterable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -12,9 +13,9 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use JsonSerializable;
 
-class Method extends Model
+class Method extends BaseModel
 {
-    /** @use HasFactory<\Database\Factories\MethodFactory> */
+    /** @use HasFactory<MethodFactory> */
     use HasFactory, SoftDeletes;
     use Filterable;
 
@@ -109,7 +110,8 @@ class Method extends Model
     public function files() : BelongsToMany
     {
         return $this->belongsToMany(File::class, 'model_has_files', 'model_id')
-            ->wherePivot('model_type', self::class);
+            ->wherePivot('model_type', self::class)
+            ->orderBy('created_at', 'desc');
     }
 
     public static function selectOptionsGrouped($include_trashed = false)

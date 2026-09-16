@@ -1,0 +1,68 @@
+<?php
+
+namespace App\Http\Controllers\Api\Public\V1;
+
+use App\Http\Controllers\Api\Public\V1\Concerns\DownloadsExportFile;
+use App\Http\Controllers\Controller;
+use App\Http\Resources\Api\Public\V1\CategoryTreeCollection;
+use App\Http\Resources\Api\Public\V1\MethodResource;
+use App\Models\Category;
+use App\Models\File;
+use App\Models\Method;
+use Illuminate\Http\Request;
+
+/**
+ * Read-only, unauthenticated public API. Deliberately not sharing code with
+ * App\Http\Controllers\MethodController — internal changes there must
+ * never silently change this public contract.
+ */
+class MethodController extends Controller
+{
+    use DownloadsExportFile;
+
+    public function index(Request $request)
+    {
+        $perPage = min(max($request->integer('per_page', 20), 1), 100);
+
+        $methods = Method::filter($request->only(['query', 'category_id']))
+            ->paginateFilter($perPage);
+
+        return MethodResource::collection($methods);
+    }
+
+    public function show(Method $method)
+    {
+        $method->load('categories');
+
+        return MethodResource::make($method);
+    }
+
+    public function stats(Method $method)
+    {
+        return response()->json([
+            'data' => [
+                'method' => MethodResource::make($method),
+                'total' => [
+                    'interactions_passive' => $method->interactionsPassive()->count(),
+                    'interactions_active' => $method->interactionsActive()->count(),
+                    'structures' => $method->interactionsPassive()->distinct('structure_id')->count(),
+                ],
+            ],
+        ]);
+    }
+
+    public function categories()
+    {
+        $categories = Category::where('type', Category::TYPE_METHOD)
+            ->with('methods')
+            ->orderBy('order', 'asc')
+            ->get();
+
+        return CategoryTreeCollection::forMethods($categories);
+    }
+
+    public function interactions(Method $method)
+    {
+        return $this->downloadLatestExport($method, File::TYPE_EXPORT_INTERACTIONS_METHOD);
+    }
+}

@@ -3,14 +3,15 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import HttpJsonResponse from "../admin/interfaces/http/jsonResponse";
+import logger from "@/lib/logger";
 
-const DOMAIN = process.env.FRONTEND_URL as string;
+const DOMAIN = (process.env.NEXT_SELF_URL ?? process.env.FRONTEND_URL) as string;
 const XSRF_KEY = process.env.COOKIES_BACKEND_XSRF_KEY as string;
-const SESSION_KEY = process.env.COOKIES_BACKEND_SESSION_KEY as string;
+const FE_SESSION_KEY = process.env.COOKIES_FRONTEND_SESSION_KEY as string;
 
 export async function getApiRequestHeaders(path: string): Promise<RequestInit> {
   const cookiesStore = await cookies();
-  const SESSION = cookiesStore.get(SESSION_KEY)?.value as string;
+  const SESSION = cookiesStore.get(FE_SESSION_KEY)?.value as string;
   const XSRF_TOKEN = cookiesStore.get(XSRF_KEY)?.value as string;
 
   return {
@@ -19,7 +20,7 @@ export async function getApiRequestHeaders(path: string): Promise<RequestInit> {
       "Content-Type": "application/json",
       Accept: "application/json",
       Referer: process.env.FRONTEND_URL as string,
-      Cookie: `${XSRF_KEY}=${XSRF_TOKEN}; ${SESSION_KEY}=${SESSION}`,
+      Cookie: `${XSRF_KEY}=${XSRF_TOKEN}; ${FE_SESSION_KEY}=${SESSION}`,
       "Forward-To": path,
     },
   };
@@ -27,26 +28,29 @@ export async function getApiRequestHeaders(path: string): Promise<RequestInit> {
 
 export async function getViewData(
   path: string,
-  params = {}
+  params = {},
 ): Promise<HttpJsonResponse | null> {
-  // Add params
   const queryString = new URLSearchParams(params).toString();
   let endpoint = "/api/wrapper/viewData";
   if (queryString) {
     endpoint = `${endpoint}?${queryString}`;
   }
 
+  const url = `${DOMAIN}${endpoint}`;
+  logger.info(`getViewData → GET ${url}`, { path, params });
+
   let redirectTo = null;
 
-  console.log("GET", DOMAIN + endpoint);
-
   try {
-    const response = await fetch(`${DOMAIN}${endpoint}`, {
+    const response = await fetch(url, {
       ...(await getApiRequestHeaders(path)),
       method: "get",
     });
 
+    logger.info(`getViewData ← ${response.status}`, { path });
+
     if (response.status == 401) {
+      logger.warn(`getViewData → 401 unauthenticated`, { path });
       redirectTo = "/login";
     } else if (response.status == 200) {
       const d = await response.json();
@@ -55,12 +59,15 @@ export async function getViewData(
         data: d,
       };
     } else {
+      const text = await response.text();
+      logger.error(`getViewData → unexpected status ${response.status}`, { path, body: text });
       return {
         code: response.status,
-        message: await response.text(),
+        message: text,
       };
     }
-  } catch {
+  } catch (e) {
+    logger.error(`getViewData → fetch failed`, { path, url, error: e });
     return {
       code: 500,
       message: "Neplatná odpověď serveru. Zkuste to znovu.",
@@ -71,3 +78,4 @@ export async function getViewData(
 
   return null;
 }
+

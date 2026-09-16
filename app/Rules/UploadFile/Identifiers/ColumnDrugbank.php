@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Rules\UploadFile\Identifiers;
 
 use App\Rules\UploadFile\ColumnTypeInterface;
@@ -7,25 +8,23 @@ use Closure;
 class ColumnDrugbank implements ColumnTypeInterface
 {
     public static string $key = 'drugbank';
-    public static string $label = 'Drugbank ID';
 
-    public static int $maxLength = 255;
+    public static string $label = 'Drugbank ID';
 
     public static function make(): static
     {
-        return new static();
+        return new static;
     }
 
     public function validate(string $attribute, $value, Closure $fail): void
     {
-        $maxLength = self::$maxLength;
-        if (!is_string($value) || empty($value) || strlen($value) > $maxLength || strlen($value) <= 2) {
-            $fail("Column " . self::$label . " must be a string between 3 and $maxLength characters.");
-        }
+        $this->validate_fast($attribute, $value, $fail);
+    }
 
-        $value = trim($value);
-        if(!preg_match('/^DB\d{5}$/', $value) && !preg_match('/^BE\d{7}$/', $value)) {
-            $fail("Column " . self::$label . " must be a valid Drugbank ID. Valid formats: DBXXXXX or BEXXXXXXX.");
+    public function validate_fast(string $attribute, mixed $value, Closure $fail): void
+    {
+        if (! is_string($value) || empty($value) || ! preg_match('/^(DB\d{5}|BE\d{7})$/', $value)) {
+            $fail('Column '.self::$label.' must be a string in the format DBXXXXX or BEXXXXXXX.');
         }
     }
 }
